@@ -1,0 +1,22 @@
+{
+  "name": "ogen-sign",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "אתר חתימה דיגיטלית על קבצי PDF - צד לקוח בלבד",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.0.227",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.10"
+  }
+}
