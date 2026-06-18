@@ -14,7 +14,7 @@ export default function SignerBar({ signers, activeSigner, onSelect, onRename })
           <input
             className="signer-name"
             value={s.name}
-            onClick={(e) => e.stopPropagation()}
+            onFocus={() => onSelect(i)}
             onChange={(e) => onRename(i, e.target.value)}
             aria-label={`שם חותם ${i + 1}`}
           />

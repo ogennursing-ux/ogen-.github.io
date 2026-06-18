@@ -41,7 +41,8 @@ export async function renderPdfPages(data, { baseScale = 1.5 } = {}) {
 
   // isEvalSupported:false hardens against malicious-PDF JS execution; the
   // documents here come from end users and are not trusted.
-  const pdf = await pdfjs.getDocument({ data, isEvalSupported: false }).promise;
+  const loadingTask = pdfjs.getDocument({ data, isEvalSupported: false });
+  const pdf = await loadingTask.promise;
   const pages = [];
   try {
     for (let i = 1; i <= pdf.numPages; i++) {
@@ -62,7 +63,8 @@ export async function renderPdfPages(data, { baseScale = 1.5 } = {}) {
       page.cleanup();
     }
   } finally {
-    await pdf.destroy();
+    // The document is destroyed through its loading task in pdf.js v6.
+    await loadingTask.destroy();
   }
   return pages;
 }
