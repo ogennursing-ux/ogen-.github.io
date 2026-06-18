@@ -4,7 +4,15 @@ const TOOLS = ['signature', 'text', 'date', 'checkbox'];
 
 // Setup-phase toolbar: pick a field tool to place, start over, or continue to
 // the signing flow.
-export default function Toolbar({ activeTool, onSelectTool, onContinue, onReset, busy, canContinue }) {
+export default function Toolbar({
+  activeTool,
+  onSelectTool,
+  onContinue,
+  onReset,
+  busy,
+  canContinue,
+  continueLabel = 'המשך לחתימה ›',
+}) {
   return (
     <div className="toolbar">
       <div className="toolbar-tools">
@@ -27,7 +35,7 @@ export default function Toolbar({ activeTool, onSelectTool, onContinue, onReset,
           מסמך חדש
         </button>
         <button className="btn-primary" onClick={onContinue} disabled={busy || !canContinue}>
-          המשך לחתימה ›
+          {continueLabel}
         </button>
       </div>
     </div>

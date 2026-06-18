@@ -1,43 +1,46 @@
 import { useEffect, useMemo, useState } from 'react';
 import Dropzone from './components/Dropzone.jsx';
 import Toolbar from './components/Toolbar.jsx';
-import SignerBar from './components/SignerBar.jsx';
-import SignFlowBar from './components/SignFlowBar.jsx';
 import PdfPage from './components/PdfPage.jsx';
 import EditPanel from './components/EditPanel.jsx';
-import SignaturePad from './components/SignaturePad.jsx';
+import Dashboard from './components/Dashboard.jsx';
+import LinkCreated from './components/LinkCreated.jsx';
+import SignerView from './components/SignerView.jsx';
 import { renderPdfPages, buildSignedPdf } from './lib/pdfUtils.js';
-import { FIELD_DEFAULTS, DEFAULT_SIGNERS, clamp, uid, todayISO } from './lib/fields.js';
+import { FIELD_DEFAULTS, clamp, uid, todayISO } from './lib/fields.js';
+import { api, rememberRequest, signingLink } from './lib/api.js';
+
+// Remote model: one signer per request. The owner only places fields.
+const SIGNERS = [{ name: 'החותם', color: '#1f7a53' }];
 
 export default function App() {
+  const reqId = new URLSearchParams(location.search).get('req');
+  if (reqId) return <SignerView id={reqId} />;
+  return <PrepareApp />;
+}
+
+function PrepareApp() {
+  const [screen, setScreen] = useState('home'); // home | editor | created
   const [pages, setPages] = useState([]);
-  const [pdfBytes, setPdfBytes] = useState(null); // original ArrayBuffer (kept intact)
+  const [pdfBytes, setPdfBytes] = useState(null);
   const [baseName, setBaseName] = useState('document');
   const [fields, setFields] = useState([]);
-  const [signers, setSigners] = useState(() => DEFAULT_SIGNERS.map((s) => ({ ...s })));
-
-  const [phase, setPhase] = useState('setup'); // 'setup' | 'sign'
-  const [activeSigner, setActiveSigner] = useState(0); // owner for newly placed fields
-  const [currentSigner, setCurrentSigner] = useState(0); // whose turn it is while signing
-
   const [activeTool, setActiveTool] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
-  const [signFor, setSignFor] = useState(null); // field id whose signature pad is open
+  const [signerEmail, setSignerEmail] = useState('');
   const [busy, setBusy] = useState(false);
+  const [createdLink, setCreatedLink] = useState('');
 
   const selectedField = useMemo(
     () => fields.find((f) => f.id === selectedId) || null,
     [fields, selectedId],
   );
 
-  // Keyboard shortcuts: Delete removes the selected field (setup only),
-  // Escape cancels the active tool or clears the selection.
   useEffect(() => {
     const onKey = (e) => {
       const tag = e.target.tagName;
-      const typing = tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable;
-      if (typing) return;
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId && phase === 'setup') {
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
         e.preventDefault();
         deleteField(selectedId);
       } else if (e.key === 'Escape') {
@@ -48,7 +51,7 @@ export default function App() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId, activeTool, phase]);
+  }, [selectedId, activeTool]);
 
   async function handleFile(file) {
     const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
@@ -59,7 +62,6 @@ export default function App() {
     setBusy(true);
     try {
       const buf = await file.arrayBuffer();
-      // pdf.js may detach its input, so render from a copy and keep `buf` for pdf-lib.
       const rendered = await renderPdfPages(new Uint8Array(buf.slice(0)));
       setPdfBytes(buf);
       setPages(rendered);
@@ -67,8 +69,8 @@ export default function App() {
       setFields([]);
       setSelectedId(null);
       setActiveTool(null);
-      setPhase('setup');
-      setCurrentSigner(0);
+      setSignerEmail('');
+      setScreen('editor');
     } catch (err) {
       console.error(err);
       alert('לא ניתן לפתוח את הקובץ: ' + err.message);
@@ -83,27 +85,24 @@ export default function App() {
       id: uid(),
       type,
       pageIndex,
-      signer: activeSigner,
+      signer: 0,
       wPct: def.w,
       hPct: def.h,
       xPct: clamp(xPct - def.w / 2, 0, 1 - def.w),
       yPct: clamp(yPct - def.h / 2, 0, 1 - def.h),
-      value: type === 'checkbox' ? true : type === 'date' ? todayISO() : '',
+      value: type === 'checkbox' ? false : type === 'date' ? todayISO() : '',
     };
     setFields((prev) => [...prev, field]);
     setSelectedId(field.id);
     setActiveTool(null);
-    if (type === 'signature') setSignFor(field.id);
   }
 
-  function updateField(id, patch) {
+  const updateField = (id, patch) =>
     setFields((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
-  }
 
   function deleteField(id) {
     setFields((prev) => prev.filter((f) => f.id !== id));
     if (selectedId === id) setSelectedId(null);
-    if (signFor === id) setSignFor(null);
   }
 
   function duplicateField(id) {
@@ -119,181 +118,162 @@ export default function App() {
     setSelectedId(copy.id);
   }
 
-  function renameSigner(index, name) {
-    setSigners((prev) => prev.map((s, i) => (i === index ? { ...s, name } : s)));
-  }
-
-  function reset() {
+  function startOver() {
     if (fields.length && !confirm('להתחיל מסמך חדש? השדות הנוכחיים יימחקו.')) return;
     setPages([]);
     setPdfBytes(null);
     setFields([]);
-    setSigners(DEFAULT_SIGNERS.map((s) => ({ ...s })));
     setSelectedId(null);
     setActiveTool(null);
-    setSignFor(null);
-    setPhase('setup');
-    setActiveSigner(0);
-    setCurrentSigner(0);
+    setSignerEmail('');
+    setScreen('home');
   }
 
-  function startSigning() {
+  async function createLink() {
     if (!fields.length) {
-      alert('הוסף לפחות שדה אחד לפני המעבר לחתימה.');
-      return;
-    }
-    setSelectedId(null);
-    setActiveTool(null);
-    setCurrentSigner(0);
-    setPhase('sign');
-  }
-
-  function backToEdit() {
-    setSelectedId(null);
-    setPhase('setup');
-  }
-
-  function nextSigner() {
-    const remaining = fields.filter(
-      (f) => f.signer === currentSigner && f.type === 'signature' && !f.value,
-    ).length;
-    if (
-      remaining &&
-      !confirm(`ל${signers[currentSigner].name} נשארו ${remaining} שדות חתימה ריקים. להמשיך בכל זאת?`)
-    ) {
-      return;
-    }
-    setSelectedId(null);
-    setCurrentSigner((i) => Math.min(i + 1, signers.length - 1));
-  }
-
-  async function download() {
-    if (!pdfBytes) return;
-    const emptySignatures = fields.filter((f) => f.type === 'signature' && !f.value).length;
-    if (emptySignatures && !confirm(`יש ${emptySignatures} שדות חתימה ריקים. להוריד בכל זאת?`)) {
+      alert('הוסף לפחות שדה אחד למסמך לפני יצירת הקישור.');
       return;
     }
     setBusy(true);
     try {
-      // Pass a copy so the original stays usable for repeated downloads.
-      const bytes = await buildSignedPdf(pdfBytes.slice(0), fields);
-      const blob = new Blob([bytes], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${baseName}-signed.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      const { id } = await api.createRequest({
+        title: baseName,
+        pdfBytes,
+        fields,
+        signer: { name: 'החותם', email: signerEmail || null, color: '#1f7a53' },
+      });
+      rememberRequest({ id, title: baseName, createdAt: Date.now() });
+      setCreatedLink(signingLink(id));
+      setScreen('created');
     } catch (err) {
       console.error(err);
-      alert('שגיאה ביצירת ה-PDF: ' + err.message);
+      alert('יצירת הקישור נכשלה: ' + err.message);
     } finally {
       setBusy(false);
     }
   }
 
-  const hasDoc = pages.length > 0;
+  async function downloadSigned(id) {
+    try {
+      const req = await api.getRequest(id);
+      const bytes = await api.getSignedBytes(req);
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${req.title || 'document'}-signed.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('הורדה נכשלה: ' + err.message);
+    }
+  }
 
+  const header = (
+    <header className="app-header">
+      <div className="brand">
+        <span className="brand-mark">✒️</span>
+        <span className="brand-name">חתימה דיגיטלית</span>
+      </div>
+      {screen === 'editor' && <span className="doc-name">{baseName}.pdf</span>}
+    </header>
+  );
+
+  if (screen === 'created') {
+    return (
+      <div className="app">
+        {header}
+        <LinkCreated
+          link={createdLink}
+          signerEmail={signerEmail}
+          onNewDocument={startOver}
+          onDashboard={startOver}
+        />
+      </div>
+    );
+  }
+
+  if (screen === 'home') {
+    return (
+      <div className="app">
+        {header}
+        <Dropzone onFile={handleFile} busy={busy} />
+        <Dashboard onDownloadSigned={downloadSigned} />
+      </div>
+    );
+  }
+
+  // screen === 'editor'
   return (
     <div className="app">
-      <header className="app-header">
-        <div className="brand">
-          <span className="brand-mark">✒️</span>
-          <span className="brand-name">חתימה דיגיטלית</span>
-        </div>
-        {hasDoc && <span className="doc-name">{baseName}.pdf</span>}
-      </header>
-
-      {!hasDoc ? (
-        <Dropzone onFile={handleFile} busy={busy} />
+      {header}
+      <Toolbar
+        activeTool={activeTool}
+        onSelectTool={setActiveTool}
+        onContinue={createLink}
+        onReset={startOver}
+        busy={busy}
+        canContinue={fields.length > 0}
+        continueLabel="צור קישור לחתימה ›"
+      />
+      <div className="signer-email-bar">
+        <label>מייל החותם (לא חובה):</label>
+        <input
+          className="email-input"
+          type="email"
+          dir="ltr"
+          placeholder="name@example.com"
+          value={signerEmail}
+          onChange={(e) => setSignerEmail(e.target.value)}
+        />
+      </div>
+      {activeTool ? (
+        <div className="place-hint">לחץ על המסמך כדי למקם {labelOf(activeTool)}</div>
       ) : (
-        <>
-          {phase === 'setup' ? (
-            <>
-              <SignerBar
-                signers={signers}
-                activeSigner={activeSigner}
-                onSelect={setActiveSigner}
-                onRename={renameSigner}
-              />
-              <Toolbar
-                activeTool={activeTool}
-                onSelectTool={setActiveTool}
-                onContinue={startSigning}
-                onReset={reset}
-                busy={busy}
-                canContinue={fields.length > 0}
-              />
-              {activeTool ? (
-                <div className="place-hint">לחץ על המסמך כדי למקם {labelOf(activeTool)}</div>
-              ) : (
-                fields.length === 0 && (
-                  <div className="place-hint subtle">
-                    בחר סוג שדה מהסרגל למעלה ולחץ על המסמך כדי להוסיף אותו
-                  </div>
-                )
-              )}
-            </>
-          ) : (
-            <SignFlowBar
-              signers={signers}
-              currentSigner={currentSigner}
-              onNext={nextSigner}
-              onBack={backToEdit}
-              onDownload={download}
-              busy={busy}
-            />
-          )}
+        fields.length === 0 && (
+          <div className="place-hint subtle">
+            בחר סוג שדה מהסרגל למעלה ולחץ על המסמך כדי להוסיף שדה שהחותם ימלא
+          </div>
+        )
+      )}
 
-          <main
-            className="pages"
-            onPointerDown={(e) => {
-              if (e.target.classList.contains('pages')) setSelectedId(null);
-            }}
-          >
-            {pages.map((page, i) => (
-              <PdfPage
-                key={i}
-                page={page}
-                index={i}
-                fields={fields}
-                signers={signers}
-                phase={phase}
-                currentSigner={currentSigner}
-                activeTool={activeTool}
-                selectedId={selectedId}
-                onPlace={placeField}
-                onSelect={setSelectedId}
-                onChange={updateField}
-                onDelete={deleteField}
-              />
-            ))}
-          </main>
-
-          <EditPanel
-            field={selectedField}
-            signers={signers}
-            phase={phase}
+      <main
+        className="pages"
+        onPointerDown={(e) => {
+          if (e.target.classList.contains('pages')) setSelectedId(null);
+        }}
+      >
+        {pages.map((page, i) => (
+          <PdfPage
+            key={i}
+            page={page}
+            index={i}
+            fields={fields}
+            signers={SIGNERS}
+            phase="setup"
+            currentSigner={0}
+            activeTool={activeTool}
+            selectedId={selectedId}
+            onPlace={placeField}
+            onSelect={setSelectedId}
             onChange={updateField}
             onDelete={deleteField}
-            onDuplicate={duplicateField}
-            onClose={() => setSelectedId(null)}
-            onOpenSign={setSignFor}
           />
-        </>
-      )}
+        ))}
+      </main>
 
-      {signFor && (
-        <SignaturePad
-          onClose={() => setSignFor(null)}
-          onSave={(dataUrl) => {
-            if (dataUrl) updateField(signFor, { value: dataUrl });
-            setSignFor(null);
-          }}
-        />
-      )}
+      <EditPanel
+        field={selectedField}
+        signers={SIGNERS}
+        phase="setup"
+        onChange={updateField}
+        onDelete={deleteField}
+        onDuplicate={duplicateField}
+        onClose={() => setSelectedId(null)}
+        onOpenSign={() => {}}
+      />
     </div>
   );
 }

@@ -15,6 +15,7 @@ export default function FieldBox({
   containerRef,
   color,
   locked,
+  noEdit,
   selected,
   onSelect,
   onChange,
@@ -27,6 +28,9 @@ export default function FieldBox({
     if (locked) return;
     e.stopPropagation();
     onSelect(field.id);
+    // noEdit (signer fill mode): the layout is fixed — selecting opens the
+    // value editor but the box can't be moved, resized or deleted.
+    if (noEdit) return;
     state.current = {
       mode,
       startX: e.clientX,
@@ -84,7 +88,7 @@ export default function FieldBox({
     >
       <FieldContent field={field} color={color} />
 
-      {selected && !locked && (
+      {selected && !locked && !noEdit && (
         <>
           <button
             className="field-delete"

@@ -23,7 +23,7 @@ export default function EditPanel({
         </button>
       </div>
 
-      {phase === 'setup' && (
+      {phase === 'setup' && signers.length > 1 && (
         <div className="assign-row">
           <span className="assign-label">שייך ל:</span>
           {signers.map((s, i) => (
@@ -72,11 +72,14 @@ export default function EditPanel({
           </label>
         )}
 
-        {field.type === 'signature' && (
-          <button className="btn-primary full" onClick={() => onOpenSign(field.id)}>
-            {field.value ? 'חתום מחדש' : 'פתח לוח חתימה'}
-          </button>
-        )}
+        {field.type === 'signature' &&
+          (phase === 'setup' ? (
+            <p className="muted small">שדה חתימה — החותם ימלא אותו דרך הקישור.</p>
+          ) : (
+            <button className="btn-primary full" onClick={() => onOpenSign(field.id)}>
+              {field.value ? 'חתום מחדש' : 'פתח לוח חתימה'}
+            </button>
+          ))}
       </div>
 
       {phase === 'setup' && (
