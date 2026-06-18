@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [claude/laughing-babbage-n8phwv]
+    branches: [main, claude/laughing-babbage-n8phwv]
   workflow_dispatch:
 
 permissions:
