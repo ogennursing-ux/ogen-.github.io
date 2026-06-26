@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import PdfPage from './PdfPage.jsx';
-import EditPanel from './EditPanel.jsx';
-import SignaturePad from './SignaturePad.jsx';
+import { useEffect, useState } from 'react';
+import SignSurface from './SignSurface.jsx';
 import { api } from '../lib/api.js';
+import { notify, bytesToBase64 } from '../lib/notify.js';
 import { renderPdfPages, buildSignedPdf } from '../lib/pdfUtils.js';
 
 const FALLBACK = { current: 0, list: [{ name: 'החותם', color: '#1f7a53' }] };
@@ -19,7 +18,6 @@ function download(bytes, name) {
   URL.revokeObjectURL(url);
 }
 
-// Normalize signers to { current, list } (older single-signer rows used an array).
 function normalizeSigners(s) {
   if (!s) return FALLBACK;
   if (Array.isArray(s)) return { current: 0, list: s.length ? s : FALLBACK.list };
@@ -27,29 +25,20 @@ function normalizeSigners(s) {
   return { current: s.current || 0, list: s.list };
 }
 
-// The signer's experience: open a link, fill the fields for the current turn,
-// submit. With two signers it advances to the next signer.
 export default function SignerView({ id }) {
   const [status, setStatus] = useState('loading'); // loading|ready|already|done|error
-  const [doneKind, setDoneKind] = useState('final'); // final|intermediate
+  const [doneKind, setDoneKind] = useState('final');
   const [error, setError] = useState('');
   const [req, setReq] = useState(null);
   const [pages, setPages] = useState([]);
   const [originalBytes, setOriginalBytes] = useState(null);
   const [fields, setFields] = useState([]);
-  const [selectedId, setSelectedId] = useState(null);
-  const [signFor, setSignFor] = useState(null);
   const [busy, setBusy] = useState(false);
   const [signedBytes, setSignedBytes] = useState(null);
 
   const signers = normalizeSigners(req?.signers);
   const current = signers.current;
   const title = req?.title || 'document';
-
-  const selectedField = useMemo(
-    () => fields.find((f) => f.id === selectedId) || null,
-    [fields, selectedId],
-  );
 
   useEffect(() => {
     (async () => {
@@ -74,9 +63,8 @@ export default function SignerView({ id }) {
     })();
   }, [id]);
 
-  function updateField(fid, patch) {
+  const updateField = (fid, patch) =>
     setFields((prev) => prev.map((f) => (f.id === fid ? { ...f, ...patch } : f)));
-  }
 
   async function submit() {
     const emptySig = fields.filter(
@@ -94,16 +82,28 @@ export default function SignerView({ id }) {
 
       if (isLast) {
         const bytes = await buildSignedPdf(originalBytes.slice(0), fields);
-        await api.submitSigned(id, {
-          fields,
-          signers: { current, list: newList },
-          signedPdfBytes: bytes,
-        });
+        await api.submitSigned(id, { fields, signers: { current, list: newList }, signedPdfBytes: bytes });
         setSignedBytes(bytes);
         setDoneKind('final');
+        // email the signed document to the owner
+        if (req.webhook_url && req.owner_email) {
+          notify(req.webhook_url, {
+            type: 'completed',
+            to: req.owner_email,
+            title,
+            link: location.href,
+            fileName: `${title}-signed.pdf`,
+            fileBase64: bytesToBase64(bytes),
+          });
+        }
       } else {
         await api.advance(id, { fields, signers: { current: current + 1, list: newList } });
         setDoneKind('intermediate');
+        // invite the next signer
+        const next = newList[current + 1];
+        if (req.webhook_url && next?.email) {
+          notify(req.webhook_url, { type: 'invite', to: next.email, title, link: location.href });
+        }
       }
       setStatus('done');
     } catch (e) {
@@ -117,8 +117,7 @@ export default function SignerView({ id }) {
   async function downloadSignedExisting() {
     setBusy(true);
     try {
-      const bytes = await api.getSignedBytes(req);
-      download(bytes, `${title}-signed.pdf`);
+      download(await api.getSignedBytes(req), `${title}-signed.pdf`);
     } catch (e) {
       alert('הורדה נכשלה: ' + e.message);
     } finally {
@@ -134,24 +133,15 @@ export default function SignerView({ id }) {
       </div>
     </header>
   );
-
   const centered = (content) => (
-    <div className="app">
-      {header}
-      <div className="centered-screen">{content}</div>
-    </div>
+    <div className="app">{header}<div className="centered-screen">{content}</div></div>
   );
 
   if (status === 'loading') return centered(<p className="muted">טוען מסמך…</p>);
-
   if (status === 'error')
     return centered(
-      <div className="card">
-        <h2>לא ניתן לפתוח את המסמך</h2>
-        <p className="muted">{error}</p>
-      </div>,
+      <div className="card"><h2>לא ניתן לפתוח את המסמך</h2><p className="muted">{error}</p></div>,
     );
-
   if (status === 'already')
     return centered(
       <div className="card">
@@ -163,7 +153,6 @@ export default function SignerView({ id }) {
         </button>
       </div>,
     );
-
   if (status === 'done')
     return centered(
       <div className="card">
@@ -185,7 +174,6 @@ export default function SignerView({ id }) {
       </div>,
     );
 
-  // status === 'ready'
   const signer = signers.list[current] || FALLBACK.list[0];
   const multi = signers.list.length > 1;
   return (
@@ -197,8 +185,7 @@ export default function SignerView({ id }) {
           <div className="signflow-text">
             <strong>{multi ? `תור החתימה: ${signer.name}` : 'אנא מלא וחתום על השדות'}</strong>
             <span className="signflow-step">
-              {title}
-              {multi ? ` · חותם ${current + 1} מתוך ${signers.list.length}` : ''}
+              {title}{multi ? ` · חותם ${current + 1} מתוך ${signers.list.length}` : ''}
             </span>
           </div>
         </div>
@@ -209,52 +196,13 @@ export default function SignerView({ id }) {
         </div>
       </div>
 
-      <main
-        className="pages"
-        onPointerDown={(e) => {
-          if (e.target.classList.contains('pages')) setSelectedId(null);
-        }}
-      >
-        {pages.map((page, i) => (
-          <PdfPage
-            key={i}
-            page={page}
-            index={i}
-            fields={fields}
-            signers={signers.list}
-            phase="sign"
-            currentSigner={current}
-            activeTool={null}
-            selectedId={selectedId}
-            noEdit
-            onPlace={() => {}}
-            onSelect={setSelectedId}
-            onChange={updateField}
-            onDelete={() => {}}
-          />
-        ))}
-      </main>
-
-      <EditPanel
-        field={selectedField}
+      <SignSurface
+        pages={pages}
+        fields={fields}
         signers={signers.list}
-        phase="sign"
+        currentSigner={current}
         onChange={updateField}
-        onDelete={() => {}}
-        onDuplicate={() => {}}
-        onClose={() => setSelectedId(null)}
-        onOpenSign={setSignFor}
       />
-
-      {signFor && (
-        <SignaturePad
-          onClose={() => setSignFor(null)}
-          onSave={(dataUrl) => {
-            if (dataUrl) updateField(signFor, { value: dataUrl });
-            setSignFor(null);
-          }}
-        />
-      )}
     </div>
   );
 }

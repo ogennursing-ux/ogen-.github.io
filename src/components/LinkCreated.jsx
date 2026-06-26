@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 // Shown after the owner creates a signing request: the shareable link + ways
 // to send it.
-export default function LinkCreated({ link, signerEmail, signersCount = 1, onNewDocument, onDashboard }) {
+export default function LinkCreated({ link, signerEmail, signersCount = 1, permanent = false, onNewDocument, onDashboard }) {
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
@@ -25,9 +25,11 @@ export default function LinkCreated({ link, signerEmail, signersCount = 1, onNew
     <div className="centered-screen">
       <div className="card">
         <div className="big-check" aria-hidden>✓</div>
-        <h2>הקישור לחתימה מוכן!</h2>
+        <h2>{permanent ? 'התבנית נשמרה! הנה הלינק הקבוע' : 'הקישור לחתימה מוכן!'}</h2>
         <p className="muted">
-          {signersCount > 1
+          {permanent
+            ? 'כל מי שתשלח לו את הלינק הזה יוכל לחתום — וכל חתימה תישמר בנפרד ב"התבניות שלי".'
+            : signersCount > 1
             ? 'שלח את הקישור לחותם הראשון. אחרי שיחתום — שלח את אותו קישור לחותם השני. בסיום המסמך החתום יחכה לך ב"המסמכים שלי".'
             : 'שלח את הקישור לחותם. ברגע שהוא יחתום, המסמך החתום יחכה לך ב"המסמכים שלי".'}
         </p>

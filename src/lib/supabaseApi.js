@@ -20,8 +20,8 @@ async function downloadPdf(path) {
 }
 
 export const supabaseApi = {
-  // signers: { current: number, list: [{name,email,color,signed,signedAt}] }
-  async createRequest({ title, pdfBytes, fields, signers, signerEmail }) {
+  // ---- one-off signing requests ----
+  async createRequest({ title, pdfBytes, fields, signers, signerEmail, ownerEmail, webhook }) {
     const id = crypto.randomUUID();
     await uploadPdf(`originals/${id}.pdf`, pdfBytes);
     const { error } = await sb.from('sign_requests').insert({
@@ -32,6 +32,8 @@ export const supabaseApi = {
       signers,
       status: 'sent',
       signer_email: signerEmail || null,
+      owner_email: ownerEmail || null,
+      webhook_url: webhook || null,
     });
     if (error) throw new Error('יצירת הבקשה נכשלה: ' + error.message);
     return { id };
@@ -46,18 +48,15 @@ export const supabaseApi = {
   getOriginalBytes(req) {
     return downloadPdf(req.pdf_path);
   },
-
   getSignedBytes(req) {
     return downloadPdf(req.signed_pdf_path);
   },
 
-  // A non-final signer finished: persist their values and advance the turn.
   async advance(id, { fields, signers }) {
     const { error } = await sb.from('sign_requests').update({ fields, signers }).eq('id', id);
     if (error) throw new Error('שמירת החתימה נכשלה: ' + error.message);
   },
 
-  // The last signer finished: store the signed PDF and mark complete.
   async submitSigned(id, { fields, signers, signedPdfBytes }) {
     await uploadPdf(`signed/${id}.pdf`, signedPdfBytes);
     const { error } = await sb
@@ -71,5 +70,63 @@ export const supabaseApi = {
       })
       .eq('id', id);
     if (error) throw new Error('שמירת החתימה נכשלה: ' + error.message);
+  },
+
+  // ---- reusable templates ----
+  async createTemplate({ title, pdfBytes, fields, signers, ownerEmail, webhook }) {
+    const id = crypto.randomUUID();
+    await uploadPdf(`originals/template-${id}.pdf`, pdfBytes);
+    const { error } = await sb.from('templates').insert({
+      id,
+      title: title || null,
+      pdf_path: `originals/template-${id}.pdf`,
+      fields,
+      signers: signers || [],
+      owner_email: ownerEmail || null,
+      webhook_url: webhook || null,
+    });
+    if (error) throw new Error('שמירת התבנית נכשלה: ' + error.message);
+    return { id };
+  },
+
+  async getTemplate(id) {
+    const { data, error } = await sb.from('templates').select('*').eq('id', id).single();
+    if (error) throw new Error('התבנית לא נמצאה: ' + error.message);
+    return data;
+  },
+
+  async deleteTemplate(id) {
+    await sb.from('templates').delete().eq('id', id);
+  },
+
+  // A submission through a permanent (form) link: store a finished signed row.
+  async submitForm(template, { fields, signedPdfBytes }) {
+    const id = crypto.randomUUID();
+    await uploadPdf(`signed/${id}.pdf`, signedPdfBytes);
+    const { error } = await sb.from('sign_requests').insert({
+      id,
+      title: template.title,
+      pdf_path: template.pdf_path,
+      fields,
+      signers: template.signers || [],
+      status: 'signed',
+      signed_pdf_path: `signed/${id}.pdf`,
+      template_id: template.id,
+      owner_email: template.owner_email || null,
+      webhook_url: template.webhook_url || null,
+      signed_at: new Date().toISOString(),
+    });
+    if (error) throw new Error('שמירת החתימה נכשלה: ' + error.message);
+    return { id };
+  },
+
+  async listSubmissions(templateId) {
+    const { data, error } = await sb
+      .from('sign_requests')
+      .select('*')
+      .eq('template_id', templateId)
+      .order('created_at', { ascending: false });
+    if (error) throw new Error('טעינת החתימות נכשלה: ' + error.message);
+    return data || [];
   },
 };

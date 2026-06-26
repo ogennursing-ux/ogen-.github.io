@@ -5,15 +5,22 @@ import SignerBar from './components/SignerBar.jsx';
 import PdfPage from './components/PdfPage.jsx';
 import EditPanel from './components/EditPanel.jsx';
 import Dashboard from './components/Dashboard.jsx';
+import Templates from './components/Templates.jsx';
+import Settings from './components/Settings.jsx';
 import LinkCreated from './components/LinkCreated.jsx';
 import SignerView from './components/SignerView.jsx';
+import FormSignerView from './components/FormSignerView.jsx';
 import { renderPdfPages } from './lib/pdfUtils.js';
 import { FIELD_DEFAULTS, DEFAULT_SIGNERS, clamp, uid, todayISO } from './lib/fields.js';
-import { api, rememberRequest, signingLink } from './lib/api.js';
+import { api, rememberRequest, rememberTemplate, signingLink, formLink } from './lib/api.js';
+import { getSettings, notify } from './lib/notify.js';
 
 export default function App() {
-  const reqId = new URLSearchParams(location.search).get('req');
+  const params = new URLSearchParams(location.search);
+  const reqId = params.get('req');
+  const formId = params.get('form');
   if (reqId) return <SignerView id={reqId} />;
+  if (formId) return <FormSignerView id={formId} />;
   return <PrepareApp />;
 }
 
@@ -30,7 +37,8 @@ function PrepareApp() {
   const [activeTool, setActiveTool] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [created, setCreated] = useState(null); // { link, signersCount }
+  const [created, setCreated] = useState(null); // { link, signersCount, signerEmail, permanent }
+  const [showSettings, setShowSettings] = useState(false);
 
   const selectedField = useMemo(
     () => fields.find((f) => f.id === selectedId) || null,
@@ -120,18 +128,13 @@ function PrepareApp() {
     setSelectedId(copy.id);
   }
 
-  // ---- signer management ----
   const updateSigner = (i, patch) =>
     setSigners((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
-
-  function addSigner() {
+  const addSigner = () =>
     setSigners((prev) => (prev.length >= 2 ? prev : [...prev, { ...DEFAULT_SIGNERS[1], email: '' }]));
-  }
-
   function removeSigner(i) {
     setSigners((prev) => prev.filter((_, idx) => idx !== i));
-    // fields assigned to the removed signer fall back to signer 0
-    setFields((prev) => prev.map((f) => (f.signer >= i ? { ...f, signer: Math.max(0, f.signer - (f.signer >= i ? 1 : 0)) } : f)));
+    setFields((prev) => prev.map((f) => (f.signer >= i ? { ...f, signer: Math.max(0, f.signer - 1) } : f)));
     setActiveSigner(0);
   }
 
@@ -147,6 +150,9 @@ function PrepareApp() {
     setScreen('home');
   }
 
+  const signerList = () =>
+    signers.map((s) => ({ name: s.name, email: s.email || null, color: s.color, signed: false, signedAt: null }));
+
   async function createLink() {
     if (!fields.length) {
       alert('הוסף לפחות שדה אחד למסמך לפני יצירת הקישור.');
@@ -154,26 +160,54 @@ function PrepareApp() {
     }
     setBusy(true);
     try {
-      const list = signers.map((s) => ({
-        name: s.name,
-        email: s.email || null,
-        color: s.color,
-        signed: false,
-        signedAt: null,
-      }));
+      const settings = getSettings();
+      const list = signerList();
       const { id } = await api.createRequest({
         title: baseName,
         pdfBytes,
         fields,
         signers: { current: 0, list },
-        signerEmail: signers[0].email || null,
+        signerEmail: list[0].email,
+        ownerEmail: settings.ownerEmail || null,
+        webhook: settings.webhook || null,
       });
       rememberRequest({ id, title: baseName, createdAt: Date.now() });
-      setCreated({ link: signingLink(id), signersCount: signers.length, signerEmail: signers[0].email || '' });
+      const link = signingLink(id);
+      if (settings.webhook && list[0].email) {
+        notify(settings.webhook, { type: 'invite', to: list[0].email, title: baseName, link });
+      }
+      setCreated({ link, signersCount: signers.length, signerEmail: list[0].email || '', permanent: false });
       setScreen('created');
     } catch (err) {
       console.error(err);
       alert('יצירת הקישור נכשלה: ' + err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveTemplate() {
+    if (!fields.length) {
+      alert('הוסף לפחות שדה אחד לפני שמירת התבנית.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const settings = getSettings();
+      const { id } = await api.createTemplate({
+        title: baseName,
+        pdfBytes,
+        fields,
+        signers: signerList(),
+        ownerEmail: settings.ownerEmail || null,
+        webhook: settings.webhook || null,
+      });
+      rememberTemplate({ id, title: baseName, createdAt: Date.now() });
+      setCreated({ link: formLink(id), permanent: true });
+      setScreen('created');
+    } catch (err) {
+      console.error(err);
+      alert('שמירת התבנית נכשלה: ' + err.message);
     } finally {
       setBusy(false);
     }
@@ -203,9 +237,15 @@ function PrepareApp() {
         <span className="brand-mark">✒️</span>
         <span className="brand-name">חתימה דיגיטלית</span>
       </div>
-      {screen === 'editor' && <span className="doc-name">{baseName}.pdf</span>}
+      {screen === 'editor' ? (
+        <span className="doc-name">{baseName}.pdf</span>
+      ) : (
+        <button className="header-settings" onClick={() => setShowSettings(true)}>⚙ הגדרות</button>
+      )}
     </header>
   );
+
+  const settingsModal = showSettings && <Settings onClose={() => setShowSettings(false)} />;
 
   if (screen === 'created') {
     return (
@@ -215,9 +255,11 @@ function PrepareApp() {
           link={created.link}
           signerEmail={created.signerEmail}
           signersCount={created.signersCount}
+          permanent={created.permanent}
           onNewDocument={startOver}
           onDashboard={startOver}
         />
+        {settingsModal}
       </div>
     );
   }
@@ -227,12 +269,14 @@ function PrepareApp() {
       <div className="app">
         {header}
         <Dropzone onFile={handleFile} busy={busy} />
+        <Templates />
         <Dashboard onDownloadSigned={downloadSigned} />
+        {settingsModal}
       </div>
     );
   }
 
-  // screen === 'editor'
+  // editor
   return (
     <div className="app">
       {header}
@@ -241,6 +285,7 @@ function PrepareApp() {
         onSelectTool={setActiveTool}
         onContinue={createLink}
         onReset={startOver}
+        onSaveTemplate={saveTemplate}
         busy={busy}
         canContinue={fields.length > 0}
         continueLabel="צור קישור לחתימה ›"
@@ -298,6 +343,7 @@ function PrepareApp() {
         onClose={() => setSelectedId(null)}
         onOpenSign={() => {}}
       />
+      {settingsModal}
     </div>
   );
 }

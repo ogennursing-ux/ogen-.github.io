@@ -9,6 +9,7 @@ export default function Toolbar({
   onSelectTool,
   onContinue,
   onReset,
+  onSaveTemplate,
   busy,
   canContinue,
   continueLabel = 'המשך לחתימה ›',
@@ -34,6 +35,11 @@ export default function Toolbar({
         <button className="btn-ghost" onClick={onReset} disabled={busy}>
           מסמך חדש
         </button>
+        {onSaveTemplate && (
+          <button className="btn-ghost" onClick={onSaveTemplate} disabled={busy || !canContinue}>
+            שמור כתבנית
+          </button>
+        )}
         <button className="btn-primary" onClick={onContinue} disabled={busy || !canContinue}>
           {continueLabel}
         </button>

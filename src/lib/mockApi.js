@@ -1,22 +1,22 @@
 // In-browser mock backend (localStorage) used for local end-to-end testing
 // without network access. Same interface as supabaseApi.
-const KEY = 'mock_sign_requests';
+const REQ_KEY = 'mock_sign_requests';
+const TMPL_KEY = 'mock_templates';
 
-function loadAll() {
+const load = (k) => {
   try {
-    return JSON.parse(localStorage.getItem(KEY) || '{}');
+    return JSON.parse(localStorage.getItem(k) || '{}');
   } catch {
     return {};
   }
-}
-function saveAll(obj) {
-  localStorage.setItem(KEY, JSON.stringify(obj));
-}
+};
+const save = (k, o) => localStorage.setItem(k, JSON.stringify(o));
 
 function bytesToB64(bytes) {
   let bin = '';
   const arr = new Uint8Array(bytes);
-  for (let i = 0; i < arr.length; i++) bin += String.fromCharCode(arr[i]);
+  const chunk = 0x8000;
+  for (let i = 0; i < arr.length; i += chunk) bin += String.fromCharCode.apply(null, arr.subarray(i, i + chunk));
   return btoa(bin);
 }
 function b64ToBytes(b64) {
@@ -27,9 +27,9 @@ function b64ToBytes(b64) {
 }
 
 export const mockApi = {
-  async createRequest({ title, pdfBytes, fields, signers, signerEmail }) {
+  async createRequest({ title, pdfBytes, fields, signers, signerEmail, ownerEmail, webhook }) {
     const id = crypto.randomUUID();
-    const all = loadAll();
+    const all = load(REQ_KEY);
     all[id] = {
       id,
       title: title || null,
@@ -37,37 +37,45 @@ export const mockApi = {
       signers,
       status: 'sent',
       signer_email: signerEmail || null,
+      owner_email: ownerEmail || null,
+      webhook_url: webhook || null,
+      template_id: null,
       pdf_b64: bytesToB64(pdfBytes),
       signed_b64: null,
       signed_at: null,
+      created_at: new Date().toISOString(),
     };
-    saveAll(all);
+    save(REQ_KEY, all);
     return { id };
   },
 
   async getRequest(id) {
-    const req = loadAll()[id];
+    const req = load(REQ_KEY)[id];
     if (!req) throw new Error('הבקשה לא נמצאה');
     return req;
   },
 
   async getOriginalBytes(req) {
+    // template-based form rows reference the template's pdf
+    if (!req.pdf_b64 && req.template_id) {
+      const t = load(TMPL_KEY)[req.template_id];
+      if (t) return b64ToBytes(t.pdf_b64);
+    }
     return b64ToBytes(req.pdf_b64);
   },
-
   async getSignedBytes(req) {
     return b64ToBytes(req.signed_b64);
   },
 
   async advance(id, { fields, signers }) {
-    const all = loadAll();
+    const all = load(REQ_KEY);
     if (!all[id]) throw new Error('הבקשה לא נמצאה');
     all[id] = { ...all[id], fields, signers };
-    saveAll(all);
+    save(REQ_KEY, all);
   },
 
   async submitSigned(id, { fields, signers, signedPdfBytes }) {
-    const all = loadAll();
+    const all = load(REQ_KEY);
     if (!all[id]) throw new Error('הבקשה לא נמצאה');
     all[id] = {
       ...all[id],
@@ -77,6 +85,62 @@ export const mockApi = {
       status: 'signed',
       signed_at: new Date().toISOString(),
     };
-    saveAll(all);
+    save(REQ_KEY, all);
+  },
+
+  async createTemplate({ title, pdfBytes, fields, signers, ownerEmail, webhook }) {
+    const id = crypto.randomUUID();
+    const all = load(TMPL_KEY);
+    all[id] = {
+      id,
+      title: title || null,
+      fields,
+      signers: signers || [],
+      owner_email: ownerEmail || null,
+      webhook_url: webhook || null,
+      pdf_b64: bytesToB64(pdfBytes),
+      created_at: new Date().toISOString(),
+    };
+    save(TMPL_KEY, all);
+    return { id };
+  },
+
+  async getTemplate(id) {
+    const t = load(TMPL_KEY)[id];
+    if (!t) throw new Error('התבנית לא נמצאה');
+    return t;
+  },
+
+  async deleteTemplate(id) {
+    const all = load(TMPL_KEY);
+    delete all[id];
+    save(TMPL_KEY, all);
+  },
+
+  async submitForm(template, { fields, signedPdfBytes }) {
+    const id = crypto.randomUUID();
+    const all = load(REQ_KEY);
+    all[id] = {
+      id,
+      title: template.title,
+      fields,
+      signers: template.signers || [],
+      status: 'signed',
+      template_id: template.id,
+      owner_email: template.owner_email || null,
+      webhook_url: template.webhook_url || null,
+      pdf_b64: template.pdf_b64,
+      signed_b64: bytesToB64(signedPdfBytes),
+      signed_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    };
+    save(REQ_KEY, all);
+    return { id };
+  },
+
+  async listSubmissions(templateId) {
+    return Object.values(load(REQ_KEY))
+      .filter((r) => r.template_id === templateId)
+      .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
   },
 };

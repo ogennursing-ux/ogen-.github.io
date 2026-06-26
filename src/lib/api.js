@@ -11,27 +11,42 @@ const useMock =
 export const api = useMock ? mockApi : supabaseApi;
 export const usingMock = useMock;
 
-// Owner-side bookkeeping: remember the requests created on this device so the
-// owner can track status and fetch the signed file later.
-const OWNER_KEY = 'my_sign_requests';
+const REQS = 'my_sign_requests';
+const TMPLS = 'my_templates';
 
-export function rememberRequest(entry) {
-  const list = listMyRequests();
-  list.unshift(entry);
-  localStorage.setItem(OWNER_KEY, JSON.stringify(list.slice(0, 50)));
-}
-
-export function listMyRequests() {
+const read = (k) => {
   try {
-    return JSON.parse(localStorage.getItem(OWNER_KEY) || '[]');
+    return JSON.parse(localStorage.getItem(k) || '[]');
   } catch {
     return [];
   }
+};
+
+export function rememberRequest(entry) {
+  const list = read(REQS);
+  list.unshift(entry);
+  localStorage.setItem(REQS, JSON.stringify(list.slice(0, 100)));
+}
+export const listMyRequests = () => read(REQS);
+
+export function rememberTemplate(entry) {
+  const list = read(TMPLS);
+  list.unshift(entry);
+  localStorage.setItem(TMPLS, JSON.stringify(list.slice(0, 100)));
+}
+export const listMyTemplates = () => read(TMPLS);
+export function forgetTemplate(id) {
+  localStorage.setItem(TMPLS, JSON.stringify(read(TMPLS).filter((t) => t.id !== id)));
 }
 
-// Build the shareable signing link for a request id, preserving ?mock when set.
+const mockSuffix = () =>
+  new URLSearchParams(location.search).has('mock') ? '&mock=1' : '';
+
+// Shareable signing link for a one-off request.
 export function signingLink(id) {
-  const base = location.origin + location.pathname;
-  const mock = new URLSearchParams(location.search).has('mock') ? '&mock=1' : '';
-  return `${base}?req=${id}${mock}`;
+  return `${location.origin}${location.pathname}?req=${id}${mockSuffix()}`;
+}
+// Permanent link for a reusable template (form).
+export function formLink(templateId) {
+  return `${location.origin}${location.pathname}?form=${templateId}${mockSuffix()}`;
 }
