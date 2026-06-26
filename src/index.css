@@ -288,6 +288,75 @@ button {
   top: 102px;
 }
 
+/* ---------------- signer rows (setup) ---------------- */
+.signer-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.signer-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: #fff;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.signer-row.active {
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.04);
+}
+.signer-row .signer-name {
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  width: 110px;
+  min-width: 0;
+}
+.signer-row .signer-name:focus,
+.signer-email-inline:focus {
+  outline: none;
+}
+.signer-email-inline {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  border-inline-start: 1px solid var(--line);
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--muted);
+  padding: 2px 8px;
+}
+.signer-remove {
+  color: var(--danger);
+  font-size: 14px;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.signer-remove:hover {
+  background: #fef2f2;
+}
+.add-signer-btn {
+  margin-top: 8px;
+  color: var(--primary-dark);
+  font-weight: 700;
+  font-size: 13.5px;
+  padding: 4px 2px;
+}
+.signer-hint {
+  display: block;
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
 /* ---------------- signing flow bar ---------------- */
 .signflow-bar {
   position: sticky;

@@ -1,22 +1,24 @@
 import { useEffect, useState } from 'react';
 import { api, listMyRequests, signingLink } from '../lib/api.js';
-import { formatDate } from '../lib/pdfUtils.js';
 
 // Owner's list of created requests with live status + actions.
 export default function Dashboard({ onDownloadSigned }) {
   const [items, setItems] = useState([]);
-  const [statuses, setStatuses] = useState({});
+  const [info, setInfo] = useState({}); // id -> { status, current, total }
 
   useEffect(() => {
     const list = listMyRequests();
     setItems(list);
-    // Fetch current status for each request.
     list.forEach(async (it) => {
       try {
         const req = await api.getRequest(it.id);
-        setStatuses((s) => ({ ...s, [it.id]: req.status }));
+        const signers = req.signers && req.signers.list ? req.signers : { current: 0, list: [{}] };
+        setInfo((s) => ({
+          ...s,
+          [it.id]: { status: req.status, current: signers.current || 0, total: signers.list.length },
+        }));
       } catch {
-        setStatuses((s) => ({ ...s, [it.id]: 'missing' }));
+        setInfo((s) => ({ ...s, [it.id]: { status: 'missing' } }));
       }
     });
   }, []);
@@ -33,7 +35,7 @@ export default function Dashboard({ onDownloadSigned }) {
       <h3>המסמכים שלי</h3>
       <ul className="req-list">
         {items.map((it) => {
-          const st = statuses[it.id];
+          const d = info[it.id] || {};
           return (
             <li key={it.id} className="req-item">
               <div className="req-main">
@@ -41,22 +43,26 @@ export default function Dashboard({ onDownloadSigned }) {
                 <span className="req-date">{new Date(it.createdAt).toLocaleDateString('he-IL')}</span>
               </div>
               <div className="req-side">
-                {st === 'signed' ? (
+                {d.status === 'signed' ? (
                   <>
                     <span className="badge ok">נחתם</span>
                     <button className="btn-primary sm" onClick={() => onDownloadSigned(it.id)}>
                       הורד חתום
                     </button>
                   </>
-                ) : st === 'missing' ? (
+                ) : d.status === 'missing' ? (
                   <span className="badge muted">לא נמצא</span>
-                ) : (
+                ) : d.status ? (
                   <>
-                    <span className="badge wait">ממתין לחתימה</span>
+                    <span className="badge wait">
+                      {d.total > 1 ? `ממתין לחותם ${d.current + 1}/${d.total}` : 'ממתין לחתימה'}
+                    </span>
                     <button className="btn-ghost sm" onClick={() => copy(it.id)}>
                       העתק קישור
                     </button>
                   </>
+                ) : (
+                  <span className="badge muted">טוען…</span>
                 )}
               </div>
             </li>

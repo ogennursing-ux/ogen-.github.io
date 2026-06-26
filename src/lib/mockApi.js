@@ -27,16 +27,16 @@ function b64ToBytes(b64) {
 }
 
 export const mockApi = {
-  async createRequest({ title, pdfBytes, fields, signer }) {
+  async createRequest({ title, pdfBytes, fields, signers, signerEmail }) {
     const id = crypto.randomUUID();
     const all = loadAll();
     all[id] = {
       id,
       title: title || null,
       fields,
-      signers: signer ? [signer] : [],
+      signers,
       status: 'sent',
-      signer_email: signer?.email || null,
+      signer_email: signerEmail || null,
       pdf_b64: bytesToB64(pdfBytes),
       signed_b64: null,
       signed_at: null,
@@ -59,12 +59,20 @@ export const mockApi = {
     return b64ToBytes(req.signed_b64);
   },
 
-  async submitSigned(id, { fields, signedPdfBytes }) {
+  async advance(id, { fields, signers }) {
+    const all = loadAll();
+    if (!all[id]) throw new Error('הבקשה לא נמצאה');
+    all[id] = { ...all[id], fields, signers };
+    saveAll(all);
+  },
+
+  async submitSigned(id, { fields, signers, signedPdfBytes }) {
     const all = loadAll();
     if (!all[id]) throw new Error('הבקשה לא נמצאה');
     all[id] = {
       ...all[id],
       fields,
+      signers,
       signed_b64: bytesToB64(signedPdfBytes),
       status: 'signed',
       signed_at: new Date().toISOString(),

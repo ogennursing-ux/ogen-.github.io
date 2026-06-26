@@ -1,17 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import Dropzone from './components/Dropzone.jsx';
 import Toolbar from './components/Toolbar.jsx';
+import SignerBar from './components/SignerBar.jsx';
 import PdfPage from './components/PdfPage.jsx';
 import EditPanel from './components/EditPanel.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import LinkCreated from './components/LinkCreated.jsx';
 import SignerView from './components/SignerView.jsx';
-import { renderPdfPages, buildSignedPdf } from './lib/pdfUtils.js';
-import { FIELD_DEFAULTS, clamp, uid, todayISO } from './lib/fields.js';
+import { renderPdfPages } from './lib/pdfUtils.js';
+import { FIELD_DEFAULTS, DEFAULT_SIGNERS, clamp, uid, todayISO } from './lib/fields.js';
 import { api, rememberRequest, signingLink } from './lib/api.js';
-
-// Remote model: one signer per request. The owner only places fields.
-const SIGNERS = [{ name: 'החותם', color: '#1f7a53' }];
 
 export default function App() {
   const reqId = new URLSearchParams(location.search).get('req');
@@ -19,17 +17,20 @@ export default function App() {
   return <PrepareApp />;
 }
 
+const newSigners = () => [{ ...DEFAULT_SIGNERS[0], email: '' }];
+
 function PrepareApp() {
   const [screen, setScreen] = useState('home'); // home | editor | created
   const [pages, setPages] = useState([]);
   const [pdfBytes, setPdfBytes] = useState(null);
   const [baseName, setBaseName] = useState('document');
   const [fields, setFields] = useState([]);
+  const [signers, setSigners] = useState(newSigners);
+  const [activeSigner, setActiveSigner] = useState(0);
   const [activeTool, setActiveTool] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
-  const [signerEmail, setSignerEmail] = useState('');
   const [busy, setBusy] = useState(false);
-  const [createdLink, setCreatedLink] = useState('');
+  const [created, setCreated] = useState(null); // { link, signersCount }
 
   const selectedField = useMemo(
     () => fields.find((f) => f.id === selectedId) || null,
@@ -67,9 +68,10 @@ function PrepareApp() {
       setPages(rendered);
       setBaseName(file.name.replace(/\.pdf$/i, '') || 'document');
       setFields([]);
+      setSigners(newSigners());
+      setActiveSigner(0);
       setSelectedId(null);
       setActiveTool(null);
-      setSignerEmail('');
       setScreen('editor');
     } catch (err) {
       console.error(err);
@@ -85,7 +87,7 @@ function PrepareApp() {
       id: uid(),
       type,
       pageIndex,
-      signer: 0,
+      signer: activeSigner,
       wPct: def.w,
       hPct: def.h,
       xPct: clamp(xPct - def.w / 2, 0, 1 - def.w),
@@ -118,14 +120,30 @@ function PrepareApp() {
     setSelectedId(copy.id);
   }
 
+  // ---- signer management ----
+  const updateSigner = (i, patch) =>
+    setSigners((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
+
+  function addSigner() {
+    setSigners((prev) => (prev.length >= 2 ? prev : [...prev, { ...DEFAULT_SIGNERS[1], email: '' }]));
+  }
+
+  function removeSigner(i) {
+    setSigners((prev) => prev.filter((_, idx) => idx !== i));
+    // fields assigned to the removed signer fall back to signer 0
+    setFields((prev) => prev.map((f) => (f.signer >= i ? { ...f, signer: Math.max(0, f.signer - (f.signer >= i ? 1 : 0)) } : f)));
+    setActiveSigner(0);
+  }
+
   function startOver() {
     if (fields.length && !confirm('להתחיל מסמך חדש? השדות הנוכחיים יימחקו.')) return;
     setPages([]);
     setPdfBytes(null);
     setFields([]);
+    setSigners(newSigners());
+    setActiveSigner(0);
     setSelectedId(null);
     setActiveTool(null);
-    setSignerEmail('');
     setScreen('home');
   }
 
@@ -136,14 +154,22 @@ function PrepareApp() {
     }
     setBusy(true);
     try {
+      const list = signers.map((s) => ({
+        name: s.name,
+        email: s.email || null,
+        color: s.color,
+        signed: false,
+        signedAt: null,
+      }));
       const { id } = await api.createRequest({
         title: baseName,
         pdfBytes,
         fields,
-        signer: { name: 'החותם', email: signerEmail || null, color: '#1f7a53' },
+        signers: { current: 0, list },
+        signerEmail: signers[0].email || null,
       });
       rememberRequest({ id, title: baseName, createdAt: Date.now() });
-      setCreatedLink(signingLink(id));
+      setCreated({ link: signingLink(id), signersCount: signers.length, signerEmail: signers[0].email || '' });
       setScreen('created');
     } catch (err) {
       console.error(err);
@@ -186,8 +212,9 @@ function PrepareApp() {
       <div className="app">
         {header}
         <LinkCreated
-          link={createdLink}
-          signerEmail={signerEmail}
+          link={created.link}
+          signerEmail={created.signerEmail}
+          signersCount={created.signersCount}
           onNewDocument={startOver}
           onDashboard={startOver}
         />
@@ -218,17 +245,14 @@ function PrepareApp() {
         canContinue={fields.length > 0}
         continueLabel="צור קישור לחתימה ›"
       />
-      <div className="signer-email-bar">
-        <label>מייל החותם (לא חובה):</label>
-        <input
-          className="email-input"
-          type="email"
-          dir="ltr"
-          placeholder="name@example.com"
-          value={signerEmail}
-          onChange={(e) => setSignerEmail(e.target.value)}
-        />
-      </div>
+      <SignerBar
+        signers={signers}
+        activeSigner={activeSigner}
+        onSelect={setActiveSigner}
+        onUpdate={updateSigner}
+        onAdd={addSigner}
+        onRemove={removeSigner}
+      />
       {activeTool ? (
         <div className="place-hint">לחץ על המסמך כדי למקם {labelOf(activeTool)}</div>
       ) : (
@@ -251,7 +275,7 @@ function PrepareApp() {
             page={page}
             index={i}
             fields={fields}
-            signers={SIGNERS}
+            signers={signers}
             phase="setup"
             currentSigner={0}
             activeTool={activeTool}
@@ -266,7 +290,7 @@ function PrepareApp() {
 
       <EditPanel
         field={selectedField}
-        signers={SIGNERS}
+        signers={signers}
         phase="setup"
         onChange={updateField}
         onDelete={deleteField}

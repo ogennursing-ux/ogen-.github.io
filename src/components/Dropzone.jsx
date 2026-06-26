@@ -39,7 +39,7 @@ export default function Dropzone({ onFile, busy }) {
         />
       </div>
       <p className="privacy-note">
-        🔒 הכול מתבצע במכשיר שלך — הקובץ לא נשלח לשום שרת.
+        🔒 הקבצים נשמרים באופן מאובטח ומשמשים אך ורק לתהליך החתימה.
       </p>
     </div>
   );
