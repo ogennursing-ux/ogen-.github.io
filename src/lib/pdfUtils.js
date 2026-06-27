@@ -173,7 +173,7 @@ export async function buildSignedPdf(originalPdfBytes, fields) {
       if (!field.value) continue;
       const img = await pdfDoc.embedPng(dataUrlToBytes(field.value));
       page.drawImage(img, containRect(img.width, img.height, x, y, boxW, boxH));
-    } else if (field.type === 'text' || field.type === 'date') {
+    } else if (field.type === 'text' || field.type === 'date' || field.type === 'initials') {
       const text = field.type === 'date' ? formatDate(field.value) : String(field.value ?? '');
       if (!text) continue;
       const img = await pdfDoc.embedPng(dataUrlToBytes(drawTextDataUrl(text, boxW, boxH)));

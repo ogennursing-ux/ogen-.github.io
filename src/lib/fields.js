@@ -6,6 +6,7 @@ export const FIELD_DEFAULTS = {
   text: { w: 0.3, h: 0.045 },
   date: { w: 0.2, h: 0.045 },
   checkbox: { w: 0.045, h: 0.03 },
+  initials: { w: 0.12, h: 0.05 },
 };
 
 export const FIELD_LABELS = {
@@ -13,6 +14,7 @@ export const FIELD_LABELS = {
   text: 'טקסט',
   date: 'תאריך',
   checkbox: 'תיבת סימון',
+  initials: 'ראשי תיבות',
 };
 
 export const FIELD_ICONS = {
@@ -20,6 +22,7 @@ export const FIELD_ICONS = {
   text: '🔤',
   date: '📅',
   checkbox: '☑️',
+  initials: '🔡',
 };
 
 export const clamp = (value, min, max) => Math.min(Math.max(value, min), max);

@@ -41,12 +41,12 @@ export default function EditPanel({
       )}
 
       <div className="edit-panel-body">
-        {field.type === 'text' && (
+        {(field.type === 'text' || field.type === 'initials') && (
           <input
             className="text-input"
             type="text"
             value={field.value || ''}
-            placeholder="הקלד טקסט"
+            placeholder={field.type === 'initials' ? 'ראשי תיבות' : 'הקלד טקסט'}
             autoFocus
             onChange={(e) => onChange(field.id, { value: e.target.value })}
           />
