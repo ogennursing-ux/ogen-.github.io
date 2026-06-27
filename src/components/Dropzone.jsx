@@ -11,6 +11,10 @@ export default function Dropzone({ onFile, busy }) {
 
   return (
     <div className="dropzone-screen">
+      <div className="home-intro">
+        <h1>שליחת מסמך לחתימה</h1>
+        <p>העלה PDF, מקם שדות חתימה, ושלח קישור — או שמור כתבנית לשימוש חוזר.</p>
+      </div>
       <div
         className={`dropzone${dragOver ? ' over' : ''}`}
         onDragOver={(e) => {
@@ -29,7 +33,8 @@ export default function Dropzone({ onFile, busy }) {
           📄
         </div>
         <h2>{busy ? 'טוען מסמך…' : 'גרור לכאן קובץ PDF'}</h2>
-        <p>או לחץ לבחירת קובץ מהמחשב</p>
+        <p>או בחר קובץ מהמכשיר</p>
+        <span className="dropzone-cta">בחר קובץ PDF</span>
         <input
           ref={inputRef}
           type="file"
