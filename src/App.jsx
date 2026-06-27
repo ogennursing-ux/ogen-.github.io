@@ -39,6 +39,7 @@ function PrepareApp() {
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState(null); // { link, signersCount, signerEmail, permanent }
   const [showSettings, setShowSettings] = useState(false);
+  const [sendMode, setSendMode] = useState('regular'); // regular | round
 
   const selectedField = useMemo(
     () => fields.find((f) => f.id === selectedId) || null,
@@ -76,7 +77,11 @@ function PrepareApp() {
       setPages(rendered);
       setBaseName(file.name.replace(/\.pdf$/i, '') || 'document');
       setFields([]);
-      setSigners(newSigners());
+      setSigners(
+        sendMode === 'round'
+          ? [{ ...DEFAULT_SIGNERS[0], email: '' }, { ...DEFAULT_SIGNERS[1], email: '' }]
+          : newSigners(),
+      );
       setActiveSigner(0);
       setSelectedId(null);
       setActiveTool(null);
@@ -268,6 +273,20 @@ function PrepareApp() {
     return (
       <div className="app">
         {header}
+        <div className="home-tabs">
+          <button
+            className={`home-tab${sendMode === 'regular' ? ' active' : ''}`}
+            onClick={() => setSendMode('regular')}
+          >
+            שליחה רגילה
+          </button>
+          <button
+            className={`home-tab${sendMode === 'round' ? ' active' : ''}`}
+            onClick={() => setSendMode('round')}
+          >
+            סבב חתימות (2 חותמים)
+          </button>
+        </div>
         <Dropzone onFile={handleFile} busy={busy} />
         <Templates />
         <Dashboard onDownloadSigned={downloadSigned} />

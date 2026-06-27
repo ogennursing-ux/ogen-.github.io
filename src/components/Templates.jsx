@@ -102,7 +102,7 @@ export default function Templates() {
           const list = subs[t.id];
           return (
             <li key={t.id} className="tmpl-item">
-              <div className="req-item bare">
+              <div className="tmpl-row">
                 <div className="req-main">
                   <span className="req-title">{t.title || 'תבנית'}</span>
                   <span className="req-date">{new Date(t.createdAt).toLocaleDateString('he-IL')}</span>

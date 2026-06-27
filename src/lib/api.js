@@ -28,6 +28,9 @@ export function rememberRequest(entry) {
   localStorage.setItem(REQS, JSON.stringify(list.slice(0, 100)));
 }
 export const listMyRequests = () => read(REQS);
+export function forgetRequest(id) {
+  localStorage.setItem(REQS, JSON.stringify(read(REQS).filter((r) => r.id !== id)));
+}
 
 export function rememberTemplate(entry) {
   const list = read(TMPLS);

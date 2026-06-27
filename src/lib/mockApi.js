@@ -74,6 +74,12 @@ export const mockApi = {
     save(REQ_KEY, all);
   },
 
+  async deleteRequest(id) {
+    const all = load(REQ_KEY);
+    delete all[id];
+    save(REQ_KEY, all);
+  },
+
   async submitSigned(id, { fields, signers, signedPdfBytes }) {
     const all = load(REQ_KEY);
     if (!all[id]) throw new Error('הבקשה לא נמצאה');

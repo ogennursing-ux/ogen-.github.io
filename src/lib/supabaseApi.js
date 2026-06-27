@@ -52,6 +52,18 @@ export const supabaseApi = {
     return downloadPdf(req.signed_pdf_path);
   },
 
+  // Best-effort delete (needs an anon delete policy on sign_requests to fully
+  // remove the row; storage files are removed by convention path).
+  async deleteRequest(id) {
+    try {
+      await sb.storage.from(BUCKET).remove([`originals/${id}.pdf`, `signed/${id}.pdf`]);
+    } catch {
+      /* ignore */
+    }
+    const { error } = await sb.from('sign_requests').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+  },
+
   async advance(id, { fields, signers }) {
     const { error } = await sb.from('sign_requests').update({ fields, signers }).eq('id', id);
     if (error) throw new Error('שמירת החתימה נכשלה: ' + error.message);
