@@ -87,7 +87,10 @@ export default function SignerView({ id }) {
       const isLast = current >= signers.list.length - 1;
 
       if (isLast) {
-        const bytes = await buildSignedPdf(originalBytes.slice(0), fields);
+        const bytes = await buildSignedPdf(originalBytes.slice(0), fields, {
+          names: newList.map((s) => s.name),
+          refId: id,
+        });
         await api.submitSigned(id, { fields, signers: { current, list: newList }, signedPdfBytes: bytes });
         setSignedBytes(bytes);
         setDoneKind('final');

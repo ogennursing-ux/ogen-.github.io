@@ -142,7 +142,7 @@ function containRect(iw, ih, x, y, boxW, boxH) {
  * @param {Array} fields
  * @returns {Promise<Uint8Array>} the saved PDF bytes
  */
-export async function buildSignedPdf(originalPdfBytes, fields) {
+export async function buildSignedPdf(originalPdfBytes, fields, audit) {
   const { PDFDocument } = await import('pdf-lib');
 
   // Make sure the web font is loaded so canvas text uses Heebo, not a fallback.
@@ -185,7 +185,31 @@ export async function buildSignedPdf(originalPdfBytes, fields) {
     }
   }
 
+  // Optional audit stamp on the last page: "signed digitally · date · ref".
+  if (audit) {
+    const last = pages[pages.length - 1];
+    if (last) {
+      const pw = last.getSize().width;
+      const parts = ['נחתם דיגיטלית'];
+      if (audit.names && audit.names.length) parts.push('ע"י ' + audit.names.filter(Boolean).join(', '));
+      parts.push(stampNow());
+      if (audit.refId) parts.push('אסמכתא ' + String(audit.refId).slice(0, 8));
+      const text = parts.join(' · ');
+      const margin = 10;
+      const stripH = 14;
+      const url = drawTextDataUrl(text, pw - margin * 2, stripH, { color: '#8a93a3' });
+      const img = await pdfDoc.embedPng(dataUrlToBytes(url));
+      last.drawImage(img, { x: margin, y: 6, width: pw - margin * 2, height: stripH });
+    }
+  }
+
   return pdfDoc.save();
+}
+
+function stampNow() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 // Format an ISO date (yyyy-mm-dd) as dd/mm/yyyy; pass through anything else.

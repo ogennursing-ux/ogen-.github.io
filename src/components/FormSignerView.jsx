@@ -68,7 +68,7 @@ export default function FormSignerView({ id }) {
     if (emptySig && !confirm(`נשארו ${emptySig} שדות חתימה ריקים. לשלוח בכל זאת?`)) return;
     setBusy(true);
     try {
-      const bytes = await buildSignedPdf(originalBytes.slice(0), fields);
+      const bytes = await buildSignedPdf(originalBytes.slice(0), fields, { names: ['החותם'] });
       await api.submitForm(template, { fields, signedPdfBytes: bytes });
       setSignedBytes(bytes);
       setStatus('done');
