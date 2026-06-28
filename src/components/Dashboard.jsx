@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, listMyRequests, forgetRequest, signingLink } from '../lib/api.js';
 import { mergePdfs, toCsv, downloadBlob } from '../lib/exporters.js';
+import PdfPreview from './PdfPreview.jsx';
 
 const statusText = (d) => {
   if (!d || !d.status) return 'טוען…';
@@ -18,6 +19,7 @@ export default function Dashboard({ onDownloadSigned }) {
   const [filterStatus, setFilterStatus] = useState('all'); // all | pending | signed
   const [selected, setSelected] = useState(() => new Set());
   const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState(null); // { id, name }
 
   useEffect(() => {
     const list = listMyRequests();
@@ -190,6 +192,7 @@ export default function Dashboard({ onDownloadSigned }) {
                 {d.status === 'signed' ? (
                   <>
                     <span className="badge ok">נחתם</span>
+                    <button className="btn-ghost sm" onClick={() => setPreview({ id: it.id, name: it.title || 'מסמך' })}>הצג</button>
                     <button className="btn-primary sm" onClick={() => onDownloadSigned(it.id)}>הורד</button>
                   </>
                 ) : d.status === 'missing' ? (
@@ -205,6 +208,21 @@ export default function Dashboard({ onDownloadSigned }) {
           );
         })}
       </ul>
+
+      {preview && (
+        <PdfPreview
+          name={preview.name}
+          getBytes={async () => {
+            const req = await api.getRequest(preview.id);
+            return api.getSignedBytes(req);
+          }}
+          onDownload={() => {
+            onDownloadSigned(preview.id);
+            setPreview(null);
+          }}
+          onClose={() => setPreview(null)}
+        />
+      )}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import {
   formLink,
   signingLink,
   rememberRequest,
+  rememberTemplate,
 } from '../lib/api.js';
 import { getSettings } from '../lib/notify.js';
 
@@ -87,6 +88,30 @@ export default function Templates() {
     }
   }
 
+  async function duplicate(t) {
+    setBusy(true);
+    try {
+      const tmpl = await api.getTemplate(t.id);
+      const bytes = await api.getOriginalBytes(tmpl);
+      const title = (tmpl.title || 'תבנית') + ' (עותק)';
+      const settings = getSettings();
+      const { id } = await api.createTemplate({
+        title,
+        pdfBytes: bytes,
+        fields: tmpl.fields,
+        signers: tmpl.signers,
+        ownerEmail: settings.ownerEmail || null,
+        webhook: settings.webhook || null,
+      });
+      rememberTemplate({ id, title, createdAt: Date.now() });
+      setItems(listMyTemplates());
+    } catch (e) {
+      alert('שגיאה בשכפול: ' + e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function remove(id) {
     if (!confirm('למחוק את התבנית? קישורים קבועים שלה יפסיקו לעבוד.')) return;
     api.deleteTemplate(id).catch(() => {});
@@ -116,6 +141,9 @@ export default function Templates() {
                   </button>
                   <button className="btn-ghost sm" onClick={() => toggleSubs(t.id)}>
                     חתימות{Array.isArray(list) ? ` (${list.length})` : ''}
+                  </button>
+                  <button className="btn-ghost sm" disabled={busy} onClick={() => duplicate(t)}>
+                    שכפל
                   </button>
                   <button className="btn-ghost sm danger-text" onClick={() => remove(t.id)}>
                     מחק
