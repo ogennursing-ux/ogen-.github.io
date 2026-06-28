@@ -309,6 +309,15 @@ function PrepareApp() {
         canContinue={fields.length > 0}
         continueLabel="צור קישור לחתימה ›"
       />
+      <div className="doc-name-bar">
+        <label>שם המסמך:</label>
+        <input
+          className="doc-name-input"
+          value={baseName}
+          onChange={(e) => setBaseName(e.target.value)}
+          placeholder="שם המסמך"
+        />
+      </div>
       <SignerBar
         signers={signers}
         activeSigner={activeSigner}
