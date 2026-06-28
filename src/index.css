@@ -1165,3 +1165,54 @@ button {
 .sign-actions .btn-primary {
   flex: 1;
 }
+
+/* ---------------- mobile polish ---------------- */
+@media (max-width: 600px) {
+  .app-header { padding: 10px 14px; }
+  .home-intro h1 { font-size: 22px; }
+  .home-intro p { font-size: 14px; }
+
+  .toolbar-actions,
+  .signflow-actions {
+    width: 100%;
+  }
+  .toolbar-actions > *,
+  .signflow-actions > * {
+    flex: 1;
+    text-align: center;
+  }
+  .tool-btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .dash-controls { width: 100%; }
+  .dash-search { flex: 1; width: auto; }
+
+  /* comfortable tap targets */
+  .btn-primary,
+  .btn-ghost,
+  .btn-danger,
+  .tool-btn,
+  .chip,
+  .home-tab,
+  .sign-tab {
+    min-height: 42px;
+  }
+  .btn-primary.sm,
+  .btn-ghost.sm {
+    min-height: 36px;
+  }
+
+  .req-item { flex-wrap: wrap; }
+  .req-side {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .signer-row { flex-wrap: wrap; }
+  .signer-email-inline {
+    border-inline-start: none;
+    width: 100%;
+    flex-basis: 100%;
+  }
+}
