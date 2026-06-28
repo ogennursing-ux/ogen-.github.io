@@ -83,6 +83,17 @@ export default function EditPanel({
       </div>
 
       {phase === 'setup' && (
+        <label className="checkbox-row req-toggle">
+          <input
+            type="checkbox"
+            checked={!!field.required}
+            onChange={(e) => onChange(field.id, { required: e.target.checked })}
+          />
+          <span>שדה חובה</span>
+        </label>
+      )}
+
+      {phase === 'setup' && (
         <div className="edit-panel-foot">
           <button className="btn-ghost" onClick={() => onDuplicate(field.id)}>
             שכפל

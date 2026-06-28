@@ -3,6 +3,7 @@ import SignSurface from './SignSurface.jsx';
 import { api } from '../lib/api.js';
 import { notify, bytesToBase64 } from '../lib/notify.js';
 import { renderPdfPages, buildSignedPdf } from '../lib/pdfUtils.js';
+import { isFieldEmpty } from '../lib/fields.js';
 
 const SIGNERS = [{ name: 'החותם', color: '#1f7a53' }];
 
@@ -58,6 +59,11 @@ export default function FormSignerView({ id }) {
     setFields((prev) => prev.map((f) => (f.id === fid ? { ...f, ...patch } : f)));
 
   async function submit() {
+    const missing = fields.filter((f) => f.required && isFieldEmpty(f)).length;
+    if (missing) {
+      alert(`יש למלא ${missing} שדות חובה לפני השליחה.`);
+      return;
+    }
     const emptySig = fields.filter((f) => f.type === 'signature' && !f.value).length;
     if (emptySig && !confirm(`נשארו ${emptySig} שדות חתימה ריקים. לשלוח בכל זאת?`)) return;
     setBusy(true);

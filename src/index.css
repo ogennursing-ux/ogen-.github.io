@@ -560,6 +560,19 @@ button {
   object-fit: contain;
   pointer-events: none;
 }
+.field-req {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  color: var(--danger);
+  font-weight: 800;
+  font-size: 16px;
+  line-height: 1;
+  pointer-events: none;
+}
+.req-toggle {
+  font-size: 14px;
+}
 .field-delete {
   position: absolute;
   top: -11px;

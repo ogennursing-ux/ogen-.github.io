@@ -87,6 +87,7 @@ export default function FieldBox({
       onPointerCancel={onPointerUp}
     >
       <FieldContent field={field} color={color} />
+      {field.required && <span className="field-req" aria-hidden>*</span>}
 
       {selected && !locked && !noEdit && (
         <>

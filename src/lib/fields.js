@@ -25,6 +25,9 @@ export const FIELD_ICONS = {
   initials: '🔡',
 };
 
+// A field counts as empty (unfilled) for validation purposes.
+export const isFieldEmpty = (f) => (f.type === 'checkbox' ? f.value !== true : !f.value);
+
 export const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 export const uid = () =>
