@@ -14,6 +14,8 @@ export default function Dashboard({ onDownloadSigned }) {
   const [info, setInfo] = useState({}); // id -> {status,current,total}
   const [query, setQuery] = useState('');
   const [showN, setShowN] = useState(25);
+  const [sortBy, setSortBy] = useState('new'); // new | old | name | status
+  const [filterStatus, setFilterStatus] = useState('all'); // all | pending | signed
   const [selected, setSelected] = useState(() => new Set());
   const [busy, setBusy] = useState(false);
 
@@ -33,7 +35,21 @@ export default function Dashboard({ onDownloadSigned }) {
 
   if (!items.length) return null;
 
-  const filtered = items.filter((it) => (it.title || '').includes(query.trim())).slice(0, showN);
+  const matchesStatus = (id) => {
+    if (filterStatus === 'all') return true;
+    const st = info[id]?.status;
+    if (filterStatus === 'signed') return st === 'signed';
+    return st && st !== 'signed' && st !== 'missing'; // pending
+  };
+  const sorted = items
+    .filter((it) => (it.title || '').includes(query.trim()) && matchesStatus(it.id))
+    .sort((a, b) => {
+      if (sortBy === 'old') return a.createdAt - b.createdAt;
+      if (sortBy === 'name') return (a.title || '').localeCompare(b.title || '', 'he');
+      if (sortBy === 'status') return (info[a.id]?.status || '').localeCompare(info[b.id]?.status || '');
+      return b.createdAt - a.createdAt; // new (default)
+    });
+  const filtered = sorted.slice(0, showN);
   const visibleIds = filtered.map((i) => i.id);
   const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
 
@@ -117,12 +133,34 @@ export default function Dashboard({ onDownloadSigned }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
+          <select className="dash-show" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+            <option value="new">חדש → ישן</option>
+            <option value="old">ישן → חדש</option>
+            <option value="name">לפי שם</option>
+            <option value="status">לפי סטטוס</option>
+          </select>
           <select className="dash-show" value={showN} onChange={(e) => setShowN(+e.target.value)}>
             {[10, 25, 50, 100].map((n) => (
               <option key={n} value={n}>הצג {n}</option>
             ))}
           </select>
         </div>
+      </div>
+
+      <div className="dash-filters">
+        {[
+          ['all', 'הכל'],
+          ['pending', 'ממתינים'],
+          ['signed', 'נחתמו'],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            className={`chip${filterStatus === key ? ' active' : ''}`}
+            onClick={() => setFilterStatus(key)}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       <div className="dash-bulk">

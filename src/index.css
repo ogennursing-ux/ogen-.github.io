@@ -875,6 +875,25 @@ button {
   font-size: 13.5px;
   background: #fff;
 }
+.dash-filters {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.dash-filters .chip {
+  padding: 6px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 20px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.dash-filters .chip.active {
+  border-color: var(--accent);
+  background: #eef4ff;
+  color: var(--accent);
+}
 .dash-bulk {
   display: flex;
   align-items: center;
