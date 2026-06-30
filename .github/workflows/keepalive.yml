@@ -1,0 +1,22 @@
+name: Supabase keepalive
+
+# Keeps the free Supabase project from pausing by sending a tiny database
+# query every couple of days. The anon key is public by design (protected by
+# Row Level Security), so it is safe to embed here.
+on:
+  schedule:
+    - cron: '17 6 */2 * *' # every 2 days at 06:17 UTC
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase (tiny DB query)
+        env:
+          ANON: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRocmN0cWp4YmRsd2Z4YWJpbmJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NjM1MDUsImV4cCI6MjA5NzMzOTUwNX0.MlmRsagJbAVAwiKMZTBDQ8K1AVTB45EJzhdrZMR2fmY'
+        run: |
+          curl -fsS -o /dev/null -w "supabase ping -> HTTP %{http_code}\n" \
+            "https://dhrctqjxbdlwfxabinbr.supabase.co/rest/v1/sign_requests?select=id&limit=1" \
+            -H "apikey: $ANON" \
+            -H "Authorization: Bearer $ANON"
