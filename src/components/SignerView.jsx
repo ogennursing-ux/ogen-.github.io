@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import SignFlow from './SignFlow.jsx';
 import LangToggle from './LangToggle.jsx';
 import { api } from '../lib/api.js';
-import { notify, bytesToBase64 } from '../lib/notify.js';
+import { notify, bytesToBase64, getIp } from '../lib/notify.js';
 import { renderPdfPages, buildSignedPdf } from '../lib/pdfUtils.js';
 import { useT } from '../lib/i18n.js';
 
@@ -70,8 +70,9 @@ export default function SignerView({ id }) {
     setBusy(true);
     try {
       const now = new Date().toISOString();
+      const ip = await getIp();
       const newList = signers.list.map((s, i) =>
-        i === current ? { ...s, signed: true, signedAt: now } : s,
+        i === current ? { ...s, signed: true, signedAt: now, ip } : s,
       );
       const isLast = current >= signers.list.length - 1;
 
@@ -79,6 +80,7 @@ export default function SignerView({ id }) {
         const bytes = await buildSignedPdf(originalBytes.slice(0), filled, {
           names: newList.map((s) => s.name),
           refId: id,
+          ip,
         });
         await api.submitSigned(id, { fields: filled, signers: { current, list: newList }, signedPdfBytes: bytes });
         setSignedBytes(bytes);

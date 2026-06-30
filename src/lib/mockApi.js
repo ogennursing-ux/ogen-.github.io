@@ -149,4 +149,10 @@ export const mockApi = {
       .filter((r) => r.template_id === templateId)
       .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
   },
+
+  async listAllSigned() {
+    return Object.values(load(REQ_KEY))
+      .filter((r) => r.status === 'signed')
+      .sort((a, b) => (b.signed_at || '').localeCompare(a.signed_at || ''));
+  },
 };

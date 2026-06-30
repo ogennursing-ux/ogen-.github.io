@@ -159,6 +159,24 @@ const EN = {
   'שלח במייל': 'Send by email',
   'שלח בוואטסאפ': 'Send on WhatsApp',
 
+  // login
+  'כניסה למערכת': 'Sign in',
+  'שם משתמש': 'Username',
+  סיסמה: 'Password',
+  התחבר: 'Log in',
+  'שם משתמש או סיסמה שגויים': 'Wrong username or password',
+  'התנתק': 'Log out',
+
+  // document name step
+  'איך לקרוא למסמך?': 'What should we call the document?',
+  'המשך לעריכה': 'Continue to editor',
+
+  // all signatures + notifications
+  'כל החתימות במערכת': 'All signatures',
+  'אין עדיין חתימות במערכת.': 'No signatures yet.',
+  'חתימות חדשות: {n}': 'New signatures: {n}',
+  'הוספת שדות': 'Add fields',
+
   // pdf preview
   'תצוגה מקדימה': 'Preview',
   'טוען תצוגה…': 'Loading preview…',

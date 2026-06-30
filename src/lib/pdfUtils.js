@@ -194,6 +194,7 @@ export async function buildSignedPdf(originalPdfBytes, fields, audit) {
       const parts = ['נחתם דיגיטלית'];
       if (audit.names && audit.names.length) parts.push('ע"י ' + audit.names.filter(Boolean).join(', '));
       parts.push(stampNow());
+      if (audit.ip) parts.push('IP ' + audit.ip);
       if (audit.refId) parts.push('אסמכתא ' + String(audit.refId).slice(0, 8));
       const text = parts.join(' · ');
       const margin = 10;

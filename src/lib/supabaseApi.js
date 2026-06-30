@@ -132,6 +132,17 @@ export const supabaseApi = {
     return { id };
   },
 
+  async listAllSigned() {
+    const { data, error } = await sb
+      .from('sign_requests')
+      .select('*')
+      .eq('status', 'signed')
+      .order('signed_at', { ascending: false })
+      .limit(500);
+    if (error) throw new Error('טעינת החתימות נכשלה: ' + error.message);
+    return data || [];
+  },
+
   async listSubmissions(templateId) {
     const { data, error } = await sb
       .from('sign_requests')

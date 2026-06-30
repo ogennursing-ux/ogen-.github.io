@@ -33,6 +33,17 @@ export async function notify(webhook, payload) {
   }
 }
 
+// Best-effort lookup of the signer's public IP (for the audit trail).
+export async function getIp() {
+  try {
+    const res = await fetch('https://api.ipify.org?format=json');
+    const j = await res.json();
+    return j.ip || null;
+  } catch {
+    return null;
+  }
+}
+
 // Convert PDF bytes to base64 (for emailing the signed file as an attachment).
 export function bytesToBase64(bytes) {
   let bin = '';

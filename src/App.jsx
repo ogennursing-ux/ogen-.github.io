@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import Dropzone from './components/Dropzone.jsx';
 import Toolbar from './components/Toolbar.jsx';
+import ToolRail from './components/ToolRail.jsx';
 import SignerBar from './components/SignerBar.jsx';
 import PdfPage from './components/PdfPage.jsx';
 import EditPanel from './components/EditPanel.jsx';
 import Dashboard from './components/Dashboard.jsx';
+import AllSignatures from './components/AllSignatures.jsx';
 import Templates from './components/Templates.jsx';
 import Settings from './components/Settings.jsx';
 import LinkCreated from './components/LinkCreated.jsx';
 import SignerView from './components/SignerView.jsx';
 import FormSignerView from './components/FormSignerView.jsx';
+import Login from './components/Login.jsx';
 import LangToggle from './components/LangToggle.jsx';
 import { renderPdfPages } from './lib/pdfUtils.js';
 import { FIELD_DEFAULTS, FIELD_LABELS, DEFAULT_SIGNERS, clamp, uid, todayISO } from './lib/fields.js';
@@ -19,6 +22,13 @@ import { LangContext, getInitialLang, applyLang, useT } from './lib/i18n.js';
 
 export default function App() {
   const [lang, setLang] = useState(getInitialLang);
+  const [authed, setAuthed] = useState(() => {
+    try {
+      return localStorage.getItem('ogen_auth') === '1';
+    } catch {
+      return false;
+    }
+  });
   useEffect(() => {
     applyLang(lang);
   }, [lang]);
@@ -26,16 +36,30 @@ export default function App() {
   const params = new URLSearchParams(location.search);
   const reqId = params.get('req');
   const formId = params.get('form');
-  const view = reqId ? <SignerView id={reqId} /> : formId ? <FormSignerView id={formId} /> : <PrepareApp />;
+
+  function logout() {
+    try {
+      localStorage.removeItem('ogen_auth');
+    } catch {
+      /* ignore */
+    }
+    setAuthed(false);
+  }
+
+  let view;
+  if (reqId) view = <SignerView id={reqId} />;
+  else if (formId) view = <FormSignerView id={formId} />;
+  else if (!authed) view = <Login onLogin={() => setAuthed(true)} />;
+  else view = <PrepareApp onLogout={logout} />;
 
   return <LangContext.Provider value={{ lang, setLang }}>{view}</LangContext.Provider>;
 }
 
 const newSigners = () => [{ ...DEFAULT_SIGNERS[0], email: '' }];
 
-function PrepareApp() {
+function PrepareApp({ onLogout }) {
   const t = useT();
-  const [screen, setScreen] = useState('home'); // home | editor | created
+  const [screen, setScreen] = useState('home'); // home | name | editor | created
   const [pages, setPages] = useState([]);
   const [pdfBytes, setPdfBytes] = useState(null);
   const [baseName, setBaseName] = useState('document');
@@ -93,7 +117,7 @@ function PrepareApp() {
       setActiveSigner(0);
       setSelectedId(null);
       setActiveTool(null);
-      setScreen('editor');
+      setScreen('name'); // ask for the document name before the editor
     } catch (err) {
       console.error(err);
       alert(t('לא ניתן לפתוח את המסמך') + ': ' + err.message);
@@ -251,12 +275,12 @@ function PrepareApp() {
         <span className="brand-name">{t('חתימה דיגיטלית')}</span>
       </div>
       <div className="header-actions">
-        {screen === 'editor' ? (
-          <span className="doc-name">{baseName}.pdf</span>
-        ) : (
+        {screen === 'editor' && <span className="doc-name">{baseName}.pdf</span>}
+        {screen !== 'editor' && (
           <button className="header-settings" onClick={() => setShowSettings(true)}>{t('⚙ הגדרות')}</button>
         )}
         <LangToggle />
+        <button className="header-settings" onClick={onLogout}>{t('התנתק')}</button>
       </div>
     </header>
   );
@@ -275,6 +299,30 @@ function PrepareApp() {
           onNewDocument={startOver}
           onDashboard={startOver}
         />
+        {settingsModal}
+      </div>
+    );
+  }
+
+  if (screen === 'name') {
+    return (
+      <div className="app">
+        {header}
+        <div className="centered-screen">
+          <div className="card">
+            <h2>{t('איך לקרוא למסמך?')}</h2>
+            <input
+              className="text-input"
+              value={baseName}
+              autoFocus
+              onChange={(e) => setBaseName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && setScreen('editor')}
+            />
+            <button className="btn-primary full" style={{ marginTop: 14 }} onClick={() => setScreen('editor')}>
+              {t('המשך לעריכה')}
+            </button>
+          </div>
+        </div>
         {settingsModal}
       </div>
     );
@@ -301,17 +349,16 @@ function PrepareApp() {
         <Dropzone onFile={handleFile} busy={busy} />
         <Templates />
         <Dashboard onDownloadSigned={downloadSigned} />
+        <AllSignatures />
         {settingsModal}
       </div>
     );
   }
 
   return (
-    <div className="app">
+    <div className="app editor-layout">
       {header}
       <Toolbar
-        activeTool={activeTool}
-        onSelectTool={setActiveTool}
         onContinue={createLink}
         onReset={startOver}
         onSaveTemplate={saveTemplate}
@@ -327,15 +374,6 @@ function PrepareApp() {
         onAdd={addSigner}
         onRemove={removeSigner}
       />
-      <div className="doc-name-bar">
-        <label>{t('שם המסמך:')}</label>
-        <input
-          className="doc-name-input"
-          value={baseName}
-          onChange={(e) => setBaseName(e.target.value)}
-          placeholder={t('שם המסמך')}
-        />
-      </div>
       {activeTool ? (
         <div className="place-hint">
           {t('לחץ על המסמך כדי למקם {label}', { label: t(FIELD_LABELS[activeTool]) })}
@@ -347,6 +385,8 @@ function PrepareApp() {
           </div>
         )
       )}
+
+      <ToolRail activeTool={activeTool} onSelectTool={setActiveTool} />
 
       <main
         className="pages"

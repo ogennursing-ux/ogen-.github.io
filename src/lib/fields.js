@@ -2,7 +2,7 @@
 
 // Default size of each field type, as a fraction of the page (w of width, h of height).
 export const FIELD_DEFAULTS = {
-  signature: { w: 0.26, h: 0.09 },
+  signature: { w: 0.2, h: 0.07 },
   firstName: { w: 0.22, h: 0.045 },
   lastName: { w: 0.22, h: 0.045 },
   fullName: { w: 0.28, h: 0.045 },

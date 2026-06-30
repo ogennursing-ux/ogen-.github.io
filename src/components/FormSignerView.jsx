@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import SignFlow from './SignFlow.jsx';
 import LangToggle from './LangToggle.jsx';
 import { api } from '../lib/api.js';
-import { notify, bytesToBase64 } from '../lib/notify.js';
+import { notify, bytesToBase64, getIp } from '../lib/notify.js';
 import { renderPdfPages, buildSignedPdf } from '../lib/pdfUtils.js';
 import { useT } from '../lib/i18n.js';
 
@@ -60,7 +60,8 @@ export default function FormSignerView({ id }) {
   async function handleSubmit(filled) {
     setBusy(true);
     try {
-      const bytes = await buildSignedPdf(originalBytes.slice(0), filled, { names: ['החותם'] });
+      const ip = await getIp();
+      const bytes = await buildSignedPdf(originalBytes.slice(0), filled, { names: ['החותם'], ip });
       await api.submitForm(template, { fields: filled, signedPdfBytes: bytes });
       setSignedBytes(bytes);
       setStatus('done');
