@@ -1,31 +1,22 @@
 import { FIELD_LABELS } from '../lib/fields.js';
+import { useT } from '../lib/i18n.js';
 
-// Owner setup panel for a placed field: which signer it belongs to, whether it
-// is required, and duplicate/delete. The value itself is filled by the signer
-// (via the central "fill once" form), so there is no value input here.
-export default function EditPanel({
-  field,
-  signers,
-  phase,
-  onChange,
-  onDelete,
-  onDuplicate,
-  onClose,
-}) {
+export default function EditPanel({ field, signers, phase, onChange, onDelete, onDuplicate, onClose }) {
+  const t = useT();
   if (!field || phase !== 'setup') return null;
 
   return (
     <div className="edit-panel">
       <div className="edit-panel-head">
-        <strong>{FIELD_LABELS[field.type] || 'שדה'}</strong>
-        <button className="icon-btn" onClick={onClose} aria-label="סגור">
+        <strong>{t(FIELD_LABELS[field.type] || 'שדה')}</strong>
+        <button className="icon-btn" onClick={onClose} aria-label="close">
           ✕
         </button>
       </div>
 
       {signers.length > 1 && (
         <div className="assign-row">
-          <span className="assign-label">שייך ל:</span>
+          <span className="assign-label">{t('שייך ל:')}</span>
           {signers.map((s, i) => (
             <button
               key={i}
@@ -40,7 +31,7 @@ export default function EditPanel({
         </div>
       )}
 
-      <p className="muted small">השדה ימולא על־ידי החותם דרך הקישור.</p>
+      <p className="muted small">{t('השדה ימולא על־ידי החותם דרך הקישור.')}</p>
 
       <label className="checkbox-row req-toggle">
         <input
@@ -48,15 +39,15 @@ export default function EditPanel({
           checked={!!field.required}
           onChange={(e) => onChange(field.id, { required: e.target.checked })}
         />
-        <span>שדה חובה</span>
+        <span>{t('שדה חובה')}</span>
       </label>
 
       <div className="edit-panel-foot">
         <button className="btn-ghost" onClick={() => onDuplicate(field.id)}>
-          שכפל
+          {t('שכפל')}
         </button>
         <button className="btn-danger" onClick={() => onDelete(field.id)}>
-          מחק שדה
+          {t('מחק שדה')}
         </button>
       </div>
     </div>

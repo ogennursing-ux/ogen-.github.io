@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import SignFlow from './SignFlow.jsx';
+import LangToggle from './LangToggle.jsx';
 import { api } from '../lib/api.js';
 import { notify, bytesToBase64 } from '../lib/notify.js';
 import { renderPdfPages, buildSignedPdf } from '../lib/pdfUtils.js';
+import { useT } from '../lib/i18n.js';
 
 const SIGNERS = [{ name: 'החותם', color: '#1f7a53' }];
 
@@ -20,6 +22,7 @@ function download(bytes, name) {
 
 // Permanent (reusable) link: every visitor signs a fresh copy of the template.
 export default function FormSignerView({ id }) {
+  const t = useT();
   const [status, setStatus] = useState('loading'); // loading|ready|done|error
   const [error, setError] = useState('');
   const [template, setTemplate] = useState(null);
@@ -83,30 +86,31 @@ export default function FormSignerView({ id }) {
     <header className="app-header">
       <div className="brand">
         <span className="brand-mark">✒️</span>
-        <span className="brand-name">חתימה דיגיטלית</span>
+        <span className="brand-name">{t('חתימה דיגיטלית')}</span>
       </div>
+      <LangToggle />
     </header>
   );
   const centered = (content) => (
     <div className="app">{header}<div className="centered-screen">{content}</div></div>
   );
 
-  if (status === 'loading') return centered(<p className="muted">טוען מסמך…</p>);
+  if (status === 'loading') return centered(<p className="muted">{t('טוען מסמך…')}</p>);
   if (status === 'error')
     return centered(
-      <div className="card"><h2>לא ניתן לפתוח את המסמך</h2><p className="muted">{error}</p></div>,
+      <div className="card"><h2>{t('לא ניתן לפתוח את המסמך')}</h2><p className="muted">{error}</p></div>,
     );
   if (status === 'done')
     return centered(
       <div className="card">
         <div className="big-check" aria-hidden>✓</div>
-        <h2>תודה! החתימה נשלחה</h2>
-        <p className="muted">העותק החתום נשמר ונשלח לשולח.</p>
+        <h2>{t('תודה! החתימה נשלחה')}</h2>
+        <p className="muted">{t('העותק החתום נשמר ונשלח לשולח.')}</p>
         <button className="btn-primary full" onClick={() => download(signedBytes, `${title}-signed.pdf`)}>
-          הורד עותק חתום
+          {t('הורד עותק חתום')}
         </button>
         <button className="btn-ghost full" style={{ marginTop: 8 }} onClick={load}>
-          חתום על עותק נוסף
+          {t('חתום על עותק נוסף')}
         </button>
       </div>,
     );

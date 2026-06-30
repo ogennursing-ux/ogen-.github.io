@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import SignFlow from './SignFlow.jsx';
+import LangToggle from './LangToggle.jsx';
 import { api } from '../lib/api.js';
 import { notify, bytesToBase64 } from '../lib/notify.js';
 import { renderPdfPages, buildSignedPdf } from '../lib/pdfUtils.js';
+import { useT } from '../lib/i18n.js';
 
 const FALLBACK = { current: 0, list: [{ name: 'החותם', color: '#1f7a53' }] };
 
@@ -26,6 +28,7 @@ function normalizeSigners(s) {
 }
 
 export default function SignerView({ id }) {
+  const t = useT();
   const [status, setStatus] = useState('loading'); // loading|ready|already|done|error
   const [doneKind, setDoneKind] = useState('final');
   const [error, setError] = useState('');
@@ -122,27 +125,28 @@ export default function SignerView({ id }) {
     <header className="app-header">
       <div className="brand">
         <span className="brand-mark">✒️</span>
-        <span className="brand-name">חתימה דיגיטלית</span>
+        <span className="brand-name">{t('חתימה דיגיטלית')}</span>
       </div>
+      <LangToggle />
     </header>
   );
   const centered = (content) => (
     <div className="app">{header}<div className="centered-screen">{content}</div></div>
   );
 
-  if (status === 'loading') return centered(<p className="muted">טוען מסמך…</p>);
+  if (status === 'loading') return centered(<p className="muted">{t('טוען מסמך…')}</p>);
   if (status === 'error')
     return centered(
-      <div className="card"><h2>לא ניתן לפתוח את המסמך</h2><p className="muted">{error}</p></div>,
+      <div className="card"><h2>{t('לא ניתן לפתוח את המסמך')}</h2><p className="muted">{error}</p></div>,
     );
   if (status === 'already')
     return centered(
       <div className="card">
         <div className="big-check" aria-hidden>✓</div>
-        <h2>המסמך כבר נחתם</h2>
-        <p className="muted">אפשר להוריד עותק חתום.</p>
+        <h2>{t('המסמך כבר נחתם')}</h2>
+        <p className="muted">{t('אפשר להוריד עותק חתום.')}</p>
         <button className="btn-primary full" disabled={busy} onClick={downloadSignedExisting}>
-          {busy ? 'מוריד…' : 'הורד מסמך חתום'}
+          {busy ? t('מוריד…') : t('הורד מסמך חתום')}
         </button>
       </div>,
     );
@@ -152,16 +156,16 @@ export default function SignerView({ id }) {
         <div className="big-check" aria-hidden>✓</div>
         {doneKind === 'final' ? (
           <>
-            <h2>תודה! החתימה הושלמה</h2>
-            <p className="muted">המסמך החתום נשמר ונשלח לשולח הבקשה.</p>
+            <h2>{t('תודה! החתימה הושלמה')}</h2>
+            <p className="muted">{t('המסמך החתום נשמר ונשלח לשולח הבקשה.')}</p>
             <button className="btn-primary full" onClick={() => download(signedBytes, `${title}-signed.pdf`)}>
-              הורד עותק חתום
+              {t('הורד עותק חתום')}
             </button>
           </>
         ) : (
           <>
-            <h2>תודה! החתימה נשמרה</h2>
-            <p className="muted">המסמך הועבר לחתימת {signers.list[current + 1]?.name || 'החותם הבא'}.</p>
+            <h2>{t('תודה! החתימה נשמרה')}</h2>
+            <p className="muted">{t('המסמך הועבר לחתימת {name}.', { name: signers.list[current + 1]?.name || '' })}</p>
           </>
         )}
       </div>,

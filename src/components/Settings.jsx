@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { getSettings, saveSettings } from '../lib/notify.js';
+import { useT } from '../lib/i18n.js';
 
-// Owner settings: where completion emails go + the Make webhook that sends them.
 export default function Settings({ onClose }) {
+  const t = useT();
   const s = getSettings();
   const [ownerEmail, setOwnerEmail] = useState(s.ownerEmail || '');
   const [webhook, setWebhook] = useState(s.webhook || '');
@@ -16,13 +17,13 @@ export default function Settings({ onClose }) {
     <div className="modal-backdrop" onPointerDown={onClose}>
       <div className="sign-modal" onPointerDown={(e) => e.stopPropagation()}>
         <div className="sign-modal-head">
-          <h3>הגדרות</h3>
-          <button className="icon-btn" onClick={onClose} aria-label="סגור">✕</button>
+          <h3>{t('הגדרות')}</h3>
+          <button className="icon-btn" onClick={onClose} aria-label="close">✕</button>
         </div>
         <p className="sign-hint">
-          להפעלת שליחה אוטומטית במייל (קישור לחותם + המסמך החתום אליך) — חבר webhook של Make.
+          {t('להפעלת שליחה אוטומטית במייל (קישור לחותם + המסמך החתום אליך) — חבר webhook של Make.')}
         </p>
-        <label className="field-label">המייל שלך (לקבלת מסמכים חתומים)</label>
+        <label className="field-label">{t('המייל שלך (לקבלת מסמכים חתומים)')}</label>
         <input
           className="text-input"
           type="email"
@@ -31,7 +32,7 @@ export default function Settings({ onClose }) {
           value={ownerEmail}
           onChange={(e) => setOwnerEmail(e.target.value)}
         />
-        <label className="field-label" style={{ marginTop: 10 }}>כתובת ה-Webhook של Make</label>
+        <label className="field-label" style={{ marginTop: 10 }}>{t('כתובת ה-Webhook של Make')}</label>
         <input
           className="text-input"
           type="url"
@@ -41,7 +42,7 @@ export default function Settings({ onClose }) {
           onChange={(e) => setWebhook(e.target.value)}
         />
         <div className="sign-actions">
-          <button className="btn-primary" onClick={save}>שמור</button>
+          <button className="btn-primary" onClick={save}>{t('שמור')}</button>
         </div>
       </div>
     </div>

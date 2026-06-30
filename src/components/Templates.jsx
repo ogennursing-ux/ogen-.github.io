@@ -9,6 +9,7 @@ import {
   rememberTemplate,
 } from '../lib/api.js';
 import { getSettings } from '../lib/notify.js';
+import { useT } from '../lib/i18n.js';
 
 const DEFAULT_LIST = [{ name: 'החותם', email: null, color: '#1f7a53' }];
 
@@ -23,22 +24,20 @@ function download(bytes, name) {
   a.remove();
   URL.revokeObjectURL(url);
 }
+const copy = (text) => navigator.clipboard?.writeText(text).catch(() => window.prompt('copy', text));
 
-const copy = (text) =>
-  navigator.clipboard?.writeText(text).catch(() => window.prompt('העתק:', text));
-
-// Owner's saved templates: permanent links, one-off links, and submissions.
 export default function Templates() {
+  const t = useT();
   const [items, setItems] = useState(listMyTemplates());
-  const [subs, setSubs] = useState({}); // id -> array | 'loading'
+  const [subs, setSubs] = useState({});
   const [busy, setBusy] = useState(false);
 
   if (!items.length) return null;
 
-  async function createOneOff(t) {
+  async function createOneOff(tmplRef) {
     setBusy(true);
     try {
-      const tmpl = await api.getTemplate(t.id);
+      const tmpl = await api.getTemplate(tmplRef.id);
       const bytes = await api.getOriginalBytes(tmpl);
       const list = (tmpl.signers && tmpl.signers.length ? tmpl.signers : DEFAULT_LIST).map((s) => ({
         ...s,
@@ -57,9 +56,9 @@ export default function Templates() {
       });
       rememberRequest({ id, title: tmpl.title, createdAt: Date.now() });
       copy(signingLink(id));
-      alert('נוצר קישור חד-פעמי חדש והועתק. שלח אותו לחותם.');
+      alert(t('נוצר קישור חד-פעמי חדש והועתק. שלח אותו לחותם.'));
     } catch (e) {
-      alert('שגיאה: ' + e.message);
+      alert('error: ' + e.message);
     } finally {
       setBusy(false);
     }
@@ -76,7 +75,7 @@ export default function Templates() {
       setSubs((s) => ({ ...s, [id]: list }));
     } catch (e) {
       setSubs((s) => ({ ...s, [id]: [] }));
-      alert('שגיאה בטעינת החתימות: ' + e.message);
+      alert('error: ' + e.message);
     }
   }
 
@@ -84,16 +83,16 @@ export default function Templates() {
     try {
       download(await api.getSignedBytes(sub), `${sub.title || 'document'}-signed.pdf`);
     } catch (e) {
-      alert('הורדה נכשלה: ' + e.message);
+      alert('error: ' + e.message);
     }
   }
 
-  async function duplicate(t) {
+  async function duplicate(tmplRef) {
     setBusy(true);
     try {
-      const tmpl = await api.getTemplate(t.id);
+      const tmpl = await api.getTemplate(tmplRef.id);
       const bytes = await api.getOriginalBytes(tmpl);
-      const title = (tmpl.title || 'תבנית') + ' (עותק)';
+      const title = (tmpl.title || t('תבנית')) + ' (' + t('שכפל') + ')';
       const settings = getSettings();
       const { id } = await api.createTemplate({
         title,
@@ -106,14 +105,14 @@ export default function Templates() {
       rememberTemplate({ id, title, createdAt: Date.now() });
       setItems(listMyTemplates());
     } catch (e) {
-      alert('שגיאה בשכפול: ' + e.message);
+      alert('error: ' + e.message);
     } finally {
       setBusy(false);
     }
   }
 
   function remove(id) {
-    if (!confirm('למחוק את התבנית? קישורים קבועים שלה יפסיקו לעבוד.')) return;
+    if (!confirm(t('למחוק את התבנית? קישורים קבועים שלה יפסיקו לעבוד.'))) return;
     api.deleteTemplate(id).catch(() => {});
     forgetTemplate(id);
     setItems(listMyTemplates());
@@ -121,52 +120,49 @@ export default function Templates() {
 
   return (
     <div className="dashboard">
-      <h3>התבניות שלי</h3>
+      <h3>{t('התבניות שלי')}</h3>
       <ul className="req-list">
-        {items.map((t) => {
-          const list = subs[t.id];
+        {items.map((tmplRef) => {
+          const list = subs[tmplRef.id];
           return (
-            <li key={t.id} className="tmpl-item">
+            <li key={tmplRef.id} className="tmpl-item">
               <div className="tmpl-row">
                 <div className="req-main">
-                  <span className="req-title">{t.title || 'תבנית'}</span>
-                  <span className="req-date">{new Date(t.createdAt).toLocaleDateString('he-IL')}</span>
+                  <span className="req-title">{tmplRef.title || t('תבנית')}</span>
+                  <span className="req-date">{new Date(tmplRef.createdAt).toLocaleDateString()}</span>
                 </div>
                 <div className="req-side wrap">
-                  <button className="btn-primary sm" disabled={busy} onClick={() => copy(formLink(t.id))}>
-                    העתק לינק קבוע
+                  <button className="btn-primary sm" disabled={busy} onClick={() => copy(formLink(tmplRef.id))}>
+                    {t('העתק לינק קבוע')}
                   </button>
-                  <button className="btn-ghost sm" disabled={busy} onClick={() => createOneOff(t)}>
-                    קישור חד-פעמי
+                  <button className="btn-ghost sm" disabled={busy} onClick={() => createOneOff(tmplRef)}>
+                    {t('קישור חד-פעמי')}
                   </button>
-                  <button className="btn-ghost sm" onClick={() => toggleSubs(t.id)}>
-                    חתימות{Array.isArray(list) ? ` (${list.length})` : ''}
+                  <button className="btn-ghost sm" onClick={() => toggleSubs(tmplRef.id)}>
+                    {t('חתימות')}{Array.isArray(list) ? ` (${list.length})` : ''}
                   </button>
-                  <button className="btn-ghost sm" disabled={busy} onClick={() => duplicate(t)}>
-                    שכפל
+                  <button className="btn-ghost sm" disabled={busy} onClick={() => duplicate(tmplRef)}>
+                    {t('שכפל')}
                   </button>
-                  <button className="btn-ghost sm danger-text" onClick={() => remove(t.id)}>
-                    מחק
+                  <button className="btn-ghost sm danger-text" onClick={() => remove(tmplRef.id)}>
+                    {t('מחק')}
                   </button>
                 </div>
               </div>
-              {list === 'loading' && <p className="muted small sub-note">טוען…</p>}
-              {Array.isArray(list) && (
-                list.length ? (
+              {list === 'loading' && <p className="muted small sub-note">{t('טוען…')}</p>}
+              {Array.isArray(list) &&
+                (list.length ? (
                   <ul className="sub-list">
                     {list.map((sub) => (
                       <li key={sub.id} className="sub-row">
-                        <span>{new Date(sub.signed_at || sub.created_at).toLocaleString('he-IL')}</span>
-                        <button className="btn-ghost sm" onClick={() => downloadSubmission(sub)}>
-                          הורד
-                        </button>
+                        <span>{new Date(sub.signed_at || sub.created_at).toLocaleString()}</span>
+                        <button className="btn-ghost sm" onClick={() => downloadSubmission(sub)}>{t('הורד')}</button>
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="muted small sub-note">עדיין אין חתימות.</p>
-                )
-              )}
+                  <p className="muted small sub-note">{t('עדיין אין חתימות.')}</p>
+                ))}
             </li>
           );
         })}

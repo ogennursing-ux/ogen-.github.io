@@ -10,23 +10,31 @@ import Settings from './components/Settings.jsx';
 import LinkCreated from './components/LinkCreated.jsx';
 import SignerView from './components/SignerView.jsx';
 import FormSignerView from './components/FormSignerView.jsx';
+import LangToggle from './components/LangToggle.jsx';
 import { renderPdfPages } from './lib/pdfUtils.js';
-import { FIELD_DEFAULTS, DEFAULT_SIGNERS, clamp, uid, todayISO } from './lib/fields.js';
+import { FIELD_DEFAULTS, FIELD_LABELS, DEFAULT_SIGNERS, clamp, uid, todayISO } from './lib/fields.js';
 import { api, rememberRequest, rememberTemplate, signingLink, formLink } from './lib/api.js';
 import { getSettings, notify } from './lib/notify.js';
+import { LangContext, getInitialLang, applyLang, useT } from './lib/i18n.js';
 
 export default function App() {
+  const [lang, setLang] = useState(getInitialLang);
+  useEffect(() => {
+    applyLang(lang);
+  }, [lang]);
+
   const params = new URLSearchParams(location.search);
   const reqId = params.get('req');
   const formId = params.get('form');
-  if (reqId) return <SignerView id={reqId} />;
-  if (formId) return <FormSignerView id={formId} />;
-  return <PrepareApp />;
+  const view = reqId ? <SignerView id={reqId} /> : formId ? <FormSignerView id={formId} /> : <PrepareApp />;
+
+  return <LangContext.Provider value={{ lang, setLang }}>{view}</LangContext.Provider>;
 }
 
 const newSigners = () => [{ ...DEFAULT_SIGNERS[0], email: '' }];
 
 function PrepareApp() {
+  const t = useT();
   const [screen, setScreen] = useState('home'); // home | editor | created
   const [pages, setPages] = useState([]);
   const [pdfBytes, setPdfBytes] = useState(null);
@@ -37,9 +45,9 @@ function PrepareApp() {
   const [activeTool, setActiveTool] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [created, setCreated] = useState(null); // { link, signersCount, signerEmail, permanent }
+  const [created, setCreated] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [sendMode, setSendMode] = useState('regular'); // regular | round
+  const [sendMode, setSendMode] = useState('regular');
 
   const selectedField = useMemo(
     () => fields.find((f) => f.id === selectedId) || null,
@@ -66,7 +74,7 @@ function PrepareApp() {
   async function handleFile(file) {
     const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
     if (!isPdf) {
-      alert('יש לבחור קובץ PDF.');
+      alert(t('יש לבחור קובץ PDF.'));
       return;
     }
     setBusy(true);
@@ -88,7 +96,7 @@ function PrepareApp() {
       setScreen('editor');
     } catch (err) {
       console.error(err);
-      alert('לא ניתן לפתוח את הקובץ: ' + err.message);
+      alert(t('לא ניתן לפתוח את המסמך') + ': ' + err.message);
     } finally {
       setBusy(false);
     }
@@ -144,7 +152,7 @@ function PrepareApp() {
   }
 
   function startOver() {
-    if (fields.length && !confirm('להתחיל מסמך חדש? השדות הנוכחיים יימחקו.')) return;
+    if (fields.length && !confirm(t('להתחיל מסמך חדש? השדות הנוכחיים יימחקו.'))) return;
     setPages([]);
     setPdfBytes(null);
     setFields([]);
@@ -160,7 +168,7 @@ function PrepareApp() {
 
   async function createLink() {
     if (!fields.length) {
-      alert('הוסף לפחות שדה אחד למסמך לפני יצירת הקישור.');
+      alert(t('הוסף לפחות שדה אחד למסמך לפני יצירת הקישור.'));
       return;
     }
     setBusy(true);
@@ -185,7 +193,7 @@ function PrepareApp() {
       setScreen('created');
     } catch (err) {
       console.error(err);
-      alert('יצירת הקישור נכשלה: ' + err.message);
+      alert(t('יצירת הקישור נכשלה') + ': ' + err.message);
     } finally {
       setBusy(false);
     }
@@ -193,7 +201,7 @@ function PrepareApp() {
 
   async function saveTemplate() {
     if (!fields.length) {
-      alert('הוסף לפחות שדה אחד לפני שמירת התבנית.');
+      alert(t('הוסף לפחות שדה אחד למסמך לפני יצירת הקישור.'));
       return;
     }
     setBusy(true);
@@ -212,7 +220,7 @@ function PrepareApp() {
       setScreen('created');
     } catch (err) {
       console.error(err);
-      alert('שמירת התבנית נכשלה: ' + err.message);
+      alert(t('שמירת התבנית נכשלה') + ': ' + err.message);
     } finally {
       setBusy(false);
     }
@@ -232,7 +240,7 @@ function PrepareApp() {
       a.remove();
       URL.revokeObjectURL(url);
     } catch (err) {
-      alert('הורדה נכשלה: ' + err.message);
+      alert(t('הורדה נכשלה') + ': ' + err.message);
     }
   }
 
@@ -240,13 +248,16 @@ function PrepareApp() {
     <header className="app-header">
       <div className="brand">
         <span className="brand-mark">✒️</span>
-        <span className="brand-name">חתימה דיגיטלית</span>
+        <span className="brand-name">{t('חתימה דיגיטלית')}</span>
       </div>
-      {screen === 'editor' ? (
-        <span className="doc-name">{baseName}.pdf</span>
-      ) : (
-        <button className="header-settings" onClick={() => setShowSettings(true)}>⚙ הגדרות</button>
-      )}
+      <div className="header-actions">
+        {screen === 'editor' ? (
+          <span className="doc-name">{baseName}.pdf</span>
+        ) : (
+          <button className="header-settings" onClick={() => setShowSettings(true)}>{t('⚙ הגדרות')}</button>
+        )}
+        <LangToggle />
+      </div>
     </header>
   );
 
@@ -278,13 +289,13 @@ function PrepareApp() {
             className={`home-tab${sendMode === 'regular' ? ' active' : ''}`}
             onClick={() => setSendMode('regular')}
           >
-            שליחה רגילה
+            {t('שליחה רגילה')}
           </button>
           <button
             className={`home-tab${sendMode === 'round' ? ' active' : ''}`}
             onClick={() => setSendMode('round')}
           >
-            סבב חתימות (2 חותמים)
+            {t('סבב חתימות (2 חותמים)')}
           </button>
         </div>
         <Dropzone onFile={handleFile} busy={busy} />
@@ -295,7 +306,6 @@ function PrepareApp() {
     );
   }
 
-  // editor
   return (
     <div className="app">
       {header}
@@ -307,17 +317,8 @@ function PrepareApp() {
         onSaveTemplate={saveTemplate}
         busy={busy}
         canContinue={fields.length > 0}
-        continueLabel="צור קישור לחתימה ›"
+        continueLabel={t('צור קישור לחתימה ›')}
       />
-      <div className="doc-name-bar">
-        <label>שם המסמך:</label>
-        <input
-          className="doc-name-input"
-          value={baseName}
-          onChange={(e) => setBaseName(e.target.value)}
-          placeholder="שם המסמך"
-        />
-      </div>
       <SignerBar
         signers={signers}
         activeSigner={activeSigner}
@@ -326,12 +327,23 @@ function PrepareApp() {
         onAdd={addSigner}
         onRemove={removeSigner}
       />
+      <div className="doc-name-bar">
+        <label>{t('שם המסמך:')}</label>
+        <input
+          className="doc-name-input"
+          value={baseName}
+          onChange={(e) => setBaseName(e.target.value)}
+          placeholder={t('שם המסמך')}
+        />
+      </div>
       {activeTool ? (
-        <div className="place-hint">לחץ על המסמך כדי למקם {labelOf(activeTool)}</div>
+        <div className="place-hint">
+          {t('לחץ על המסמך כדי למקם {label}', { label: t(FIELD_LABELS[activeTool]) })}
+        </div>
       ) : (
         fields.length === 0 && (
           <div className="place-hint subtle">
-            בחר סוג שדה מהסרגל למעלה ולחץ על המסמך כדי להוסיף שדה שהחותם ימלא
+            {t('בחר סוג שדה מהסרגל למעלה ולחץ על המסמך כדי להוסיף שדה שהחותם ימלא')}
           </div>
         )
       )}
@@ -374,8 +386,4 @@ function PrepareApp() {
       {settingsModal}
     </div>
   );
-}
-
-function labelOf(tool) {
-  return { signature: 'חתימה', text: 'טקסט', date: 'תאריך', checkbox: 'תיבת סימון' }[tool];
 }

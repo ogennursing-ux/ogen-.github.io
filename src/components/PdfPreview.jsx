@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { renderPdfPages } from '../lib/pdfUtils.js';
+import { useT } from '../lib/i18n.js';
 
 // Modal that renders a PDF (by a getBytes() loader) for preview before download.
 export default function PdfPreview({ getBytes, name, onClose, onDownload }) {
+  const t = useT();
   const [pages, setPages] = useState(null);
   const [error, setError] = useState('');
 
@@ -26,21 +28,21 @@ export default function PdfPreview({ getBytes, name, onClose, onDownload }) {
     <div className="modal-backdrop" onPointerDown={onClose}>
       <div className="preview-modal" onPointerDown={(e) => e.stopPropagation()}>
         <div className="sign-modal-head">
-          <h3 className="preview-title">{name || 'תצוגה מקדימה'}</h3>
-          <button className="icon-btn" onClick={onClose} aria-label="סגור">✕</button>
+          <h3 className="preview-title">{name || t('תצוגה מקדימה')}</h3>
+          <button className="icon-btn" onClick={onClose} aria-label="close">✕</button>
         </div>
         <div className="preview-pages">
           {error ? (
             <p className="muted">{error}</p>
           ) : !pages ? (
-            <p className="muted">טוען תצוגה…</p>
+            <p className="muted">{t('טוען תצוגה…')}</p>
           ) : (
-            pages.map((p, i) => <img key={i} className="preview-page" src={p.url} alt={`עמוד ${i + 1}`} />)
+            pages.map((p, i) => <img key={i} className="preview-page" src={p.url} alt={`page ${i + 1}`} />)
           )}
         </div>
         {onDownload && (
           <div className="sign-actions">
-            <button className="btn-primary" onClick={onDownload}>הורד מסמך</button>
+            <button className="btn-primary" onClick={onDownload}>{t('הורד מסמך')}</button>
           </div>
         )}
       </div>

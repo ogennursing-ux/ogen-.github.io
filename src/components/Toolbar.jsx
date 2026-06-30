@@ -1,4 +1,5 @@
 import { FIELD_ICONS, FIELD_LABELS } from '../lib/fields.js';
+import { useT } from '../lib/i18n.js';
 
 const TOOLS = [
   'signature',
@@ -12,8 +13,6 @@ const TOOLS = [
   'initials',
 ];
 
-// Setup-phase toolbar: pick a field tool to place, start over, or continue to
-// the signing flow.
 export default function Toolbar({
   activeTool,
   onSelectTool,
@@ -22,8 +21,9 @@ export default function Toolbar({
   onSaveTemplate,
   busy,
   canContinue,
-  continueLabel = 'המשך לחתימה ›',
+  continueLabel,
 }) {
+  const t = useT();
   return (
     <div className="toolbar">
       <div className="toolbar-tools">
@@ -32,26 +32,26 @@ export default function Toolbar({
             key={tool}
             className={`tool-btn${activeTool === tool ? ' active' : ''}`}
             onClick={() => onSelectTool(activeTool === tool ? null : tool)}
-            title={`הוסף ${FIELD_LABELS[tool]}`}
+            title={t('הוסף {label}', { label: t(FIELD_LABELS[tool]) })}
           >
             <span className="tool-icon" aria-hidden>
               {FIELD_ICONS[tool]}
             </span>
-            <span>{FIELD_LABELS[tool]}</span>
+            <span>{t(FIELD_LABELS[tool])}</span>
           </button>
         ))}
       </div>
       <div className="toolbar-actions">
         <button className="btn-ghost" onClick={onReset} disabled={busy}>
-          מסמך חדש
+          {t('מסמך חדש')}
         </button>
         {onSaveTemplate && (
           <button className="btn-ghost" onClick={onSaveTemplate} disabled={busy || !canContinue}>
-            שמור כתבנית
+            {t('שמור כתבנית')}
           </button>
         )}
         <button className="btn-primary" onClick={onContinue} disabled={busy || !canContinue}>
-          {continueLabel}
+          {continueLabel || t('צור קישור לחתימה ›')}
         </button>
       </div>
     </div>

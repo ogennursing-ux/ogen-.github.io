@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useT } from '../lib/i18n.js';
 
 // Crop a canvas to the bounding box of its non-transparent pixels.
 // Returns a PNG data URL, or null when nothing was drawn.
@@ -67,6 +68,7 @@ function renderTypedSignature(text, fontCss) {
 }
 
 export default function SignaturePad({ onSave, onClose }) {
+  const t = useT();
   const [mode, setMode] = useState('draw');
   const [typed, setTyped] = useState('');
   const [font, setFont] = useState(TYPE_FONTS[0]);
@@ -153,8 +155,8 @@ export default function SignaturePad({ onSave, onClose }) {
     <div className="modal-backdrop" onPointerDown={onClose}>
       <div className="sign-modal" onPointerDown={(e) => e.stopPropagation()}>
         <div className="sign-modal-head">
-          <h3>חתימה</h3>
-          <button className="icon-btn" onClick={onClose} aria-label="סגור">
+          <h3>{t('חתימה')}</h3>
+          <button className="icon-btn" onClick={onClose} aria-label="close">
             ✕
           </button>
         </div>
@@ -164,19 +166,19 @@ export default function SignaturePad({ onSave, onClose }) {
             className={`sign-tab${mode === 'draw' ? ' active' : ''}`}
             onClick={() => setMode('draw')}
           >
-            ציור
+            {t('ציור')}
           </button>
           <button
             className={`sign-tab${mode === 'type' ? ' active' : ''}`}
             onClick={() => setMode('type')}
           >
-            הקלדה
+            {t('הקלדה')}
           </button>
         </div>
 
         {mode === 'draw' ? (
           <>
-            <p className="sign-hint">צייר את חתימתך באמצעות העכבר או האצבע</p>
+            <p className="sign-hint">{t('צייר את חתימתך באמצעות העכבר או האצבע')}</p>
             <canvas
               ref={canvasRef}
               className="sign-canvas"
@@ -192,7 +194,7 @@ export default function SignaturePad({ onSave, onClose }) {
               className="text-input"
               type="text"
               value={typed}
-              placeholder="הקלד את שמך"
+              placeholder={t('הקלד את שמך')}
               autoFocus
               onChange={(e) => setTyped(e.target.value)}
             />
@@ -204,7 +206,7 @@ export default function SignaturePad({ onSave, onClose }) {
                   style={{ fontFamily: f.css }}
                   onClick={() => setFont(f)}
                 >
-                  {typed.trim() || 'חתימה'}
+                  {typed.trim() || t('חתימה')}
                 </button>
               ))}
             </div>
@@ -214,11 +216,11 @@ export default function SignaturePad({ onSave, onClose }) {
         <div className="sign-actions">
           {mode === 'draw' && (
             <button className="btn-ghost" onClick={clear}>
-              נקה
+              {t('נקה')}
             </button>
           )}
           <button className="btn-primary" onClick={save}>
-            שמור חתימה
+            {t('שמור חתימה')}
           </button>
         </div>
       </div>

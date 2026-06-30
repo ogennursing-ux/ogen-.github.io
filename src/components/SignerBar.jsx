@@ -1,13 +1,7 @@
-// Setup-phase signer manager: name + optional email per signer, choose which
-// signer new fields belong to, and add/remove a second signer.
-export default function SignerBar({
-  signers,
-  activeSigner,
-  onSelect,
-  onUpdate,
-  onAdd,
-  onRemove,
-}) {
+import { useT } from '../lib/i18n.js';
+
+export default function SignerBar({ signers, activeSigner, onSelect, onUpdate, onAdd, onRemove }) {
+  const t = useT();
   return (
     <div className="signer-bar">
       <div className="signer-rows">
@@ -22,7 +16,7 @@ export default function SignerBar({
             <input
               className="signer-name"
               value={s.name}
-              placeholder={`שם חותם ${i + 1}`}
+              placeholder={t('שם חותם {i}', { i: i + 1 })}
               onFocus={() => onSelect(i)}
               onChange={(e) => onUpdate(i, { name: e.target.value })}
             />
@@ -31,7 +25,7 @@ export default function SignerBar({
               type="email"
               dir="ltr"
               value={s.email || ''}
-              placeholder="מייל (לא חובה)"
+              placeholder={t('מייל (לא חובה)')}
               onFocus={() => onSelect(i)}
               onChange={(e) => onUpdate(i, { email: e.target.value })}
             />
@@ -42,7 +36,7 @@ export default function SignerBar({
                   e.stopPropagation();
                   onRemove(i);
                 }}
-                aria-label="הסר חותם"
+                aria-label="remove signer"
               >
                 ✕
               </button>
@@ -52,10 +46,10 @@ export default function SignerBar({
       </div>
       {signers.length < 2 ? (
         <button className="add-signer-btn" onClick={onAdd}>
-          + הוסף חותם שני
+          {t('הוסף חותם שני')}
         </button>
       ) : (
-        <span className="signer-hint">שדות חדשים משויכים ל: {signers[activeSigner].name}</span>
+        <span className="signer-hint">{t('שדות חדשים משויכים ל: {name}', { name: signers[activeSigner].name })}</span>
       )}
     </div>
   );
