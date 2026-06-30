@@ -1,7 +1,8 @@
 import { FIELD_LABELS } from '../lib/fields.js';
 
-// Bottom sheet for editing the selected field's value (and, during setup, which
-// signer it belongs to).
+// Owner setup panel for a placed field: which signer it belongs to, whether it
+// is required, and duplicate/delete. The value itself is filled by the signer
+// (via the central "fill once" form), so there is no value input here.
 export default function EditPanel({
   field,
   signers,
@@ -10,20 +11,19 @@ export default function EditPanel({
   onDelete,
   onDuplicate,
   onClose,
-  onOpenSign,
 }) {
-  if (!field) return null;
+  if (!field || phase !== 'setup') return null;
 
   return (
     <div className="edit-panel">
       <div className="edit-panel-head">
-        <strong>{FIELD_LABELS[field.type]}</strong>
+        <strong>{FIELD_LABELS[field.type] || 'שדה'}</strong>
         <button className="icon-btn" onClick={onClose} aria-label="סגור">
           ✕
         </button>
       </div>
 
-      {phase === 'setup' && signers.length > 1 && (
+      {signers.length > 1 && (
         <div className="assign-row">
           <span className="assign-label">שייך ל:</span>
           {signers.map((s, i) => (
@@ -40,69 +40,25 @@ export default function EditPanel({
         </div>
       )}
 
-      <div className="edit-panel-body">
-        {(field.type === 'text' || field.type === 'initials') && (
-          <input
-            className="text-input"
-            type="text"
-            value={field.value || ''}
-            placeholder={field.type === 'initials' ? 'ראשי תיבות' : 'הקלד טקסט'}
-            autoFocus
-            onChange={(e) => onChange(field.id, { value: e.target.value })}
-          />
-        )}
+      <p className="muted small">השדה ימולא על־ידי החותם דרך הקישור.</p>
 
-        {field.type === 'date' && (
-          <input
-            className="text-input"
-            type="date"
-            value={field.value || ''}
-            onChange={(e) => onChange(field.id, { value: e.target.value })}
-          />
-        )}
+      <label className="checkbox-row req-toggle">
+        <input
+          type="checkbox"
+          checked={!!field.required}
+          onChange={(e) => onChange(field.id, { required: e.target.checked })}
+        />
+        <span>שדה חובה</span>
+      </label>
 
-        {field.type === 'checkbox' && (
-          <label className="checkbox-row">
-            <input
-              type="checkbox"
-              checked={field.value === true}
-              onChange={(e) => onChange(field.id, { value: e.target.checked })}
-            />
-            <span>סמן את התיבה</span>
-          </label>
-        )}
-
-        {field.type === 'signature' &&
-          (phase === 'setup' ? (
-            <p className="muted small">שדה חתימה — החותם ימלא אותו דרך הקישור.</p>
-          ) : (
-            <button className="btn-primary full" onClick={() => onOpenSign(field.id)}>
-              {field.value ? 'חתום מחדש' : 'פתח לוח חתימה'}
-            </button>
-          ))}
+      <div className="edit-panel-foot">
+        <button className="btn-ghost" onClick={() => onDuplicate(field.id)}>
+          שכפל
+        </button>
+        <button className="btn-danger" onClick={() => onDelete(field.id)}>
+          מחק שדה
+        </button>
       </div>
-
-      {phase === 'setup' && (
-        <label className="checkbox-row req-toggle">
-          <input
-            type="checkbox"
-            checked={!!field.required}
-            onChange={(e) => onChange(field.id, { required: e.target.checked })}
-          />
-          <span>שדה חובה</span>
-        </label>
-      )}
-
-      {phase === 'setup' && (
-        <div className="edit-panel-foot">
-          <button className="btn-ghost" onClick={() => onDuplicate(field.id)}>
-            שכפל
-          </button>
-          <button className="btn-danger" onClick={() => onDelete(field.id)}>
-            מחק שדה
-          </button>
-        </div>
-      )}
     </div>
   );
 }

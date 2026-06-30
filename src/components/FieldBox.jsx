@@ -16,6 +16,7 @@ export default function FieldBox({
   color,
   locked,
   noEdit,
+  displayOnly,
   selected,
   onSelect,
   onChange,
@@ -25,7 +26,7 @@ export default function FieldBox({
   const state = useRef(null);
 
   const begin = (mode) => (e) => {
-    if (locked) return;
+    if (locked || displayOnly) return;
     e.stopPropagation();
     onSelect(field.id);
     // noEdit (signer fill mode): the layout is fixed — selecting opens the
@@ -80,6 +81,7 @@ export default function FieldBox({
         borderColor: color,
         background: hexToRgba(color, selected ? 0.16 : 0.1),
         boxShadow: selected ? `0 0 0 2px ${hexToRgba(color, 0.35)}` : 'none',
+        pointerEvents: displayOnly ? 'none' : undefined,
       }}
       onPointerDown={begin('move')}
       onPointerMove={onPointerMove}

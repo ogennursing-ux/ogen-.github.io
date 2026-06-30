@@ -1033,6 +1033,93 @@ button {
   font-size: 13px;
 }
 
+/* ---------------- fill-once details form (signer) ---------------- */
+.details-form {
+  width: min(680px, 94vw);
+  margin: 14px auto 4px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+.details-form > h3 {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 14px;
+  color: var(--ink);
+}
+.df-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.df-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.df-field > span {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.df-field input {
+  padding: 10px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--ink);
+}
+.df-field input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+.df-check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.df-check input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--primary);
+}
+.df-signature {
+  margin-top: 14px;
+}
+.df-sig-label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.df-sig-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.df-sig-preview img {
+  height: 64px;
+  max-width: 60%;
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+.df-submit {
+  margin-top: 16px;
+}
+.pages.preview-mode {
+  padding-top: 10px;
+  opacity: 0.98;
+}
+
 /* ---------------- pdf preview modal ---------------- */
 .preview-modal {
   width: min(700px, 96vw);

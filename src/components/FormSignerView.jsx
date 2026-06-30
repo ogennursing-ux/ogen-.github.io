@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import SignSurface from './SignSurface.jsx';
+import SignFlow from './SignFlow.jsx';
 import { api } from '../lib/api.js';
 import { notify, bytesToBase64 } from '../lib/notify.js';
 import { renderPdfPages, buildSignedPdf } from '../lib/pdfUtils.js';
-import { isFieldEmpty } from '../lib/fields.js';
 
 const SIGNERS = [{ name: 'החותם', color: '#1f7a53' }];
 
@@ -55,21 +54,11 @@ export default function FormSignerView({ id }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const updateField = (fid, patch) =>
-    setFields((prev) => prev.map((f) => (f.id === fid ? { ...f, ...patch } : f)));
-
-  async function submit() {
-    const missing = fields.filter((f) => f.required && isFieldEmpty(f)).length;
-    if (missing) {
-      alert(`יש למלא ${missing} שדות חובה לפני השליחה.`);
-      return;
-    }
-    const emptySig = fields.filter((f) => f.type === 'signature' && !f.value).length;
-    if (emptySig && !confirm(`נשארו ${emptySig} שדות חתימה ריקים. לשלוח בכל זאת?`)) return;
+  async function handleSubmit(filled) {
     setBusy(true);
     try {
-      const bytes = await buildSignedPdf(originalBytes.slice(0), fields, { names: ['החותם'] });
-      await api.submitForm(template, { fields, signedPdfBytes: bytes });
+      const bytes = await buildSignedPdf(originalBytes.slice(0), filled, { names: ['החותם'] });
+      await api.submitForm(template, { fields: filled, signedPdfBytes: bytes });
       setSignedBytes(bytes);
       setStatus('done');
       if (template.webhook_url && template.owner_email) {
@@ -125,27 +114,14 @@ export default function FormSignerView({ id }) {
   return (
     <div className="app">
       {header}
-      <div className="signflow-bar">
-        <div className="signflow-info">
-          <span className="signer-dot lg" style={{ background: SIGNERS[0].color }} />
-          <div className="signflow-text">
-            <strong>אנא מלא וחתום על השדות</strong>
-            <span className="signflow-step">{title}</span>
-          </div>
-        </div>
-        <div className="signflow-actions">
-          <button className="btn-primary" disabled={busy} onClick={submit}>
-            {busy ? 'שולח…' : 'סיים ושלח חתימה'}
-          </button>
-        </div>
-      </div>
-
-      <SignSurface
+      <SignFlow
         pages={pages}
         fields={fields}
         signers={SIGNERS}
         currentSigner={0}
-        onChange={updateField}
+        title={title}
+        busy={busy}
+        onSubmit={handleSubmit}
       />
     </div>
   );

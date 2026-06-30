@@ -13,6 +13,7 @@ export default function PdfPage({
   activeTool,
   selectedId,
   noEdit,
+  displayOnly,
   onPlace,
   onSelect,
   onChange,
@@ -49,6 +50,7 @@ export default function PdfPage({
               color={signers[f.signer]?.color || '#1f7a53'}
               locked={phase === 'sign' && f.signer !== currentSigner}
               noEdit={noEdit}
+              displayOnly={displayOnly}
               selected={selectedId === f.id}
               onSelect={onSelect}
               onChange={onChange}

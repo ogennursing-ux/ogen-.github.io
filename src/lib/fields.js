@@ -3,6 +3,10 @@
 // Default size of each field type, as a fraction of the page (w of width, h of height).
 export const FIELD_DEFAULTS = {
   signature: { w: 0.26, h: 0.09 },
+  firstName: { w: 0.22, h: 0.045 },
+  lastName: { w: 0.22, h: 0.045 },
+  fullName: { w: 0.28, h: 0.045 },
+  idNumber: { w: 0.2, h: 0.045 },
   text: { w: 0.3, h: 0.045 },
   date: { w: 0.2, h: 0.045 },
   checkbox: { w: 0.045, h: 0.03 },
@@ -11,6 +15,10 @@ export const FIELD_DEFAULTS = {
 
 export const FIELD_LABELS = {
   signature: 'חתימה',
+  firstName: 'שם פרטי',
+  lastName: 'שם משפחה',
+  fullName: 'שם מלא',
+  idNumber: 'תעודת זהות',
   text: 'טקסט',
   date: 'תאריך',
   checkbox: 'תיבת סימון',
@@ -19,11 +27,20 @@ export const FIELD_LABELS = {
 
 export const FIELD_ICONS = {
   signature: '✒️',
+  firstName: '👤',
+  lastName: '👥',
+  fullName: '🪪',
+  idNumber: '🆔',
   text: '🔤',
   date: '📅',
   checkbox: '☑️',
   initials: '🔡',
 };
+
+// Types whose value is shared per signer (fill once → fills everywhere).
+export const SHARED_TYPES = ['signature', 'initials', 'firstName', 'lastName', 'fullName', 'idNumber'];
+// Text-like types rendered as text in the output PDF.
+export const TEXT_TYPES = ['text', 'date', 'firstName', 'lastName', 'fullName', 'idNumber', 'initials'];
 
 // A field counts as empty (unfilled) for validation purposes.
 export const isFieldEmpty = (f) => (f.type === 'checkbox' ? f.value !== true : !f.value);

@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import SignSurface from './SignSurface.jsx';
+import SignFlow from './SignFlow.jsx';
 import { api } from '../lib/api.js';
 import { notify, bytesToBase64 } from '../lib/notify.js';
 import { renderPdfPages, buildSignedPdf } from '../lib/pdfUtils.js';
-import { isFieldEmpty } from '../lib/fields.js';
 
 const FALLBACK = { current: 0, list: [{ name: 'החותם', color: '#1f7a53' }] };
 
@@ -64,20 +63,7 @@ export default function SignerView({ id }) {
     })();
   }, [id]);
 
-  const updateField = (fid, patch) =>
-    setFields((prev) => prev.map((f) => (f.id === fid ? { ...f, ...patch } : f)));
-
-  async function submit() {
-    const missing = fields.filter((f) => f.signer === current && f.required && isFieldEmpty(f)).length;
-    if (missing) {
-      alert(`יש למלא ${missing} שדות חובה לפני השליחה.`);
-      return;
-    }
-    const emptySig = fields.filter(
-      (f) => f.signer === current && f.type === 'signature' && !f.value,
-    ).length;
-    if (emptySig && !confirm(`נשארו ${emptySig} שדות חתימה ריקים. לשלוח בכל זאת?`)) return;
-
+  async function handleSubmit(filled) {
     setBusy(true);
     try {
       const now = new Date().toISOString();
@@ -87,14 +73,13 @@ export default function SignerView({ id }) {
       const isLast = current >= signers.list.length - 1;
 
       if (isLast) {
-        const bytes = await buildSignedPdf(originalBytes.slice(0), fields, {
+        const bytes = await buildSignedPdf(originalBytes.slice(0), filled, {
           names: newList.map((s) => s.name),
           refId: id,
         });
-        await api.submitSigned(id, { fields, signers: { current, list: newList }, signedPdfBytes: bytes });
+        await api.submitSigned(id, { fields: filled, signers: { current, list: newList }, signedPdfBytes: bytes });
         setSignedBytes(bytes);
         setDoneKind('final');
-        // email the signed document to the owner
         if (req.webhook_url && req.owner_email) {
           notify(req.webhook_url, {
             type: 'completed',
@@ -106,9 +91,8 @@ export default function SignerView({ id }) {
           });
         }
       } else {
-        await api.advance(id, { fields, signers: { current: current + 1, list: newList } });
+        await api.advance(id, { fields: filled, signers: { current: current + 1, list: newList } });
         setDoneKind('intermediate');
-        // invite the next signer
         const next = newList[current + 1];
         if (req.webhook_url && next?.email) {
           notify(req.webhook_url, { type: 'invite', to: next.email, title, link: location.href });
@@ -183,34 +167,17 @@ export default function SignerView({ id }) {
       </div>,
     );
 
-  const signer = signers.list[current] || FALLBACK.list[0];
-  const multi = signers.list.length > 1;
   return (
     <div className="app">
       {header}
-      <div className="signflow-bar">
-        <div className="signflow-info">
-          <span className="signer-dot lg" style={{ background: signer.color }} />
-          <div className="signflow-text">
-            <strong>{multi ? `תור החתימה: ${signer.name}` : 'אנא מלא וחתום על השדות'}</strong>
-            <span className="signflow-step">
-              {title}{multi ? ` · חותם ${current + 1} מתוך ${signers.list.length}` : ''}
-            </span>
-          </div>
-        </div>
-        <div className="signflow-actions">
-          <button className="btn-primary" disabled={busy} onClick={submit}>
-            {busy ? 'שולח…' : 'סיים ושלח חתימה'}
-          </button>
-        </div>
-      </div>
-
-      <SignSurface
+      <SignFlow
         pages={pages}
         fields={fields}
         signers={signers.list}
         currentSigner={current}
-        onChange={updateField}
+        title={title}
+        busy={busy}
+        onSubmit={handleSubmit}
       />
     </div>
   );

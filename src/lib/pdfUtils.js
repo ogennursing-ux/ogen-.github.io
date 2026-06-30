@@ -13,6 +13,7 @@
 
 // Bundled worker URL — resolved and fingerprinted by Vite at build time.
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { TEXT_TYPES } from './fields.js';
 
 let pdfjsLib = null;
 
@@ -173,7 +174,7 @@ export async function buildSignedPdf(originalPdfBytes, fields, audit) {
       if (!field.value) continue;
       const img = await pdfDoc.embedPng(dataUrlToBytes(field.value));
       page.drawImage(img, containRect(img.width, img.height, x, y, boxW, boxH));
-    } else if (field.type === 'text' || field.type === 'date' || field.type === 'initials') {
+    } else if (TEXT_TYPES.includes(field.type)) {
       const text = field.type === 'date' ? formatDate(field.value) : String(field.value ?? '');
       if (!text) continue;
       const img = await pdfDoc.embedPng(dataUrlToBytes(drawTextDataUrl(text, boxW, boxH)));

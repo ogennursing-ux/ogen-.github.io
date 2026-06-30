@@ -1,6 +1,16 @@
 import { FIELD_ICONS, FIELD_LABELS } from '../lib/fields.js';
 
-const TOOLS = ['signature', 'text', 'date', 'checkbox', 'initials'];
+const TOOLS = [
+  'signature',
+  'firstName',
+  'lastName',
+  'fullName',
+  'idNumber',
+  'text',
+  'date',
+  'checkbox',
+  'initials',
+];
 
 // Setup-phase toolbar: pick a field tool to place, start over, or continue to
 // the signing flow.
