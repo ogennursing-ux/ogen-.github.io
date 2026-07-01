@@ -11,8 +11,13 @@
 //  - Web fonts are awaited before rendering text so the embedded glyphs match.
 // ---------------------------------------------------------------------------
 
-// Bundled worker URL — resolved and fingerprinted by Vite at build time.
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+// Ensure the getOrInsertComputed polyfill is installed on this (main) thread
+// before pdf.js is imported below.
+import './polyfills.js';
+// Bundled worker constructor — Vite compiles src/lib/pdf.worker.js (polyfill +
+// pdf.js worker) into a module worker. We hand pdf.js a live worker instance so
+// the polyfill runs inside the worker thread too.
+import PdfWorker from './pdf.worker.js?worker';
 import { TEXT_TYPES } from './fields.js';
 
 let pdfjsLib = null;
@@ -20,7 +25,7 @@ let pdfjsLib = null;
 export async function getPdfJs() {
   if (pdfjsLib) return pdfjsLib;
   const pdfjs = await import('pdfjs-dist');
-  pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+  pdfjs.GlobalWorkerOptions.workerPort = new PdfWorker();
   pdfjsLib = pdfjs;
   return pdfjs;
 }
