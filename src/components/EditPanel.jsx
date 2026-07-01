@@ -31,6 +31,18 @@ export default function EditPanel({ field, signers, phase, onChange, onDelete, o
         </div>
       )}
 
+      {field.type === 'question' && (
+        <label className="q-label">
+          <span>{t('שאלה')}</span>
+          <input
+            className="text-input"
+            value={field.label || ''}
+            placeholder={t('מה לשאול את החותם?')}
+            onChange={(e) => onChange(field.id, { label: e.target.value })}
+          />
+        </label>
+      )}
+
       <p className="muted small">{t('השדה ימולא על־ידי החותם דרך הקישור.')}</p>
 
       <label className="checkbox-row req-toggle">

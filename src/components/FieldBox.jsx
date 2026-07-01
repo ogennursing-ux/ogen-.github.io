@@ -129,11 +129,12 @@ function FieldContent({ field, color }) {
     return <span className="field-checkbox">{field.value ? '✓' : ''}</span>;
   }
   const text = field.type === 'date' ? formatDate(field.value) : field.value;
+  const placeholder = field.type === 'question' ? field.label || FIELD_LABELS.question : FIELD_LABELS[field.type];
   return text ? (
     <span className="field-text">{text}</span>
   ) : (
     <span className="field-placeholder" style={{ color }}>
-      {FIELD_LABELS[field.type]}
+      {placeholder}
     </span>
   );
 }

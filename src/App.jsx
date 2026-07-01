@@ -15,6 +15,8 @@ import FormSignerView from './components/FormSignerView.jsx';
 import Login from './components/Login.jsx';
 import LangToggle from './components/LangToggle.jsx';
 import { renderPdfPages } from './lib/pdfUtils.js';
+import { fileToPdfBytes } from './lib/docx.js';
+import { mergePdfs } from './lib/exporters.js';
 import { FIELD_DEFAULTS, FIELD_LABELS, DEFAULT_SIGNERS, clamp, uid, todayISO } from './lib/fields.js';
 import { api, rememberRequest, rememberTemplate, signingLink, formLink, listMyTemplates } from './lib/api.js';
 import { getSettings, notify } from './lib/notify.js';
@@ -73,6 +75,7 @@ function PrepareApp({ onLogout }) {
   const [showSettings, setShowSettings] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [sendMode, setSendMode] = useState('regular');
+  const [note, setNote] = useState('');
 
   const selectedField = useMemo(
     () => fields.find((f) => f.id === selectedId) || null,
@@ -96,19 +99,20 @@ function PrepareApp({ onLogout }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, activeTool]);
 
-  async function handleFile(file) {
-    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
-    if (!isPdf) {
-      alert(t('יש לבחור קובץ PDF.'));
-      return;
-    }
+  async function handleFile(files) {
+    const arr = Array.isArray(files) ? files : [files];
+    if (!arr.length) return;
     setBusy(true);
     try {
-      const buf = await file.arrayBuffer();
+      // Convert each file (PDF passthrough, Word -> PDF) then merge if several.
+      const pdfs = [];
+      for (const f of arr) pdfs.push(await fileToPdfBytes(f));
+      const bytes = pdfs.length === 1 ? pdfs[0] : await mergePdfs(pdfs);
+      const buf = bytes instanceof Uint8Array ? bytes.slice().buffer : bytes;
       const rendered = await renderPdfPages(new Uint8Array(buf.slice(0)));
       setPdfBytes(buf);
       setPages(rendered);
-      setBaseName(file.name.replace(/\.pdf$/i, '') || 'document');
+      setBaseName(arr[0].name.replace(/\.(pdf|docx?)$/i, '') || 'document');
       setFields([]);
       setSigners(
         sendMode === 'round'
@@ -118,6 +122,7 @@ function PrepareApp({ onLogout }) {
       setActiveSigner(0);
       setSelectedId(null);
       setActiveTool(null);
+      setNote('');
       setScreen('name'); // ask for the document name before the editor
     } catch (err) {
       console.error(err);
@@ -185,6 +190,7 @@ function PrepareApp({ onLogout }) {
     setActiveSigner(0);
     setSelectedId(null);
     setActiveTool(null);
+    setNote('');
     setScreen('home');
   }
 
@@ -204,7 +210,7 @@ function PrepareApp({ onLogout }) {
         title: baseName,
         pdfBytes,
         fields,
-        signers: { current: 0, list },
+        signers: { current: 0, list, note },
         signerEmail: list[0].email,
         ownerEmail: settings.ownerEmail || null,
         webhook: settings.webhook || null,
@@ -237,6 +243,7 @@ function PrepareApp({ onLogout }) {
         pdfBytes,
         fields,
         signers: signerList(),
+        note,
         ownerEmail: settings.ownerEmail || null,
         webhook: settings.webhook || null,
       });
@@ -393,6 +400,15 @@ function PrepareApp({ onLogout }) {
         onAdd={addSigner}
         onRemove={removeSigner}
       />
+      <div className="doc-name-bar">
+        <label>{t('הודעה לחותם (לא תופיע במסמך)')}</label>
+        <input
+          className="doc-name-input"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder={t('הודעה לחותם (לא תופיע במסמך)')}
+        />
+      </div>
       {activeTool ? (
         <div className="place-hint">
           {t('לחץ על המסמך כדי למקם {label}', { label: t(FIELD_LABELS[activeTool]) })}

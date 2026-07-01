@@ -178,6 +178,13 @@ const EN = {
   'הוספת שדות': 'Add fields',
   תבניות: 'Templates',
   'אין תבניות שמורות עדיין.': 'No saved templates yet.',
+  שאלה: 'Question',
+  'מה לשאול את החותם?': 'What to ask the signer?',
+  'הודעה לחותם (לא תופיע במסמך)': 'Message to the signer (not shown in the document)',
+  'דפים (למשל 1-3,5)': 'Pages (e.g. 1-3,5)',
+  'הורד דפים נבחרים': 'Download selected pages',
+  'הורד הכל': 'Download all',
+  'כמה מסמכים אוחדו לאחד': 'Multiple documents were merged into one',
 
   // pdf preview
   'תצוגה מקדימה': 'Preview',

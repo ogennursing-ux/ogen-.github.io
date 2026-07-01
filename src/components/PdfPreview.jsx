@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { renderPdfPages } from '../lib/pdfUtils.js';
+import { parseRanges, extractPages, downloadBlob } from '../lib/exporters.js';
 import { useT } from '../lib/i18n.js';
 
 // Modal that renders a PDF (by a getBytes() loader) for preview before download.
@@ -7,6 +8,23 @@ export default function PdfPreview({ getBytes, name, onClose, onDownload }) {
   const t = useT();
   const [pages, setPages] = useState(null);
   const [error, setError] = useState('');
+  const [range, setRange] = useState('');
+
+  async function downloadPages() {
+    const total = pages ? pages.length : 0;
+    const indices = parseRanges(range, total);
+    if (!indices.length) {
+      alert(t('דפים (למשל 1-3,5)'));
+      return;
+    }
+    try {
+      const bytes = await getBytes();
+      const out = await extractPages(bytes, indices);
+      downloadBlob(out, 'application/pdf', `${name || 'document'}-pages.pdf`);
+    } catch (e) {
+      alert('error: ' + e.message);
+    }
+  }
 
   useEffect(() => {
     let alive = true;
@@ -40,11 +58,20 @@ export default function PdfPreview({ getBytes, name, onClose, onDownload }) {
             pages.map((p, i) => <img key={i} className="preview-page" src={p.url} alt={`page ${i + 1}`} />)
           )}
         </div>
-        {onDownload && (
-          <div className="sign-actions">
-            <button className="btn-primary" onClick={onDownload}>{t('הורד מסמך')}</button>
+        <div className="preview-download">
+          <div className="preview-range">
+            <input
+              className="text-input"
+              value={range}
+              placeholder={t('דפים (למשל 1-3,5)')}
+              onChange={(e) => setRange(e.target.value)}
+            />
+            <button className="btn-ghost" onClick={downloadPages}>{t('הורד דפים נבחרים')}</button>
           </div>
-        )}
+          {onDownload && (
+            <button className="btn-primary" onClick={onDownload}>{t('הורד הכל')}</button>
+          )}
+        </div>
       </div>
     </div>
   );

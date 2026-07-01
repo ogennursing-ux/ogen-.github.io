@@ -7,8 +7,8 @@ export default function Dropzone({ onFile, busy }) {
   const inputRef = useRef(null);
   const [dragOver, setDragOver] = useState(false);
 
-  const pick = (file) => {
-    if (file) onFile(file);
+  const pick = (files) => {
+    if (files && files.length) onFile(Array.from(files));
   };
 
   return (
@@ -27,7 +27,7 @@ export default function Dropzone({ onFile, busy }) {
         onDrop={(e) => {
           e.preventDefault();
           setDragOver(false);
-          pick(e.dataTransfer.files?.[0]);
+          pick(e.dataTransfer.files);
         }}
         onClick={() => inputRef.current?.click()}
       >
@@ -40,9 +40,10 @@ export default function Dropzone({ onFile, busy }) {
         <input
           ref={inputRef}
           type="file"
-          accept="application/pdf,.pdf"
+          accept="application/pdf,.pdf,.doc,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          multiple
           hidden
-          onChange={(e) => pick(e.target.files?.[0])}
+          onChange={(e) => pick(e.target.files)}
         />
       </div>
       <p className="privacy-note">{t('🔒 הקבצים נשמרים באופן מאובטח ומשמשים אך ורק לתהליך החתימה.')}</p>

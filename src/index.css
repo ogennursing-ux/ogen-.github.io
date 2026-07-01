@@ -1448,3 +1448,56 @@ button {
     flex-basis: 100%;
   }
 }
+
+/* ---------------- signer note / question / page-range ---------------- */
+.signer-note {
+  background: #eef4ff;
+  border: 1px solid #d7e3f1;
+  color: #2f5680;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  margin-bottom: 12px;
+  white-space: pre-wrap;
+}
+.q-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.preview-download {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.preview-range {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.preview-range .text-input {
+  flex: 1;
+  max-width: 220px;
+}
+
+/* ---------------- compact sizing (closer to normal text) ---------------- */
+.brand-name { font-size: 16px; }
+.home-intro h1 { font-size: 21px; }
+.home-intro p { font-size: 13.5px; }
+.card h2 { font-size: 18px; }
+.btn-primary, .btn-ghost, .btn-danger { font-size: 13px; padding: 8px 14px; }
+.btn-primary.sm, .btn-ghost.sm { font-size: 12px; }
+.tool-btn { font-size: 12px; padding: 6px 10px; }
+.dashboard h3, .drawer-head strong { font-size: 14px; }
+.req-title { font-size: 13.5px; }
+.details-form > h3 { font-size: 14px; }
+.df-field input, .text-input { font-size: 14px; }
+.dropzone h2 { font-size: 19px; }
+.dropzone-icon { font-size: 42px; }

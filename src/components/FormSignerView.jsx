@@ -4,6 +4,7 @@ import LangToggle from './LangToggle.jsx';
 import { api } from '../lib/api.js';
 import { notify, bytesToBase64, getIp } from '../lib/notify.js';
 import { renderPdfPages, buildSignedPdf } from '../lib/pdfUtils.js';
+import { normalizeSigners } from '../lib/fields.js';
 import { useT } from '../lib/i18n.js';
 
 const SIGNERS = [{ name: 'החותם', color: '#1f7a53' }];
@@ -125,6 +126,7 @@ export default function FormSignerView({ id }) {
         signers={SIGNERS}
         currentSigner={0}
         title={title}
+        note={normalizeSigners(template?.signers).note}
         busy={busy}
         onSubmit={handleSubmit}
       />

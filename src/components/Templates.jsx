@@ -9,6 +9,7 @@ import {
   rememberTemplate,
 } from '../lib/api.js';
 import { getSettings } from '../lib/notify.js';
+import { normalizeSigners } from '../lib/fields.js';
 import { useT } from '../lib/i18n.js';
 
 const DEFAULT_LIST = [{ name: 'החותם', email: null, color: '#1f7a53' }];
@@ -39,17 +40,15 @@ export default function Templates() {
     try {
       const tmpl = await api.getTemplate(tmplRef.id);
       const bytes = await api.getOriginalBytes(tmpl);
-      const list = (tmpl.signers && tmpl.signers.length ? tmpl.signers : DEFAULT_LIST).map((s) => ({
-        ...s,
-        signed: false,
-        signedAt: null,
-      }));
+      const norm = normalizeSigners(tmpl.signers);
+      const base = norm.list.length ? norm.list : DEFAULT_LIST;
+      const list = base.map((s) => ({ ...s, signed: false, signedAt: null }));
       const settings = getSettings();
       const { id } = await api.createRequest({
         title: tmpl.title,
         pdfBytes: bytes,
         fields: tmpl.fields,
-        signers: { current: 0, list },
+        signers: { current: 0, list, note: norm.note },
         signerEmail: list[0].email || null,
         ownerEmail: settings.ownerEmail || null,
         webhook: settings.webhook || null,
@@ -92,13 +91,15 @@ export default function Templates() {
     try {
       const tmpl = await api.getTemplate(tmplRef.id);
       const bytes = await api.getOriginalBytes(tmpl);
+      const norm = normalizeSigners(tmpl.signers);
       const title = (tmpl.title || t('תבנית')) + ' (' + t('שכפל') + ')';
       const settings = getSettings();
       const { id } = await api.createTemplate({
         title,
         pdfBytes: bytes,
         fields: tmpl.fields,
-        signers: tmpl.signers,
+        signers: norm.list,
+        note: norm.note,
         ownerEmail: settings.ownerEmail || null,
         webhook: settings.webhook || null,
       });

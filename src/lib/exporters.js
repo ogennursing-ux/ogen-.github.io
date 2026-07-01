@@ -24,6 +24,36 @@ export async function mergePdfs(buffers) {
   return out.save();
 }
 
+// Parse a page-range string like "1-3,5" into 0-based indices within [0,max).
+export function parseRanges(str, max) {
+  const out = [];
+  for (const part of String(str).split(',')) {
+    const s = part.trim();
+    if (!s) continue;
+    const m = /^(\d+)\s*-\s*(\d+)$/.exec(s);
+    if (m) {
+      let a = +m[1];
+      let b = +m[2];
+      if (a > b) [a, b] = [b, a];
+      for (let i = a; i <= b; i++) if (i >= 1 && i <= max) out.push(i - 1);
+    } else if (/^\d+$/.test(s)) {
+      const i = +s;
+      if (i >= 1 && i <= max) out.push(i - 1);
+    }
+  }
+  return [...new Set(out)];
+}
+
+// Extract given 0-based page indices from a PDF into a new PDF (Uint8Array).
+export async function extractPages(buffer, indices) {
+  const { PDFDocument } = await import('pdf-lib');
+  const src = await PDFDocument.load(buffer);
+  const out = await PDFDocument.create();
+  const copied = await out.copyPages(src, indices);
+  copied.forEach((p) => out.addPage(p));
+  return out.save();
+}
+
 // Build a UTF-8 CSV (with BOM so Hebrew opens correctly in Excel).
 export function toCsv(rows) {
   const esc = (s) => `"${String(s ?? '').replace(/"/g, '""')}"`;

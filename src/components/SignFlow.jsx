@@ -6,7 +6,7 @@ import { useT } from '../lib/i18n.js';
 
 // "Fill once" signing surface: the signer fills a single prominent form and the
 // values are distributed to every matching field across the document.
-export default function SignFlow({ pages, fields, signers, currentSigner, title, busy, onSubmit }) {
+export default function SignFlow({ pages, fields, signers, currentSigner, title, note, busy, onSubmit }) {
   const t = useT();
   const myFields = useMemo(
     () => fields.filter((f) => f.signer === currentSigner),
@@ -21,7 +21,7 @@ export default function SignFlow({ pages, fields, signers, currentSigner, title,
     for (const f of myFields) {
       if (f.type === 'date') init[f.id] = todayISO();
       else if (f.type === 'checkbox') init[f.id] = false;
-      else if (f.type === 'text') init[f.id] = '';
+      else if (f.type === 'text' || f.type === 'question') init[f.id] = '';
     }
     return init;
   });
@@ -64,6 +64,7 @@ export default function SignFlow({ pages, fields, signers, currentSigner, title,
   }
 
   const textFields = myFields.filter((f) => f.type === 'text');
+  const questionFields = myFields.filter((f) => f.type === 'question');
   const dateFields = myFields.filter((f) => f.type === 'date');
   const checkboxFields = myFields.filter((f) => f.type === 'checkbox');
   const signer = signers[currentSigner] || { name: 'החותם', color: '#1f7a53' };
@@ -85,6 +86,7 @@ export default function SignFlow({ pages, fields, signers, currentSigner, title,
       </div>
 
       <div className="details-form">
+        {note && <div className="signer-note">{note}</div>}
         <h3>{t('מלא את הפרטים פעם אחת — הם יופיעו בכל המקומות במסמך')}</h3>
 
         <div className="df-grid">
@@ -127,6 +129,12 @@ export default function SignFlow({ pages, fields, signers, currentSigner, title,
           {textFields.map((f, i) => (
             <label className="df-field" key={f.id}>
               <span>{textFields.length > 1 ? t('טקסט {i}', { i: i + 1 }) : t('טקסט')}</span>
+              <input value={perField[f.id] ?? ''} onChange={(e) => setPerField((p) => ({ ...p, [f.id]: e.target.value }))} />
+            </label>
+          ))}
+          {questionFields.map((f) => (
+            <label className="df-field" key={f.id}>
+              <span>{f.label || t('שאלה')}</span>
               <input value={perField[f.id] ?? ''} onChange={(e) => setPerField((p) => ({ ...p, [f.id]: e.target.value }))} />
             </label>
           ))}

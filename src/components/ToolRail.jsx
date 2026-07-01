@@ -8,6 +8,7 @@ const TOOLS = [
   'fullName',
   'idNumber',
   'text',
+  'question',
   'date',
   'checkbox',
   'initials',

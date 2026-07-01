@@ -85,7 +85,7 @@ export const supabaseApi = {
   },
 
   // ---- reusable templates ----
-  async createTemplate({ title, pdfBytes, fields, signers, ownerEmail, webhook }) {
+  async createTemplate({ title, pdfBytes, fields, signers, note, ownerEmail, webhook }) {
     const id = crypto.randomUUID();
     await uploadPdf(`originals/template-${id}.pdf`, pdfBytes);
     const { error } = await sb.from('templates').insert({
@@ -93,7 +93,7 @@ export const supabaseApi = {
       title: title || null,
       pdf_path: `originals/template-${id}.pdf`,
       fields,
-      signers: signers || [],
+      signers: { list: signers || [], note: note || '' },
       owner_email: ownerEmail || null,
       webhook_url: webhook || null,
     });

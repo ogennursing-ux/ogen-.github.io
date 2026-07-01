@@ -8,6 +8,7 @@ export const FIELD_DEFAULTS = {
   fullName: { w: 0.28, h: 0.045 },
   idNumber: { w: 0.2, h: 0.045 },
   text: { w: 0.3, h: 0.045 },
+  question: { w: 0.3, h: 0.045 },
   date: { w: 0.2, h: 0.045 },
   checkbox: { w: 0.045, h: 0.03 },
   initials: { w: 0.12, h: 0.05 },
@@ -20,6 +21,7 @@ export const FIELD_LABELS = {
   fullName: 'שם מלא',
   idNumber: 'תעודת זהות',
   text: 'טקסט',
+  question: 'שאלה',
   date: 'תאריך',
   checkbox: 'תיבת סימון',
   initials: 'ראשי תיבות',
@@ -32,6 +34,7 @@ export const FIELD_ICONS = {
   fullName: '🪪',
   idNumber: '🆔',
   text: '🔤',
+  question: '❓',
   date: '📅',
   checkbox: '☑️',
   initials: '🔡',
@@ -40,7 +43,16 @@ export const FIELD_ICONS = {
 // Types whose value is shared per signer (fill once → fills everywhere).
 export const SHARED_TYPES = ['signature', 'initials', 'firstName', 'lastName', 'fullName', 'idNumber'];
 // Text-like types rendered as text in the output PDF.
-export const TEXT_TYPES = ['text', 'date', 'firstName', 'lastName', 'fullName', 'idNumber', 'initials'];
+export const TEXT_TYPES = ['text', 'question', 'date', 'firstName', 'lastName', 'fullName', 'idNumber', 'initials'];
+
+// Normalize a stored signers value to { current, list, note }.
+export function normalizeSigners(s) {
+  const fallback = { current: 0, list: [{ name: 'החותם', color: '#1f7a53' }], note: '' };
+  if (!s) return fallback;
+  if (Array.isArray(s)) return { current: 0, list: s.length ? s : fallback.list, note: '' };
+  if (!s.list || !s.list.length) return { ...fallback, note: s.note || '' };
+  return { current: s.current || 0, list: s.list, note: s.note || '' };
+}
 
 // A field counts as empty (unfilled) for validation purposes.
 export const isFieldEmpty = (f) => (f.type === 'checkbox' ? f.value !== true : !f.value);
