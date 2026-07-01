@@ -5,6 +5,7 @@ import { api } from '../lib/api.js';
 import { notify, bytesToBase64, getIp } from '../lib/notify.js';
 import { buildFormPdf } from '../lib/formPdf.js';
 import { emptyValue, isSchemaValueEmpty, formMeta } from '../lib/formSchema.js';
+import { COMPANY_NAME } from '../lib/workerPortal.js';
 import { useT } from '../lib/i18n.js';
 
 const SAVED_SIG_KEY = 'worker_saved_signature';
@@ -125,7 +126,7 @@ export default function StructuredFormView({ template, brandIcon = '📋', brand
           <div className="card">
             <div className="big-check" aria-hidden>✓</div>
             <h2>{t('תודה! הטופס נשלח')}</h2>
-            <p className="muted">{t('הטופס המלא נשמר ונשלח לעוגן סיעוד.')}</p>
+            <p className="muted">{t('הטופס המלא נשמר ונשלח ל{company}.', { company: COMPANY_NAME })}</p>
             <button className="btn-primary full" onClick={() => download(signedBytes, `${title}.pdf`)}>
               {t('הורד עותק PDF')}
             </button>

@@ -7,12 +7,12 @@ const f = (type, label, extra = {}) => ({ id: uid(), type, label, required: fals
 const sec = (label) => f('section', label);
 const req = (field) => ({ ...field, required: true });
 
-// טופס ב' – ביקור בית (מאור שרותי רווחה וסיעוד בע"מ)
+// טופס ב' – ביקור בית (עוגן סיעוד ועובדים זרים בע"מ)
 // Descriptive items are free text (faithful to the paper form); pick-lists are
 // checklists; two signatures at the end. Fixed values are left blank.
 export function homeVisitForm() {
   return {
-    title: 'מאור שרותי רווחה וסיעוד בע"מ — טופס ב\' ביקור בית',
+    title: 'עוגן סיעוד ועובדים זרים בע"מ — טופס ב\' ביקור בית',
     schema: [
       sec('פרטי הביקור'),
       f('select', 'סוג ביקור', { options: ['לאחר', 'שוטף', 'הכרות / רישום', 'ועדה חריגה', 'חוות דעת'] }),
@@ -123,5 +123,5 @@ export function homeVisitForm() {
 }
 
 export const PREBUILT_FORMS = [
-  { key: 'homeVisit', label: 'ביקור בית (מאור)', build: homeVisitForm },
+  { key: 'homeVisit', label: 'טופס ביקור בית', build: homeVisitForm },
 ];

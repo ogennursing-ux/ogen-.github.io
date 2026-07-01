@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import WorkerFormRouter from '../components/WorkerFormRouter.jsx';
 import LangToggle from '../components/LangToggle.jsx';
 import { api } from '../lib/api.js';
-import { WORKER_ACCESS_CODE } from '../lib/workerPortal.js';
+import { WORKER_ACCESS_CODE, COMPANY_NAME } from '../lib/workerPortal.js';
 import { LangContext, getInitialLang, applyLang, useT } from '../lib/i18n.js';
 
 const AUTH_KEY = 'worker_auth';
@@ -50,7 +50,7 @@ function AccessGate({ onEnter }) {
       <div className="centered-screen">
         <form className="card login-card" onSubmit={submit}>
           <h2>{t('כניסה לפורטל הטפסים')}</h2>
-          <p className="muted">{t('הזן/י את קוד הגישה שקיבלת מעוגן סיעוד.')}</p>
+          <p className="muted">{t('הזן/י את קוד הגישה שקיבלת מ{company}.', { company: COMPANY_NAME })}</p>
           <label className="field-label">{t('קוד גישה')}</label>
           <input
             className="text-input"
@@ -87,7 +87,7 @@ function FormsList({ onSelect }) {
     <div className="centered-screen">
       <div className="card" style={{ maxWidth: 560 }}>
         <h2>{t('טפסים זמינים למילוי')}</h2>
-        <p className="muted">{t('בחר/י טופס, מלא/י אותו ושלח/י — הוא יגיע ישירות לעוגן סיעוד.')}</p>
+        <p className="muted">{t('בחר/י טופס, מלא/י אותו ושלח/י — הוא יגיע ישירות ל{company}.', { company: COMPANY_NAME })}</p>
         {items === null && <p className="muted">{t('טוען…')}</p>}
         {items && !items.length && <p className="muted">{t('אין כרגע טפסים זמינים.')}</p>}
         {items && items.length > 0 && (

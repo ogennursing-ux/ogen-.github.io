@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import LangToggle from './LangToggle.jsx';
+import { COMPANY_NAME } from '../lib/workerPortal.js';
 import { useT } from '../lib/i18n.js';
 
 // Simple client-side gate for the owner area. NOTE: this is a basic gate, not
-// strong security — the check runs in the browser.
-const USER = 'עוגן סיעוד';
+// strong security — the check runs in the browser. Either the short name or the
+// full company name is accepted as the username, so the login keeps working
+// after the rebrand.
+const USERS = ['עוגן סיעוד', COMPANY_NAME];
 const PASS = '12345';
 
 export default function Login({ onLogin }) {
@@ -15,7 +18,7 @@ export default function Login({ onLogin }) {
 
   const submit = (e) => {
     e.preventDefault();
-    if (user.trim() === USER && pass === PASS) {
+    if (USERS.includes(user.trim()) && pass === PASS) {
       try {
         localStorage.setItem('ogen_auth', '1');
       } catch {

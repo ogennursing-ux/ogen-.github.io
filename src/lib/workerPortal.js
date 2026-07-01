@@ -4,6 +4,9 @@
 // redeploy to rotate it.
 export const WORKER_ACCESS_CODE = 'עובדים2026';
 
+// Company name shown in the worker-facing texts. Defined once here.
+export const COMPANY_NAME = 'עוגן סיעוד ועובדים זרים בע"מ';
+
 // Resolves to the sibling worker.html regardless of deployment sub-path.
 export function workerPortalLink() {
   return new URL('worker.html', location.href).href;

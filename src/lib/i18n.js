@@ -220,11 +220,11 @@ const EN = {
   'למחוק את הטופס? הוא ייעלם מהפורטל.': 'Delete this form? It will disappear from the portal.',
   טופס: 'Form',
   'כניסה לפורטל הטפסים': 'Sign in to the forms portal',
-  'הזן/י את קוד הגישה שקיבלת מעוגן סיעוד.': 'Enter the access code you received from Ogen Nursing.',
+  'הזן/י את קוד הגישה שקיבלת מ{company}.': 'Enter the access code you received from {company}.',
   'קוד גישה שגוי': 'Wrong access code',
   כניסה: 'Enter',
   'טפסים זמינים למילוי': 'Forms available to fill',
-  'בחר/י טופס, מלא/י אותו ושלח/י — הוא יגיע ישירות לעוגן סיעוד.': 'Pick a form, fill it in, and send — it goes straight to Ogen Nursing.',
+  'בחר/י טופס, מלא/י אותו ושלח/י — הוא יגיע ישירות ל{company}.': 'Pick a form, fill it in, and send — it goes straight to {company}.',
   'אין כרגע טפסים זמינים.': 'No forms available right now.',
   'מלא/י טופס': 'Fill form',
   'חזרה לרשימה': 'Back to list',
@@ -261,7 +261,7 @@ const EN = {
   'יש למלא את כל שדות החובה (המסומנים ב-*).': 'Please fill in all required fields (marked with *).',
   'שליחת הטופס נכשלה': 'Submitting the form failed',
   'תודה! הטופס נשלח': 'Thank you! The form was submitted',
-  'הטופס המלא נשמר ונשלח לעוגן סיעוד.': 'The completed form was saved and sent to Ogen Nursing.',
+  'הטופס המלא נשמר ונשלח ל{company}.': 'The completed form was saved and sent to {company}.',
   'הורד עותק PDF': 'Download a PDF copy',
   'בחר/י…': 'Select…',
   'שליחה ›': 'Submit ›',
@@ -270,7 +270,7 @@ const EN = {
   'רשימת סימון (בחירה מרובה)': 'Checklist (multiple choice)',
   'טפסים מוכנים': 'Ready-made forms',
   'טען טופס מוכן': 'Load a ready-made form',
-  'ביקור בית (מאור)': 'Home visit (Maor)',
+  'טופס ביקור בית': 'Home visit form',
 };
 
 export const LangContext = createContext({ lang: 'he', setLang: () => {} });
