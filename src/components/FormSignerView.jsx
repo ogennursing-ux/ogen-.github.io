@@ -22,7 +22,7 @@ function download(bytes, name) {
 }
 
 // Permanent (reusable) link: every visitor signs a fresh copy of the template.
-export default function FormSignerView({ id }) {
+export default function FormSignerView({ id, brandIcon = '✒️', brandLabel, onBack }) {
   const t = useT();
   const [status, setStatus] = useState('loading'); // loading|ready|done|error
   const [error, setError] = useState('');
@@ -87,10 +87,13 @@ export default function FormSignerView({ id }) {
   const header = (
     <header className="app-header">
       <div className="brand">
-        <span className="brand-mark">✒️</span>
-        <span className="brand-name">{t('חתימה דיגיטלית')}</span>
+        <span className="brand-mark">{brandIcon}</span>
+        <span className="brand-name">{t(brandLabel || 'חתימה דיגיטלית')}</span>
       </div>
-      <LangToggle />
+      <div className="header-actions">
+        <LangToggle />
+        {onBack && <button className="header-settings" onClick={onBack}>{t('חזרה לרשימה')}</button>}
+      </div>
     </header>
   );
   const centered = (content) => (

@@ -94,14 +94,14 @@ export const mockApi = {
     save(REQ_KEY, all);
   },
 
-  async createTemplate({ title, pdfBytes, fields, signers, note, ownerEmail, webhook }) {
+  async createTemplate({ title, pdfBytes, fields, signers, note, ownerEmail, webhook, category, active }) {
     const id = crypto.randomUUID();
     const all = load(TMPL_KEY);
     all[id] = {
       id,
       title: title || null,
       fields,
-      signers: { list: signers || [], note: note || '' },
+      signers: { list: signers || [], note: note || '', category: category || null, active: active !== false },
       owner_email: ownerEmail || null,
       webhook_url: webhook || null,
       pdf_b64: bytesToB64(pdfBytes),
@@ -120,6 +120,19 @@ export const mockApi = {
   async deleteTemplate(id) {
     const all = load(TMPL_KEY);
     delete all[id];
+    save(TMPL_KEY, all);
+  },
+
+  async listWorkerTemplates() {
+    return Object.values(load(TMPL_KEY))
+      .filter((t) => t.signers && t.signers.category === 'worker')
+      .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  },
+
+  async setTemplateActive(id, active) {
+    const all = load(TMPL_KEY);
+    if (!all[id]) throw new Error('התבנית לא נמצאה');
+    all[id] = { ...all[id], signers: { ...(all[id].signers || {}), active } };
     save(TMPL_KEY, all);
   },
 

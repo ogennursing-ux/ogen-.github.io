@@ -8,6 +8,7 @@ import EditPanel from './components/EditPanel.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import AllSignatures from './components/AllSignatures.jsx';
 import Templates from './components/Templates.jsx';
+import WorkerFormsAdmin from './components/WorkerFormsAdmin.jsx';
 import Settings from './components/Settings.jsx';
 import LinkCreated from './components/LinkCreated.jsx';
 import SignerView from './components/SignerView.jsx';
@@ -20,7 +21,10 @@ import { mergePdfs } from './lib/exporters.js';
 import { FIELD_DEFAULTS, FIELD_LABELS, DEFAULT_SIGNERS, clamp, uid, todayISO } from './lib/fields.js';
 import { api, rememberRequest, rememberTemplate, signingLink, formLink, listMyTemplates } from './lib/api.js';
 import { getSettings, notify } from './lib/notify.js';
+import { workerPortalLink } from './lib/workerPortal.js';
 import { LangContext, getInitialLang, applyLang, useT } from './lib/i18n.js';
+
+const WORKER_SIGNERS = () => [{ name: 'עובד סוציאלי', color: '#1f7a53', email: '' }];
 
 export default function App() {
   const [lang, setLang] = useState(getInitialLang);
@@ -117,6 +121,8 @@ function PrepareApp({ onLogout }) {
       setSigners(
         sendMode === 'round'
           ? [{ ...DEFAULT_SIGNERS[0], email: '' }, { ...DEFAULT_SIGNERS[1], email: '' }]
+          : sendMode === 'worker'
+          ? WORKER_SIGNERS()
           : newSigners(),
       );
       setActiveSigner(0);
@@ -258,6 +264,35 @@ function PrepareApp({ onLogout }) {
     }
   }
 
+  async function publishWorkerForm() {
+    if (!fields.length) {
+      alert(t('הוסף לפחות שדה אחד למסמך לפני הפרסום.'));
+      return;
+    }
+    setBusy(true);
+    try {
+      const settings = getSettings();
+      await api.createTemplate({
+        title: baseName,
+        pdfBytes,
+        fields,
+        signers: signerList(),
+        note,
+        ownerEmail: settings.ownerEmail || null,
+        webhook: settings.webhook || null,
+        category: 'worker',
+        active: true,
+      });
+      setCreated({ workerPublished: true });
+      setScreen('created');
+    } catch (err) {
+      console.error(err);
+      alert(t('פרסום הטופס נכשל') + ': ' + err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function downloadSigned(id) {
     try {
       const req = await api.getRequest(id);
@@ -299,14 +334,32 @@ function PrepareApp({ onLogout }) {
     return (
       <div className="app">
         {header}
-        <LinkCreated
-          link={created.link}
-          signerEmail={created.signerEmail}
-          signersCount={created.signersCount}
-          permanent={created.permanent}
-          onNewDocument={startOver}
-          onDashboard={startOver}
-        />
+        {created.workerPublished ? (
+          <div className="centered-screen">
+            <div className="card">
+              <div className="big-check" aria-hidden>✓</div>
+              <h2>{t('הטופס פורסם!')}</h2>
+              <p className="muted">
+                {t('הטופס יופיע כעת בפורטל הטפסים לעובדים הסוציאליים. אפשר לנהל טפסים וקוד גישה תחת "טפסים לעובדים סוציאליים".')}
+              </p>
+              <div className="card-actions">
+                <button className="btn-ghost" onClick={() => { setSendMode('worker'); startOver(); }}>
+                  {t('טפסים לעובדים סוציאליים')}
+                </button>
+                <button className="btn-primary" onClick={startOver}>{t('מסמך חדש')}</button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <LinkCreated
+            link={created.link}
+            signerEmail={created.signerEmail}
+            signersCount={created.signersCount}
+            permanent={created.permanent}
+            onNewDocument={startOver}
+            onDashboard={startOver}
+          />
+        )}
         {settingsModal}
       </div>
     );
@@ -353,14 +406,28 @@ function PrepareApp({ onLogout }) {
           >
             {t('סבב חתימות (2 חותמים)')}
           </button>
+          <button
+            className={`home-tab${sendMode === 'worker' ? ' active' : ''}`}
+            onClick={() => setSendMode('worker')}
+          >
+            {t('טפסים לעובדים סוציאליים')}
+          </button>
         </div>
         <Dropzone onFile={handleFile} busy={busy} />
-        <Dashboard onDownloadSigned={downloadSigned} />
-        <AllSignatures />
+        {sendMode === 'worker' ? (
+          <WorkerFormsAdmin />
+        ) : (
+          <>
+            <Dashboard onDownloadSigned={downloadSigned} />
+            <AllSignatures />
+          </>
+        )}
 
+        {sendMode !== 'worker' && (
         <button className="fab" onClick={() => setShowTemplates(true)}>
           📁 {t('תבניות')}
         </button>
+        )}
         {showTemplates && (
           <div className="modal-backdrop" onPointerDown={() => setShowTemplates(false)}>
             <div className="drawer" onPointerDown={(e) => e.stopPropagation()}>
@@ -385,12 +452,12 @@ function PrepareApp({ onLogout }) {
     <div className="app editor-layout">
       {header}
       <Toolbar
-        onContinue={createLink}
+        onContinue={sendMode === 'worker' ? publishWorkerForm : createLink}
         onReset={startOver}
-        onSaveTemplate={saveTemplate}
+        onSaveTemplate={sendMode === 'worker' ? undefined : saveTemplate}
         busy={busy}
         canContinue={fields.length > 0}
-        continueLabel={t('צור קישור לחתימה ›')}
+        continueLabel={sendMode === 'worker' ? t('פרסם כטופס לעובדים סוציאליים ›') : t('צור קישור לחתימה ›')}
       />
       <SignerBar
         signers={signers}

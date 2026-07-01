@@ -85,7 +85,7 @@ export const supabaseApi = {
   },
 
   // ---- reusable templates ----
-  async createTemplate({ title, pdfBytes, fields, signers, note, ownerEmail, webhook }) {
+  async createTemplate({ title, pdfBytes, fields, signers, note, ownerEmail, webhook, category, active }) {
     const id = crypto.randomUUID();
     await uploadPdf(`originals/template-${id}.pdf`, pdfBytes);
     const { error } = await sb.from('templates').insert({
@@ -93,7 +93,7 @@ export const supabaseApi = {
       title: title || null,
       pdf_path: `originals/template-${id}.pdf`,
       fields,
-      signers: { list: signers || [], note: note || '' },
+      signers: { list: signers || [], note: note || '', category: category || null, active: active !== false },
       owner_email: ownerEmail || null,
       webhook_url: webhook || null,
     });
@@ -109,6 +109,26 @@ export const supabaseApi = {
 
   async deleteTemplate(id) {
     await sb.from('templates').delete().eq('id', id);
+  },
+
+  // Templates published for the social-worker forms portal (category stored
+  // inside the flexible `signers` json — no schema migration needed).
+  async listWorkerTemplates() {
+    const { data, error } = await sb.from('templates').select('*');
+    if (error) throw new Error('טעינת הטפסים נכשלה: ' + error.message);
+    return (data || [])
+      .filter((row) => row.signers && row.signers.category === 'worker')
+      .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  },
+
+  async setTemplateActive(id, active) {
+    const { data, error } = await sb.from('templates').select('signers').eq('id', id).single();
+    if (error) throw new Error(error.message);
+    const { error: upErr } = await sb
+      .from('templates')
+      .update({ signers: { ...(data.signers || {}), active } })
+      .eq('id', id);
+    if (upErr) throw new Error(upErr.message);
   },
 
   // A submission through a permanent (form) link: store a finished signed row.

@@ -20,6 +20,7 @@ const EN = {
     '🔒 Files are stored securely and used only for the signing process.',
   'שליחה רגילה': 'Single signer',
   'סבב חתימות (2 חותמים)': 'Signing round (2 signers)',
+  'טפסים לעובדים סוציאליים': 'Forms for social workers',
 
   // toolbar / editor
   'מסמך חדש': 'New document',
@@ -190,6 +191,37 @@ const EN = {
   'תצוגה מקדימה': 'Preview',
   'טוען תצוגה…': 'Loading preview…',
   'הורד מסמך': 'Download document',
+
+  // worker forms (publish flow, admin panel, portal)
+  'הוסף לפחות שדה אחד למסמך לפני הפרסום.': 'Add at least one field to the document before publishing.',
+  'פרסום הטופס נכשל': 'Publishing the form failed',
+  'הטופס פורסם!': 'Form published!',
+  'הטופס יופיע כעת בפורטל הטפסים לעובדים הסוציאליים. אפשר לנהל טפסים וקוד גישה תחת "טפסים לעובדים סוציאליים".':
+    'The form now appears in the social workers’ forms portal. Manage forms and the access code under "Forms for social workers".',
+  'פרסם כטופס לעובדים סוציאליים ›': 'Publish as a social worker form ›',
+  'פורטל הטפסים לעובדים סוציאליים': 'The social workers’ forms portal',
+  'שלח/י את הקישור ואת קוד הגישה לעובד/ת הסוציאלי/ת — הוא/היא ייכנס/תיכנס לפורטל, יבחר/תבחר טופס מהרשימה, ימלא/תמלא וישלח/תשלח ישירות אלייך.':
+    'Send the link and the access code to the social worker — they will enter the portal, pick a form from the list, fill it in, and send it straight to you.',
+  'קוד גישה': 'Access code',
+  'הטפסים שפורסמו': 'Published forms',
+  'עדיין לא פורסמו טפסים. העלה מסמך למעלה ופרסם אותו כטופס.': 'No forms published yet. Upload a document above and publish it as a form.',
+  פעיל: 'Active',
+  מושבת: 'Disabled',
+  השבת: 'Disable',
+  הפעל: 'Enable',
+  הגשות: 'Submissions',
+  'עדיין אין הגשות.': 'No submissions yet.',
+  'למחוק את הטופס? הוא ייעלם מהפורטל.': 'Delete this form? It will disappear from the portal.',
+  טופס: 'Form',
+  'כניסה לפורטל הטפסים': 'Sign in to the forms portal',
+  'הזן/י את קוד הגישה שקיבלת מעוגן סיעוד.': 'Enter the access code you received from Ogen Nursing.',
+  'קוד גישה שגוי': 'Wrong access code',
+  כניסה: 'Enter',
+  'טפסים זמינים למילוי': 'Forms available to fill',
+  'בחר/י טופס, מלא/י אותו ושלח/י — הוא יגיע ישירות לעוגן סיעוד.': 'Pick a form, fill it in, and send — it goes straight to Ogen Nursing.',
+  'אין כרגע טפסים זמינים.': 'No forms available right now.',
+  'מלא/י טופס': 'Fill form',
+  'חזרה לרשימה': 'Back to list',
 };
 
 export const LangContext = createContext({ lang: 'he', setLang: () => {} });
