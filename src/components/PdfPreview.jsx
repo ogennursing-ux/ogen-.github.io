@@ -26,6 +26,17 @@ export default function PdfPreview({ getBytes, name, onClose, onDownload }) {
     }
   }
 
+  // Download every page as its own image file, all from a single click.
+  async function downloadPagesSeparately() {
+    if (!pages || !pages.length) return;
+    const base = (name || 'document').replace(/\.pdf$/i, '');
+    for (let i = 0; i < pages.length; i++) {
+      const res = await fetch(pages[i].url);
+      const blob = await res.blob();
+      downloadBlob(blob, 'image/jpeg', `${base}-page-${i + 1}.jpg`);
+    }
+  }
+
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -68,6 +79,7 @@ export default function PdfPreview({ getBytes, name, onClose, onDownload }) {
             />
             <button className="btn-ghost" onClick={downloadPages}>{t('הורד דפים נבחרים')}</button>
           </div>
+          <button className="btn-ghost" onClick={downloadPagesSeparately}>{t('הורד כל דף כתמונה')}</button>
           {onDownload && (
             <button className="btn-primary" onClick={onDownload}>{t('הורד הכל')}</button>
           )}

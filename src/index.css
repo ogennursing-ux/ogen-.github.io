@@ -1203,6 +1203,9 @@ button {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* let the grid column shrink instead of forcing the form wider than the
+     screen (which clipped the left-column inputs on phones) */
+  min-width: 0;
 }
 .df-field > span {
   font-size: 12.5px;
@@ -1210,6 +1213,8 @@ button {
   color: var(--muted);
 }
 .df-field input {
+  width: 100%;
+  min-width: 0;
   padding: 10px 12px;
   border: 1.5px solid var(--line);
   border-radius: 9px;
@@ -1447,6 +1452,46 @@ button {
     width: 100%;
     flex-basis: 100%;
   }
+
+  /* ---- signing form on the phone ---- */
+  /* Full-width card flush to the screen edges, roomier padding. */
+  .details-form {
+    width: auto;
+    margin: 12px 10px 4px;
+    padding: 16px 14px;
+    border-radius: 14px;
+  }
+  /* Stack name/ID fields one per row so labels + inputs aren't cramped. */
+  .df-grid { grid-template-columns: 1fr; }
+  /* 16px inputs stop iOS from auto-zooming (and jumping) on focus. */
+  .df-field input,
+  .df-field input[type='date'],
+  .df-check span,
+  .text-input {
+    font-size: 16px;
+  }
+  .df-field input { padding: 12px 12px; }
+  .df-check input { width: 24px; height: 24px; }
+  .df-submit { min-height: 48px; font-size: 15px; }
+
+  /* The document pages fill the width; keep field labels legible. */
+  .pdf-page-wrap { width: 100%; }
+  .pages { padding: 16px 8px 120px; }
+
+  /* Signature pad: taller drawing area + comfortable, full-width buttons. */
+  .modal-backdrop { padding: 12px; }
+  .sign-modal { padding: 16px 14px; }
+  .sign-canvas { height: 260px; }
+  .sign-actions { flex-wrap: wrap; }
+  .sign-actions .btn-ghost,
+  .sign-actions .btn-primary {
+    flex: 1 1 auto;
+    min-height: 46px;
+  }
+  .font-choice { font-size: 24px; min-height: 52px; }
+
+  /* Keep the "signing turn" bar from crowding the small header. */
+  .signflow-bar { top: 52px; padding: 10px 12px; }
 }
 
 /* ---------------- signer note / question / page-range ---------------- */

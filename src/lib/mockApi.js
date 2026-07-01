@@ -20,6 +20,7 @@ function bytesToB64(bytes) {
   return btoa(bin);
 }
 function b64ToBytes(b64) {
+  if (!b64) throw new Error('המסמך אינו זמין');
   const bin = atob(b64);
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);

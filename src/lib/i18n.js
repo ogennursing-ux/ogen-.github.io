@@ -184,7 +184,13 @@ const EN = {
   'הודעה לחותם (לא תופיע במסמך)': 'Message to the signer (not shown in the document)',
   'דפים (למשל 1-3,5)': 'Pages (e.g. 1-3,5)',
   'הורד דפים נבחרים': 'Download selected pages',
+  'הורד כל דף כתמונה': 'Download each page as an image',
   'הורד הכל': 'Download all',
+  'בחר מסמכים למחיקה.': 'Select documents to delete.',
+  'להתחיל מסמך חדש? השדות הנוכחיים יימחקו.': 'Start a new document? The current fields will be cleared.',
+  'יצירת הקישור נכשלה': 'Failed to create the link',
+  'שמירת התבנית נכשלה': 'Failed to save the template',
+  'הורדה נכשלה': 'Download failed',
   'כמה מסמכים אוחדו לאחד': 'Multiple documents were merged into one',
 
   // pdf preview

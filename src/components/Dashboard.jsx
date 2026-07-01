@@ -24,17 +24,19 @@ export default function Dashboard({ onDownloadSigned }) {
   };
 
   useEffect(() => {
+    let alive = true;
     const list = listMyRequests();
     setItems(list);
     list.forEach(async (it) => {
       try {
         const req = await api.getRequest(it.id);
         const s = req.signers && req.signers.list ? req.signers : { current: 0, list: [{}] };
-        setInfo((p) => ({ ...p, [it.id]: { status: req.status, current: s.current || 0, total: s.list.length } }));
+        if (alive) setInfo((p) => ({ ...p, [it.id]: { status: req.status, current: s.current || 0, total: s.list.length } }));
       } catch {
-        setInfo((p) => ({ ...p, [it.id]: { status: 'missing' } }));
+        if (alive) setInfo((p) => ({ ...p, [it.id]: { status: 'missing' } }));
       }
     });
+    return () => { alive = false; };
   }, []);
 
   if (!items.length) return null;
@@ -101,7 +103,13 @@ export default function Dashboard({ onDownloadSigned }) {
   }
 
   async function removeSelected() {
-    const ids = chosen().map((i) => i.id);
+    // Delete is destructive: require an explicit selection (never fall back to
+    // "all visible") so an accidental click can't wipe the whole list.
+    if (!selected.size) {
+      alert(t('בחר מסמכים למחיקה.'));
+      return;
+    }
+    const ids = items.filter((i) => selected.has(i.id)).map((i) => i.id);
     if (!ids.length) return;
     if (!confirm(t('להסיר {n} מסמכים מהרשימה?', { n: ids.length }))) return;
     setBusy(true);

@@ -25,6 +25,10 @@ export default function AllSignatures() {
   const [newCount, setNewCount] = useState(0);
   const [preview, setPreview] = useState(null);
   const seenRef = useRef('');
+  // Keep the latest translator so the 30s polling closure notifies in the
+  // current language even after the user toggles EN/HE.
+  const tRef = useRef(t);
+  tRef.current = t;
 
   useEffect(() => {
     try {
@@ -45,7 +49,7 @@ export default function AllSignatures() {
         const fresh = list.filter((r) => (r.signed_at || '') > seenRef.current).length;
         setNewCount(fresh);
         if (notifyOnNew && fresh > 0 && seenRef.current && 'Notification' in window && Notification.permission === 'granted') {
-          new Notification(t('חתימה דיגיטלית'), { body: t('חתימות חדשות: {n}', { n: fresh }) });
+          new Notification(tRef.current('חתימה דיגיטלית'), { body: tRef.current('חתימות חדשות: {n}', { n: fresh }) });
         }
       } catch {
         /* ignore */
