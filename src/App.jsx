@@ -16,7 +16,7 @@ import Login from './components/Login.jsx';
 import LangToggle from './components/LangToggle.jsx';
 import { renderPdfPages } from './lib/pdfUtils.js';
 import { FIELD_DEFAULTS, FIELD_LABELS, DEFAULT_SIGNERS, clamp, uid, todayISO } from './lib/fields.js';
-import { api, rememberRequest, rememberTemplate, signingLink, formLink } from './lib/api.js';
+import { api, rememberRequest, rememberTemplate, signingLink, formLink, listMyTemplates } from './lib/api.js';
 import { getSettings, notify } from './lib/notify.js';
 import { LangContext, getInitialLang, applyLang, useT } from './lib/i18n.js';
 
@@ -71,6 +71,7 @@ function PrepareApp({ onLogout }) {
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
   const [sendMode, setSendMode] = useState('regular');
 
   const selectedField = useMemo(
@@ -347,9 +348,27 @@ function PrepareApp({ onLogout }) {
           </button>
         </div>
         <Dropzone onFile={handleFile} busy={busy} />
-        <Templates />
         <Dashboard onDownloadSigned={downloadSigned} />
         <AllSignatures />
+
+        <button className="fab" onClick={() => setShowTemplates(true)}>
+          📁 {t('תבניות')}
+        </button>
+        {showTemplates && (
+          <div className="modal-backdrop" onPointerDown={() => setShowTemplates(false)}>
+            <div className="drawer" onPointerDown={(e) => e.stopPropagation()}>
+              <div className="drawer-head">
+                <strong>{t('תבניות')}</strong>
+                <button className="icon-btn" onClick={() => setShowTemplates(false)} aria-label="close">✕</button>
+              </div>
+              {listMyTemplates().length ? (
+                <Templates />
+              ) : (
+                <p className="muted" style={{ padding: '8px 4px' }}>{t('אין תבניות שמורות עדיין.')}</p>
+              )}
+            </div>
+          </div>
+        )}
         {settingsModal}
       </div>
     );

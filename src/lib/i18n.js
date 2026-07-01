@@ -176,6 +176,8 @@ const EN = {
   'אין עדיין חתימות במערכת.': 'No signatures yet.',
   'חתימות חדשות: {n}': 'New signatures: {n}',
   'הוספת שדות': 'Add fields',
+  תבניות: 'Templates',
+  'אין תבניות שמורות עדיין.': 'No saved templates yet.',
 
   // pdf preview
   'תצוגה מקדימה': 'Preview',

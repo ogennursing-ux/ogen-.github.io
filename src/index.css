@@ -354,6 +354,49 @@ button {
   text-align: center;
 }
 
+/* ---------------- floating templates button + drawer ---------------- */
+.fab {
+  position: fixed;
+  bottom: 20px;
+  inset-inline-start: 20px;
+  z-index: 45;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 12px 18px;
+  border-radius: 28px;
+  box-shadow: 0 8px 24px rgba(47, 111, 237, 0.4);
+}
+.fab:hover {
+  filter: brightness(1.05);
+}
+.drawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  inset-inline-start: 0;
+  width: min(440px, 92vw);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+.modal-backdrop > .drawer {
+  margin-inline-end: auto;
+}
+.drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.drawer-head strong {
+  font-size: 17px;
+}
+
 /* ---------------- new-signature badge ---------------- */
 .new-badge {
   background: #fff4e0;
