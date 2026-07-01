@@ -267,6 +267,10 @@ const EN = {
   'שליחה ›': 'Submit ›',
   'הוסף חתימה': 'Add signature',
   'השתמש בחתימה השמורה': 'Use saved signature',
+  'רשימת סימון (בחירה מרובה)': 'Checklist (multiple choice)',
+  'טפסים מוכנים': 'Ready-made forms',
+  'טען טופס מוכן': 'Load a ready-made form',
+  'ביקור בית (מאור)': 'Home visit (Maor)',
 };
 
 export const LangContext = createContext({ lang: 'he', setLang: () => {} });

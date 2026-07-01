@@ -13,15 +13,19 @@ export const SCHEMA_FIELD_TYPES = [
   { type: 'date', label: 'תאריך' },
   { type: 'checkbox', label: 'תיבת סימון' },
   { type: 'select', label: 'רשימה נפתחת' },
+  { type: 'checklist', label: 'רשימת סימון (בחירה מרובה)' },
   { type: 'signature', label: 'חתימה' },
 ];
+
+// Types that store their options list (edited in the builder).
+export const OPTION_TYPES = ['select', 'checklist'];
 
 // Types that don't collect a value (layout only).
 export const LAYOUT_TYPES = ['section'];
 
 export function newSchemaField(type = 'text') {
   const f = { id: uid(), type, label: '', required: false };
-  if (type === 'select') f.options = ['אפשרות 1', 'אפשרות 2'];
+  if (type === 'select' || type === 'checklist') f.options = ['אפשרות 1', 'אפשרות 2'];
   return f;
 }
 
@@ -39,12 +43,15 @@ export const isLayoutField = (f) => LAYOUT_TYPES.includes(f.type);
 
 // Empty value for a field type (used to seed the fill form).
 export function emptyValue(type) {
-  return type === 'checkbox' ? false : '';
+  if (type === 'checkbox') return false;
+  if (type === 'checklist') return [];
+  return '';
 }
 
 // A field counts as unfilled for required-validation.
 export function isSchemaValueEmpty(field, value) {
   if (field.type === 'checkbox') return value !== true;
+  if (field.type === 'checklist') return !Array.isArray(value) || value.length === 0;
   return value === undefined || value === null || String(value).trim() === '';
 }
 

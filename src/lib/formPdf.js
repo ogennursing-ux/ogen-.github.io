@@ -57,6 +57,7 @@ function lineImage(text, { size = 13, weight = 400, color = '#111827', maxWidth 
 
 function displayValue(field, value) {
   if (field.type === 'checkbox') return value === true ? 'כן ✓' : 'לא';
+  if (field.type === 'checklist') return Array.isArray(value) ? value.join('  ·  ') : '';
   if (field.type === 'date') return value ? formatDate(value) : '';
   return value == null ? '' : String(value);
 }

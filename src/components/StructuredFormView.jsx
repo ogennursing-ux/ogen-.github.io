@@ -205,6 +205,27 @@ export default function StructuredFormView({ template, brandIcon = '📋', brand
                   </div>
                 );
               }
+              if (f.type === 'checklist') {
+                const selected = Array.isArray(values[f.id]) ? values[f.id] : [];
+                const toggle = (opt) =>
+                  set(f.id, selected.includes(opt) ? selected.filter((o) => o !== opt) : [...selected, opt]);
+                return (
+                  <div key={f.id} className={`gov-field wide${bad ? ' invalid' : ''}`}>
+                    <label className="gov-label">
+                      {f.label}
+                      {f.required && <b className="req-star"> *</b>}
+                    </label>
+                    <div className="gov-checklist">
+                      {(f.options || []).map((opt, k) => (
+                        <label key={k} className="gov-check-item">
+                          <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggle(opt)} />
+                          <span>{opt}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                );
+              }
               return (
                 <div key={f.id} className={`gov-field${bad ? ' invalid' : ''}${f.type === 'textarea' ? ' wide' : ''}`}>
                   {f.type === 'checkbox' ? (

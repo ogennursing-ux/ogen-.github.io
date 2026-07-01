@@ -24,6 +24,7 @@ import { api, rememberRequest, rememberTemplate, signingLink, formLink, listMyTe
 import { getSettings, notify } from './lib/notify.js';
 import { workerPortalLink } from './lib/workerPortal.js';
 import { buildFormPdf } from './lib/formPdf.js';
+import { PREBUILT_FORMS } from './lib/prebuiltForms.js';
 import { LangContext, getInitialLang, applyLang, useT } from './lib/i18n.js';
 
 const WORKER_SIGNERS = () => [{ name: 'עובד סוציאלי', color: '#1f7a53', email: '' }];
@@ -82,6 +83,7 @@ function PrepareApp({ onLogout }) {
   const [showTemplates, setShowTemplates] = useState(false);
   const [sendMode, setSendMode] = useState('regular');
   const [note, setNote] = useState('');
+  const [builderInit, setBuilderInit] = useState(null); // { title, schema } for prebuilt forms
 
   const selectedField = useMemo(
     () => fields.find((f) => f.id === selectedId) || null,
@@ -401,6 +403,8 @@ function PrepareApp({ onLogout }) {
       <div className="app">
         {header}
         <FormBuilder
+          initialTitle={builderInit?.title || ''}
+          initialSchema={builderInit?.schema}
           busy={busy}
           onPublish={publishStructuredForm}
           onCancel={() => setScreen('home')}
@@ -467,9 +471,29 @@ function PrepareApp({ onLogout }) {
                   {t('טופס שדות נקי (כמו טופס ממשלתי) — או העלאת מסמך PDF קיים.')}
                 </p>
               </div>
-              <button className="btn-primary" onClick={() => setScreen('formBuilder')}>
-                ➕ {t('בניית טופס שדות')}
-              </button>
+              <div className="worker-create-actions">
+                {PREBUILT_FORMS.map((pf) => (
+                  <button
+                    key={pf.key}
+                    className="btn-ghost"
+                    onClick={() => {
+                      setBuilderInit(pf.build());
+                      setScreen('formBuilder');
+                    }}
+                  >
+                    📋 {t(pf.label)}
+                  </button>
+                ))}
+                <button
+                  className="btn-primary"
+                  onClick={() => {
+                    setBuilderInit(null);
+                    setScreen('formBuilder');
+                  }}
+                >
+                  ➕ {t('בניית טופס שדות')}
+                </button>
+              </div>
             </div>
             <Dropzone onFile={handleFile} busy={busy} />
             <WorkerFormsAdmin />

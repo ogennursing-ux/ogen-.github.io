@@ -1636,3 +1636,19 @@ textarea.gov-input { resize: vertical; }
   border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; padding: 4px 8px;
 }
 .gov-field.invalid .sig-empty .btn-primary { box-shadow: 0 0 0 3px rgba(220,38,38,0.10); }
+
+/* ---------------- checklist (multi-select) inside a structured form ------- */
+.gov-checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 6px 16px;
+  padding: 8px 12px;
+  border: 1px solid #e3e8f0;
+  border-radius: 8px;
+  background: #fafbfe;
+}
+.gov-check-item { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.gov-check-item input { width: 17px; height: 17px; }
+.gov-field.invalid .gov-checklist { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(220,38,38,0.10); }
+
+.worker-create-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }

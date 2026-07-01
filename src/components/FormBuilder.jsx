@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { SCHEMA_FIELD_TYPES, newSchemaField, starterSchema } from '../lib/formSchema.js';
+import { SCHEMA_FIELD_TYPES, OPTION_TYPES, newSchemaField, starterSchema } from '../lib/formSchema.js';
 import { useT } from '../lib/i18n.js';
 
 // Admin builder for a gov.il-style structured form: a title plus an ordered
 // list of labeled fields the social worker will fill in.
-export default function FormBuilder({ initialTitle = '', busy, onPublish, onCancel }) {
+export default function FormBuilder({ initialTitle = '', initialSchema, busy, onPublish, onCancel }) {
   const t = useT();
   const [title, setTitle] = useState(initialTitle);
-  const [schema, setSchema] = useState(starterSchema);
+  const [schema, setSchema] = useState(() =>
+    initialSchema && initialSchema.length ? initialSchema.map((f) => ({ ...f })) : starterSchema(),
+  );
 
   const update = (id, patch) => setSchema((s) => s.map((f) => (f.id === id ? { ...f, ...patch } : f)));
   const remove = (id) => setSchema((s) => s.filter((f) => f.id !== id));
@@ -72,7 +74,7 @@ export default function FormBuilder({ initialTitle = '', busy, onPublish, onCanc
                   value={f.type}
                   onChange={(e) => {
                     const type = e.target.value;
-                    update(f.id, { type, options: type === 'select' ? f.options || ['אפשרות 1'] : undefined });
+                    update(f.id, { type, options: OPTION_TYPES.includes(type) ? f.options || ['אפשרות 1'] : undefined });
                   }}
                 >
                   {SCHEMA_FIELD_TYPES.map((o) => (
@@ -83,7 +85,7 @@ export default function FormBuilder({ initialTitle = '', busy, onPublish, onCanc
                 </select>
               </div>
 
-              {f.type === 'select' && (
+              {OPTION_TYPES.includes(f.type) && (
                 <div className="builder-options">
                   {(f.options || []).map((opt, k) => (
                     <div key={k} className="builder-option">
