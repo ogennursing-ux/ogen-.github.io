@@ -1576,3 +1576,18 @@ textarea.gov-input { resize: vertical; }
   .gov-grid { grid-template-columns: 1fr; }
   .builder-type { max-width: none; }
 }
+
+/* ---------------- signature field inside a structured form ---------------- */
+.sig-field { display: flex; flex-direction: column; gap: 8px; }
+.sig-empty { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sig-empty .btn-ghost { display: inline-flex; align-items: center; gap: 8px; }
+.sig-saved-thumb {
+  height: 22px; max-width: 80px; object-fit: contain;
+  background: #fff; border: 1px solid var(--line); border-radius: 4px; padding: 1px 3px;
+}
+.sig-preview { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.sig-preview img {
+  height: 56px; max-width: 220px; object-fit: contain;
+  border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; padding: 4px 8px;
+}
+.gov-field.invalid .sig-empty .btn-primary { box-shadow: 0 0 0 3px rgba(220,38,38,0.10); }

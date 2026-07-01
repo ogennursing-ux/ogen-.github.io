@@ -13,6 +13,7 @@ export const SCHEMA_FIELD_TYPES = [
   { type: 'date', label: 'תאריך' },
   { type: 'checkbox', label: 'תיבת סימון' },
   { type: 'select', label: 'רשימה נפתחת' },
+  { type: 'signature', label: 'חתימה' },
 ];
 
 // Types that don't collect a value (layout only).

@@ -1,10 +1,27 @@
 import { useMemo, useState } from 'react';
 import LangToggle from './LangToggle.jsx';
+import SignaturePad from './SignaturePad.jsx';
 import { api } from '../lib/api.js';
 import { notify, bytesToBase64, getIp } from '../lib/notify.js';
 import { buildFormPdf } from '../lib/formPdf.js';
 import { emptyValue, isSchemaValueEmpty, formMeta } from '../lib/formSchema.js';
 import { useT } from '../lib/i18n.js';
+
+const SAVED_SIG_KEY = 'worker_saved_signature';
+const getSavedSignature = () => {
+  try {
+    return localStorage.getItem(SAVED_SIG_KEY) || null;
+  } catch {
+    return null;
+  }
+};
+const rememberSignature = (dataUrl) => {
+  try {
+    if (dataUrl) localStorage.setItem(SAVED_SIG_KEY, dataUrl);
+  } catch {
+    /* ignore */
+  }
+};
 
 function download(bytes, name) {
   const blob = new Blob([bytes], { type: 'application/pdf' });
@@ -34,8 +51,19 @@ export default function StructuredFormView({ template, brandIcon = '📋', brand
   const [busy, setBusy] = useState(false);
   const [signedBytes, setSignedBytes] = useState(null);
   const [invalid, setInvalid] = useState(() => new Set());
+  const [signingId, setSigningId] = useState(null); // field id whose pad is open
+  const [savedSig, setSavedSig] = useState(getSavedSignature);
 
   const set = (id, val) => setValues((v) => ({ ...v, [id]: val }));
+
+  function saveSignature(id, dataUrl) {
+    set(id, dataUrl);
+    if (dataUrl) {
+      rememberSignature(dataUrl);
+      setSavedSig(dataUrl);
+    }
+    setSigningId(null);
+  }
 
   async function submit() {
     const missing = new Set();
@@ -137,6 +165,46 @@ export default function StructuredFormView({ template, brandIcon = '📋', brand
                 );
               }
               const bad = invalid.has(f.id);
+              if (f.type === 'signature') {
+                return (
+                  <div key={f.id} className={`gov-field wide${bad ? ' invalid' : ''}`}>
+                    <label className="gov-label">
+                      {f.label}
+                      {f.required && <b className="req-star"> *</b>}
+                    </label>
+                    <div className="sig-field">
+                      {values[f.id] ? (
+                        <div className="sig-preview">
+                          <img src={values[f.id]} alt={t('חתימה')} />
+                          <button type="button" className="btn-ghost sm" onClick={() => setSigningId(f.id)}>
+                            {t('חתום מחדש')}
+                          </button>
+                          <button type="button" className="btn-ghost sm danger-text" onClick={() => set(f.id, '')}>
+                            {t('נקה')}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="sig-empty">
+                          <button type="button" className="btn-primary sm" onClick={() => setSigningId(f.id)}>
+                            ✒️ {t('הוסף חתימה')}
+                          </button>
+                          {savedSig && (
+                            <button
+                              type="button"
+                              className="btn-ghost sm"
+                              onClick={() => set(f.id, savedSig)}
+                              title={t('השתמש בחתימה השמורה')}
+                            >
+                              <img src={savedSig} alt="" className="sig-saved-thumb" />
+                              {t('השתמש בחתימה השמורה')}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
               return (
                 <div key={f.id} className={`gov-field${bad ? ' invalid' : ''}${f.type === 'textarea' ? ' wide' : ''}`}>
                   {f.type === 'checkbox' ? (
@@ -199,6 +267,13 @@ export default function StructuredFormView({ template, brandIcon = '📋', brand
           </div>
         </form>
       </div>
+
+      {signingId && (
+        <SignaturePad
+          onSave={(dataUrl) => saveSignature(signingId, dataUrl)}
+          onClose={() => setSigningId(null)}
+        />
+      )}
     </div>
   );
 }

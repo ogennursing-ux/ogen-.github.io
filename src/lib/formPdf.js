@@ -61,6 +61,16 @@ function displayValue(field, value) {
   return value == null ? '' : String(value);
 }
 
+// Embed a PNG data URL into the document; returns { png, width, height }.
+async function embedDataUrl(pdf, dataUrl) {
+  const base64 = dataUrl.split(',')[1];
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const png = await pdf.embedPng(bytes);
+  return { png, width: png.width, height: png.height };
+}
+
 /**
  * @param {string} title
  * @param {Array} schema  structured-form fields
@@ -131,6 +141,32 @@ export async function buildFormPdf(title, schema, values = {}) {
     const labelText = (field.label || '') + (field.required ? '  *' : '');
     const labelLine = lineImage(labelText, { size: 12, weight: 600, color: '#374151', maxWidth: contentW });
     const labelImg = await embed(labelLine);
+
+    // Signature fields carry a PNG data URL — embed the drawing itself.
+    if (field.type === 'signature') {
+      const dataUrl = values[field.id];
+      const sig = dataUrl ? await embedDataUrl(pdf, dataUrl) : null;
+      const boxH = 46;
+      need(labelImg.height + boxH + 12);
+      place(labelImg, { gap: 4 });
+      if (sig) {
+        const scale = Math.min(180 / sig.width, boxH / sig.height, 1);
+        const w = sig.width * scale;
+        const h = sig.height * scale;
+        page.drawImage(sig.png, { x: right - w, y: y - h, width: w, height: h });
+        y -= boxH;
+      } else {
+        y -= boxH;
+      }
+      page.drawLine({
+        start: { x: MARGIN, y: y + 2 },
+        end: { x: right, y: y + 2 },
+        thickness: 0.6,
+        color: rgb(0.8, 0.83, 0.88),
+      });
+      y -= 8;
+      continue;
+    }
 
     const valueText = displayValue(field, values[field.id]);
     const valueLine = lineImage(valueText || ' ', { size: 13, weight: 400, color: '#111827', maxWidth: contentW });

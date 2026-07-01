@@ -259,6 +259,8 @@ const EN = {
   'הורד עותק PDF': 'Download a PDF copy',
   'בחר/י…': 'Select…',
   'שליחה ›': 'Submit ›',
+  'הוסף חתימה': 'Add signature',
+  'השתמש בחתימה השמורה': 'Use saved signature',
 };
 
 export const LangContext = createContext({ lang: 'he', setLang: () => {} });
