@@ -81,7 +81,11 @@ export default function StructuredFormView({ template, brandIcon = '📋', brand
     }
     setBusy(true);
     try {
-      const bytes = await buildFormPdf(title, schema, values);
+      // Use the form's faithful PDF renderer when it has one; otherwise the
+      // generic structured-form layout.
+      const bytes = template.renderPdf
+        ? await template.renderPdf(title, schema, values)
+        : await buildFormPdf(title, schema, values);
       await api.submitForm(template, { fields: { schema, values }, signedPdfBytes: bytes });
       setSignedBytes(bytes);
       setStatus('done');
