@@ -3,6 +3,7 @@ import WorkerFormRouter from '../components/WorkerFormRouter.jsx';
 import LangToggle from '../components/LangToggle.jsx';
 import { api } from '../lib/api.js';
 import { WORKER_ACCESS_CODE, COMPANY_NAME } from '../lib/workerPortal.js';
+import { builtinWorkerTemplates } from '../lib/prebuiltForms.js';
 import { LangContext, getInitialLang, applyLang, useT } from '../lib/i18n.js';
 
 const AUTH_KEY = 'worker_auth';
@@ -74,12 +75,14 @@ function FormsList({ onSelect }) {
   const [items, setItems] = useState(null);
 
   useEffect(() => {
+    // Built-in forms are always available; published forms are added on top.
+    const builtins = builtinWorkerTemplates();
     api
       .listWorkerTemplates()
-      .then((rows) => setItems(rows.filter((r) => r.signers?.active !== false)))
+      .then((rows) => setItems([...builtins, ...rows.filter((r) => r.signers?.active !== false)]))
       .catch((e) => {
         console.error(e);
-        setItems([]);
+        setItems(builtins);
       });
   }, []);
 

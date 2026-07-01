@@ -271,6 +271,7 @@ const EN = {
   'טפסים מוכנים': 'Ready-made forms',
   'טען טופס מוכן': 'Load a ready-made form',
   'טופס ביקור בית': 'Home visit form',
+  'טופס מובנה': 'Built-in form',
 };
 
 export const LangContext = createContext({ lang: 'he', setLang: () => {} });

@@ -141,16 +141,22 @@ export const supabaseApi = {
   // A submission through a permanent (form) link: store a finished signed row.
   async submitForm(template, { fields, signedPdfBytes }) {
     const id = crypto.randomUUID();
+    // Built-in forms are not database rows, so their id is not a real uuid —
+    // never write it to the uuid template_id column (submissions are linked by
+    // title instead).
+    const builtin = String(template.id || '').startsWith('builtin:');
     await uploadPdf(`signed/${id}.pdf`, signedPdfBytes);
     const { error } = await sb.from('sign_requests').insert({
       id,
       title: template.title,
-      pdf_path: template.pdf_path,
+      // Built-in forms have no original PDF; fall back to the signed file so the
+      // column is never null.
+      pdf_path: template.pdf_path || `signed/${id}.pdf`,
       fields,
       signers: template.signers || [],
       status: 'signed',
       signed_pdf_path: `signed/${id}.pdf`,
-      template_id: template.id,
+      template_id: builtin ? null : template.id,
       owner_email: template.owner_email || null,
       webhook_url: template.webhook_url || null,
       signed_at: new Date().toISOString(),

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { WORKER_ACCESS_CODE, workerPortalLink } from '../lib/workerPortal.js';
+import { builtinWorkerTemplates, isBuiltinId } from '../lib/prebuiltForms.js';
 import { useT } from '../lib/i18n.js';
 
 function download(bytes, name) {
@@ -23,11 +24,12 @@ export default function WorkerFormsAdmin() {
   const [busy, setBusy] = useState(false);
 
   async function load() {
+    const builtins = builtinWorkerTemplates();
     try {
-      setItems(await api.listWorkerTemplates());
+      setItems([...builtins, ...(await api.listWorkerTemplates())]);
     } catch (e) {
       console.error(e);
-      setItems([]);
+      setItems(builtins);
     }
   }
 
@@ -35,14 +37,19 @@ export default function WorkerFormsAdmin() {
     load();
   }, []);
 
-  async function toggleSubs(id) {
+  async function toggleSubs(item) {
+    const id = item.id;
     if (subs[id]) {
       setSubs((s) => ({ ...s, [id]: undefined }));
       return;
     }
     setSubs((s) => ({ ...s, [id]: 'loading' }));
     try {
-      const list = await api.listSubmissions(id);
+      // Built-in forms don't carry a template_id, so match their submissions by
+      // title; published forms link directly by template_id.
+      const list = isBuiltinId(id)
+        ? (await api.listAllSigned()).filter((r) => r.title === item.title)
+        : await api.listSubmissions(id);
       setSubs((s) => ({ ...s, [id]: list }));
     } catch (e) {
       setSubs((s) => ({ ...s, [id]: [] }));
@@ -88,37 +95,42 @@ export default function WorkerFormsAdmin() {
           {items.map((item) => {
             const active = item.signers?.active !== false;
             const list = subs[item.id];
+            const builtin = isBuiltinId(item.id);
             return (
               <li key={item.id} className="tmpl-item">
                 <div className="tmpl-row">
                   <div className="req-main">
                     <span className="req-title">{item.title || t('טופס')}</span>
-                    <span className="req-date">{active ? t('פעיל') : t('מושבת')}</span>
+                    <span className="req-date">{builtin ? t('טופס מובנה') : active ? t('פעיל') : t('מושבת')}</span>
                   </div>
                   <div className="req-side wrap">
-                    <button
-                      className="btn-ghost sm"
-                      disabled={busy}
-                      onClick={async () => {
-                        setBusy(true);
-                        try {
-                          await api.setTemplateActive(item.id, !active);
-                          await load();
-                        } catch (e) {
-                          alert('error: ' + e.message);
-                        } finally {
-                          setBusy(false);
-                        }
-                      }}
-                    >
-                      {active ? t('השבת') : t('הפעל')}
-                    </button>
-                    <button className="btn-ghost sm" onClick={() => toggleSubs(item.id)}>
+                    {!builtin && (
+                      <button
+                        className="btn-ghost sm"
+                        disabled={busy}
+                        onClick={async () => {
+                          setBusy(true);
+                          try {
+                            await api.setTemplateActive(item.id, !active);
+                            await load();
+                          } catch (e) {
+                            alert('error: ' + e.message);
+                          } finally {
+                            setBusy(false);
+                          }
+                        }}
+                      >
+                        {active ? t('השבת') : t('הפעל')}
+                      </button>
+                    )}
+                    <button className="btn-ghost sm" onClick={() => toggleSubs(item)}>
                       {t('הגשות')}{Array.isArray(list) ? ` (${list.length})` : ''}
                     </button>
-                    <button className="btn-ghost sm danger-text" onClick={() => remove(item.id)}>
-                      {t('מחק')}
-                    </button>
+                    {!builtin && (
+                      <button className="btn-ghost sm danger-text" onClick={() => remove(item.id)}>
+                        {t('מחק')}
+                      </button>
+                    )}
                   </div>
                 </div>
                 {list === 'loading' && <p className="muted small sub-note">{t('טוען…')}</p>}

@@ -5,7 +5,9 @@ import { uid } from './fields.js';
 // Helpers to keep the schema declaration compact.
 const f = (type, label, extra = {}) => ({ id: uid(), type, label, required: false, ...extra });
 const sec = (label) => f('section', label);
-const req = (field) => ({ ...field, required: true });
+// The social worker may submit without filling everything, so no field on the
+// ready-made forms is marked required.
+const req = (field) => field;
 
 // טופס ב' – ביקור בית (עוגן סיעוד ועובדים זרים בע"מ)
 // Descriptive items are free text (faithful to the paper form); pick-lists are
@@ -125,3 +127,29 @@ export function homeVisitForm() {
 export const PREBUILT_FORMS = [
   { key: 'homeVisit', label: 'טופס ביקור בית', build: homeVisitForm },
 ];
+
+// Built-in forms are always available in the worker portal without anyone
+// publishing them to the backend. We expose each as a template-shaped object so
+// the fill flow (StructuredFormView / submitForm) can use it unchanged. The id
+// is prefixed with "builtin:" so the router builds it locally instead of
+// fetching it from the database.
+export const BUILTIN_PREFIX = 'builtin:';
+
+export function prebuiltTemplate(key) {
+  const pf = PREBUILT_FORMS.find((p) => p.key === key);
+  if (!pf) return null;
+  const { title, schema } = pf.build();
+  return {
+    id: BUILTIN_PREFIX + key,
+    title,
+    pdf_path: null,
+    owner_email: null,
+    webhook_url: null,
+    signers: { list: [], note: '', category: 'worker', active: true, formType: 'structured', schema },
+    created_at: new Date(0).toISOString(),
+  };
+}
+
+export const isBuiltinId = (id) => typeof id === 'string' && id.startsWith(BUILTIN_PREFIX);
+export const prebuiltTemplateById = (id) => (isBuiltinId(id) ? prebuiltTemplate(id.slice(BUILTIN_PREFIX.length)) : null);
+export const builtinWorkerTemplates = () => PREBUILT_FORMS.map((p) => prebuiltTemplate(p.key));

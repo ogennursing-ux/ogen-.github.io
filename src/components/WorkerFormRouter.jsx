@@ -4,6 +4,7 @@ import StructuredFormView from './StructuredFormView.jsx';
 import LangToggle from './LangToggle.jsx';
 import { api } from '../lib/api.js';
 import { isStructuredForm } from '../lib/formSchema.js';
+import { isBuiltinId, prebuiltTemplateById } from '../lib/prebuiltForms.js';
 import { useT } from '../lib/i18n.js';
 
 // Loads a worker form by id and routes to the right filling experience:
@@ -14,6 +15,12 @@ export default function WorkerFormRouter({ id, brandIcon = '📋', brandLabel = 
 
   useEffect(() => {
     let alive = true;
+    // Built-in forms are constructed locally — no backend fetch needed.
+    if (isBuiltinId(id)) {
+      const tmpl = prebuiltTemplateById(id);
+      setState(tmpl ? { status: 'ready', tmpl } : { status: 'error', error: 'form not found' });
+      return;
+    }
     setState({ status: 'loading' });
     api
       .getTemplate(id)
