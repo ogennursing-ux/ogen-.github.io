@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import FormSignerView from '../components/FormSignerView.jsx';
+import WorkerFormRouter from '../components/WorkerFormRouter.jsx';
 import LangToggle from '../components/LangToggle.jsx';
 import { api } from '../lib/api.js';
 import { WORKER_ACCESS_CODE } from '../lib/workerPortal.js';
@@ -156,7 +156,7 @@ export default function WorkerApp() {
     view = <AccessGate onEnter={() => setAuthed(true)} />;
   } else if (formId) {
     view = (
-      <FormSignerView
+      <WorkerFormRouter
         id={formId}
         brandIcon="📋"
         brandLabel="טפסים לעובדים סוציאליים"

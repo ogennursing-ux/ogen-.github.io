@@ -222,6 +222,43 @@ const EN = {
   'אין כרגע טפסים זמינים.': 'No forms available right now.',
   'מלא/י טופס': 'Fill form',
   'חזרה לרשימה': 'Back to list',
+
+  // structured form builder (admin)
+  'צור טופס חדש לעובד הסוציאלי': 'Create a new form for the social worker',
+  'טופס שדות נקי (כמו טופס ממשלתי) — או העלאת מסמך PDF קיים.':
+    'A clean field-based form (like a government form) — or upload an existing PDF.',
+  'בניית טופס שדות': 'Build a field form',
+  'בניית טופס לעובד סוציאלי': 'Build a form for a social worker',
+  'הגדר/י את השדות שהעובד/ת ימלא/תמלא. גרירה לא נדרשת — פשוט מוסיפים שדות לפי הסדר.':
+    'Define the fields the worker will fill in. No dragging — just add fields in order.',
+  'שם הטופס': 'Form name',
+  'לדוגמה: טופס קבלת מידע': 'e.g. Information intake form',
+  'תן/י שם לטופס.': 'Give the form a name.',
+  'הוסף/י לפחות שדה אחד עם תווית.': 'Add at least one labeled field.',
+  'כותרת קטע': 'Section title',
+  'שם השדה (תווית)': 'Field name (label)',
+  'טקסט ארוך': 'Long text',
+  טלפון: 'Phone',
+  אימייל: 'Email',
+  'רשימה נפתחת': 'Dropdown',
+  אפשרות: 'Option',
+  '+ אפשרות': '+ Option',
+  חובה: 'Required',
+  'הזז למעלה': 'Move up',
+  'הזז למטה': 'Move down',
+  ביטול: 'Cancel',
+  'מפרסם…': 'Publishing…',
+  'פרסם טופס ›': 'Publish form ›',
+
+  // structured form fill (worker)
+  'שדות המסומנים בכוכבית (*) הם שדות חובה': 'Fields marked with an asterisk (*) are required',
+  'יש למלא את כל שדות החובה (המסומנים ב-*).': 'Please fill in all required fields (marked with *).',
+  'שליחת הטופס נכשלה': 'Submitting the form failed',
+  'תודה! הטופס נשלח': 'Thank you! The form was submitted',
+  'הטופס המלא נשמר ונשלח לעוגן סיעוד.': 'The completed form was saved and sent to Ogen Nursing.',
+  'הורד עותק PDF': 'Download a PDF copy',
+  'בחר/י…': 'Select…',
+  'שליחה ›': 'Submit ›',
 };
 
 export const LangContext = createContext({ lang: 'he', setLang: () => {} });

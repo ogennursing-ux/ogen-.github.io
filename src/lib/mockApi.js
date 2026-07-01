@@ -94,14 +94,21 @@ export const mockApi = {
     save(REQ_KEY, all);
   },
 
-  async createTemplate({ title, pdfBytes, fields, signers, note, ownerEmail, webhook, category, active }) {
+  async createTemplate({ title, pdfBytes, fields, signers, note, ownerEmail, webhook, category, active, formType, schema }) {
     const id = crypto.randomUUID();
     const all = load(TMPL_KEY);
     all[id] = {
       id,
       title: title || null,
       fields,
-      signers: { list: signers || [], note: note || '', category: category || null, active: active !== false },
+      signers: {
+        list: signers || [],
+        note: note || '',
+        category: category || null,
+        active: active !== false,
+        formType: formType || 'pdf',
+        schema: schema || [],
+      },
       owner_email: ownerEmail || null,
       webhook_url: webhook || null,
       pdf_b64: bytesToB64(pdfBytes),

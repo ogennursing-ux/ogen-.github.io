@@ -9,6 +9,7 @@ import Dashboard from './components/Dashboard.jsx';
 import AllSignatures from './components/AllSignatures.jsx';
 import Templates from './components/Templates.jsx';
 import WorkerFormsAdmin from './components/WorkerFormsAdmin.jsx';
+import FormBuilder from './components/FormBuilder.jsx';
 import Settings from './components/Settings.jsx';
 import LinkCreated from './components/LinkCreated.jsx';
 import SignerView from './components/SignerView.jsx';
@@ -22,6 +23,7 @@ import { FIELD_DEFAULTS, FIELD_LABELS, DEFAULT_SIGNERS, clamp, uid, todayISO } f
 import { api, rememberRequest, rememberTemplate, signingLink, formLink, listMyTemplates } from './lib/api.js';
 import { getSettings, notify } from './lib/notify.js';
 import { workerPortalLink } from './lib/workerPortal.js';
+import { buildFormPdf } from './lib/formPdf.js';
 import { LangContext, getInitialLang, applyLang, useT } from './lib/i18n.js';
 
 const WORKER_SIGNERS = () => [{ name: 'עובד סוציאלי', color: '#1f7a53', email: '' }];
@@ -293,6 +295,35 @@ function PrepareApp({ onLogout }) {
     }
   }
 
+  async function publishStructuredForm(title, schema) {
+    setBusy(true);
+    try {
+      const settings = getSettings();
+      // Generate a blank rendition of the form so the template still has a PDF.
+      const blankPdf = await buildFormPdf(title, schema, {});
+      await api.createTemplate({
+        title,
+        pdfBytes: blankPdf,
+        fields: [],
+        signers: signerList(),
+        note,
+        ownerEmail: settings.ownerEmail || null,
+        webhook: settings.webhook || null,
+        category: 'worker',
+        active: true,
+        formType: 'structured',
+        schema,
+      });
+      setCreated({ workerPublished: true });
+      setScreen('created');
+    } catch (err) {
+      console.error(err);
+      alert(t('פרסום הטופס נכשל') + ': ' + err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function downloadSigned(id) {
     try {
       const req = await api.getRequest(id);
@@ -365,6 +396,20 @@ function PrepareApp({ onLogout }) {
     );
   }
 
+  if (screen === 'formBuilder') {
+    return (
+      <div className="app">
+        {header}
+        <FormBuilder
+          busy={busy}
+          onPublish={publishStructuredForm}
+          onCancel={() => setScreen('home')}
+        />
+        {settingsModal}
+      </div>
+    );
+  }
+
   if (screen === 'name') {
     return (
       <div className="app">
@@ -413,11 +458,25 @@ function PrepareApp({ onLogout }) {
             {t('טפסים לעובדים סוציאליים')}
           </button>
         </div>
-        <Dropzone onFile={handleFile} busy={busy} />
         {sendMode === 'worker' ? (
-          <WorkerFormsAdmin />
+          <>
+            <div className="worker-create card">
+              <div>
+                <strong>{t('צור טופס חדש לעובד הסוציאלי')}</strong>
+                <p className="muted" style={{ margin: '4px 0 0' }}>
+                  {t('טופס שדות נקי (כמו טופס ממשלתי) — או העלאת מסמך PDF קיים.')}
+                </p>
+              </div>
+              <button className="btn-primary" onClick={() => setScreen('formBuilder')}>
+                ➕ {t('בניית טופס שדות')}
+              </button>
+            </div>
+            <Dropzone onFile={handleFile} busy={busy} />
+            <WorkerFormsAdmin />
+          </>
         ) : (
           <>
+            <Dropzone onFile={handleFile} busy={busy} />
             <Dashboard onDownloadSigned={downloadSigned} />
             <AllSignatures />
           </>

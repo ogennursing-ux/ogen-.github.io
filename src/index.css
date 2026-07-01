@@ -1501,3 +1501,78 @@ button {
 .df-field input, .text-input { font-size: 14px; }
 .dropzone h2 { font-size: 19px; }
 .dropzone-icon { font-size: 42px; }
+
+/* ---------------- structured form builder (admin) ---------------- */
+.builder-card { max-width: 720px; text-align: right; }
+.builder-list { display: flex; flex-direction: column; gap: 10px; margin: 14px 0; }
+.builder-row {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fbfcfe;
+}
+.builder-row.is-section { background: #f1f5fb; border-color: #dce3ef; }
+.builder-row-main { display: flex; gap: 8px; flex-wrap: wrap; }
+.builder-row-main .text-input { flex: 1 1 200px; }
+.builder-type { max-width: 150px; flex: 0 0 auto; }
+.builder-options { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; padding-inline-start: 4px; }
+.builder-option { display: flex; align-items: center; gap: 4px; }
+.text-input.sm { font-size: 13px; padding: 6px 8px; max-width: 160px; }
+.builder-row-side { display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.req-check { display: flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.builder-add { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+
+.worker-create {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; text-align: right; margin-bottom: 12px;
+}
+
+/* ---------------- gov.il-style structured fill (worker) ---------------- */
+.gov-form-wrap { max-width: 860px; margin: 0 auto; padding: 18px 16px 60px; }
+.gov-form {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 22px 22px 26px;
+  text-align: right;
+}
+.gov-form-title { font-size: 22px; color: #0f4c81; margin-bottom: 4px; }
+.gov-form-note { color: var(--ink); margin: 6px 0; }
+.gov-form-hint { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+.gov-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 18px;
+}
+.gov-section { grid-column: 1 / -1; margin-top: 6px; }
+.gov-section h3 {
+  font-size: 15px; color: #1f2937;
+  padding-bottom: 6px; border-bottom: 2px solid #e6eaf0;
+}
+.gov-field { display: flex; flex-direction: column; gap: 5px; }
+.gov-field.wide { grid-column: 1 / -1; }
+.gov-label { font-size: 13.5px; font-weight: 600; color: #374151; }
+.req-star { color: var(--danger); font-weight: 700; }
+.gov-input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 15px;
+  font-family: inherit;
+  background: #fff;
+  color: var(--ink);
+}
+.gov-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(32,164,92,0.12); }
+textarea.gov-input { resize: vertical; }
+.gov-field.invalid .gov-input { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(220,38,38,0.10); }
+.gov-check { display: flex; align-items: center; gap: 8px; font-size: 14px; padding-top: 22px; }
+.gov-check input { width: 18px; height: 18px; }
+.gov-actions { margin-top: 22px; display: flex; justify-content: flex-start; }
+.gov-actions .btn-primary { font-size: 15px; padding: 11px 26px; }
+
+@media (max-width: 640px) {
+  .gov-grid { grid-template-columns: 1fr; }
+  .builder-type { max-width: none; }
+}
