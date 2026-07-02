@@ -26,13 +26,13 @@ const S = {
   val: 'display:inline-block;border-bottom:1px solid #888;padding:0 5px 1px;min-height:15px;',
   box: 'border:1px solid #cbd3e0;border-radius:5px;padding:6px 8px;margin:1px 0 6px;min-height:30px;white-space:pre-wrap;word-break:break-word;',
   item: 'font-weight:700;font-size:12.5px;margin:2px 0 2px;',
-  cb: 'display:inline-flex;align-items:center;gap:4px;margin:0 3px;white-space:nowrap;',
-  cbbox: 'display:inline-block;width:12px;height:12px;border:1.3px solid #333;text-align:center;line-height:11px;font-size:11px;color:#0f3d5e;',
+  cb: 'display:inline-block;margin:0 3px 0 8px;white-space:nowrap;',
   base: 'font-size:13px;line-height:1.5;padding:30px 34px;',
 };
 
-const box = (checked) => `<span style="${S.cbbox}">${checked ? '✔' : ''}</span>`;
-const cb = (checked, label) => `<span style="${S.cb}">${box(checked)}${esc(label)}</span>`;
+// Lightweight unicode checkbox — much cheaper for html2canvas than a bordered,
+// flex-laid-out box.
+const cb = (checked, label) => `<span style="${S.cb}">${checked ? '☑' : '☐'} ${esc(label)}</span>`;
 const fld = (label, value, minW = 90) =>
   `<span style="display:inline-flex;align-items:flex-end;gap:4px;"><span style="${S.lbl}">${esc(label)}:</span>` +
   `<span style="${S.val};min-width:${minW}px">${esc(value)}</span></span>`;

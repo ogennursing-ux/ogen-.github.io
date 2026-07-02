@@ -1,6 +1,7 @@
 // Ready-made forms the admin can load into the builder and publish as-is.
 // Encoded faithfully from the source Word documents provided by the client.
 import { renderHomeVisitPdf } from './homeVisitPdf.js';
+import { renderPreplacementPdf } from './preplacementPdf.js';
 
 // Helpers. Ready-made forms use stable field ids so a faithful PDF renderer can
 // reference each value. No field is required — the social worker may submit
@@ -123,8 +124,158 @@ export function homeVisitForm() {
   };
 }
 
+// דו"ח טרום השמה (טופס 476) — official pre-placement report, 4 pages.
+export function preplacementForm() {
+  return {
+    title: 'עוגן סיעוד ועובדים זרים בע"מ — דו"ח טרום השמה',
+    schema: [
+      // ---- עמוד 1 ----
+      sec('secHeader', 'פרטי הביקור'),
+      F('visitDate', 'date', 'תאריך הביקור'),
+      F('bureauName', 'text', 'שם הלשכה'),
+      F('swName', 'text', 'שם העו"ס מבצע/ת הביקור'),
+      F('attendees', 'text', 'נכחו בביקור'),
+
+      sec('secPersonal', 'פרטים אישיים של המטופל/ת'),
+      F('pLastName', 'text', 'שם משפחה'),
+      F('pFirstName', 'text', 'שם פרטי'),
+      F('pId', 'idNumber', 'תעודת זהות'),
+      F('pBirthDate', 'text', 'תאריך לידה'),
+      F('pSex', 'select', 'מין', { options: ['זכר', 'נקבה'] }),
+      F('pMobile', 'phone', 'טלפון נייד'),
+      F('pPhone', 'phone', 'טלפון נייח'),
+      F('pEmail', 'email', 'דואר אלקטרוני'),
+      F('pCountry', 'text', 'ארץ מוצא'),
+      F('pAliyaYear', 'text', 'שנת עליה'),
+      F('pSmoking', 'select', 'עישון', { options: ['כן', 'לא'] }),
+      F('pPets', 'select', 'בעלי חיים', { options: ['כן', 'לא'] }),
+      F('pShabbat', 'select', 'שמירת שבת', { options: ['כן', 'לא'] }),
+      F('pKosher', 'select', 'שמירת כשרות', { options: ['כן', 'לא'] }),
+      F('pWeight', 'text', 'משקל'),
+      F('pHeight', 'text', 'גובה'),
+      F('pNationality', 'select', 'לאום', { options: ['יהודי', 'מוסלמי', 'נוצרי', 'בדואי', 'דרוזי', 'אחר'] }),
+      F('pReligiousStream', 'select', 'זרם דתי', { options: ['חרדי', 'דתי', 'מסורתי', 'חילוני', 'אחר'] }),
+      F('pLanguages', 'text', 'שפות'),
+      F('pMaritalStatus', 'select', 'מצב משפחתי', { options: ['רווק/ה', 'נשוי/אה', 'אלמן/ה', 'פרוד/ה', 'גרוש/ה', 'ידוע/ה בציבור'] }),
+
+      sec('secAddress', 'כתובת מגורי המטופל/ת'),
+      F('aStreet', 'text', 'רחוב'),
+      F('aHouseNo', 'text', 'מס\' בית'),
+      F('aApt', 'text', 'מס\' דירה'),
+      F('aEntrance', 'text', 'כניסה'),
+      F('aCity', 'text', 'עיר'),
+      F('aFloor', 'text', 'קומה'),
+      F('aElevator', 'select', 'מעלית', { options: ['כן', 'לא'] }),
+      F('aRooms', 'text', 'מס\' חדרים בבית'),
+      F('aShelteredHousing', 'select', 'האם הכתובת הנ"ל היא של דיור מוגן?', { options: ['כן', 'לא'] }),
+
+      sec('secCohab', 'אנשים הגרים עם המטופל/ת תחת קורת גג משותפת'),
+      F('coh1Last', 'text', '1. שם משפחה'),
+      F('coh1First', 'text', '1. שם פרטי'),
+      F('coh1Rel', 'text', '1. קרבה למטופל/ת'),
+      F('coh1Job', 'text', '1. עיסוק'),
+      F('coh1Age', 'text', '1. גיל'),
+      F('coh1Notes', 'text', '1. הערות'),
+      F('coh2Last', 'text', '2. שם משפחה'),
+      F('coh2First', 'text', '2. שם פרטי'),
+      F('coh2Rel', 'text', '2. קרבה למטופל/ת'),
+      F('coh2Job', 'text', '2. עיסוק'),
+      F('coh2Age', 'text', '2. גיל'),
+      F('coh2Notes', 'text', '2. הערות'),
+      F('coh3Last', 'text', '3. שם משפחה'),
+      F('coh3First', 'text', '3. שם פרטי'),
+      F('coh3Rel', 'text', '3. קרבה למטופל/ת'),
+      F('coh3Job', 'text', '3. עיסוק'),
+      F('coh3Age', 'text', '3. גיל'),
+      F('coh3Notes', 'text', '3. הערות'),
+
+      // ---- עמוד 2 ----
+      sec('secLocation', 'המטופל/ת נמצא/ת כעת ב:'),
+      F('curLocation', 'select', 'מיקום נוכחי', { options: ['בכתובת הנ"ל', 'בדיור מוגן', 'בבית חולים', 'בכתובת אחרת'] }),
+      F('shelterName', 'text', 'שם דיור מוגן'),
+      F('shelterAddr', 'text', 'כתובת דיור מוגן'),
+      F('hospName', 'text', 'שם בית החולים'),
+      F('hospDept', 'text', 'מחלקה'),
+      F('hospRelease', 'text', 'תאריך שחרור'),
+      F('otherAt', 'text', 'כתובת אחרת – אצל'),
+      F('otherAddr', 'text', 'כתובת אחרת – כתובת'),
+
+      sec('secContact', 'פרטי איש קשר (במקרים בהם המטופל אינו מסוגל למלא את חובתו כמעסיק)'),
+      F('contactRel', 'select', 'קרבה', { options: ['הורה', 'בן/בת', 'אח/ות', 'בן/ת זוג', 'אפוטרופוס', 'אחר'] }),
+      F('contactLast', 'text', 'שם משפחה'),
+      F('contactFirst', 'text', 'שם פרטי'),
+      F('contactMobile', 'phone', 'טלפון נייד'),
+      F('contactNotes', 'text', 'הערות'),
+
+      sec('secStatus', 'תיאור מצב המטופל/ת'),
+      F('healthPhysical', 'textarea', 'בריאותי – פיזיולוגי (פרט)'),
+      F('mentalState', 'select', 'נפשי – פסיכיאטרי', { options: ['אין', 'יש', 'לא ידוע', 'לא אובחן'] }),
+      F('mentalDetail', 'textarea', 'נפשי – פרט'),
+      F('cognitive', 'checklist', 'קוגניטיבי', {
+        options: ['מתמצא בזמן ובמקום', 'ירידה קלה בהתמצאות', 'ירידה משמעותית בהתמצאות', 'הפרעה בדיבור', 'אין מידע', 'אחר'],
+      }),
+      F('mobility', 'checklist', 'תפקודי – ניידות', {
+        options: ['מתהלך', 'הליכון', 'כיסא גלגלים', 'מרותק למיטה', 'סיוע במנוף למעברים', 'אחר'],
+      }),
+      F('continence', 'select', 'שליטה על סוגרים', { options: ['מלאה', 'חלקית', 'מוצרי ספיגה', 'אמצעי עזר'] }),
+      F('vision', 'select', 'ראיה', { options: ['תקינה', 'חלשה', 'עיוור', 'אחר'] }),
+      F('hearing', 'select', 'שמיעה', { options: ['תקינה', 'חלשה', 'כבד/ת שמיעה', 'אחר'] }),
+      F('dressing', 'select', 'הלבשה', { options: ['עצמאי', 'זקוק לעזרה חלקית', 'זקוק לעזרה מלאה', 'אחר'] }),
+      F('eating', 'select', 'אכילה', { options: ['עצמאי', 'זקוק לעזרה חלקית', 'זקוק לעזרה מלאה', 'אחר'] }),
+      F('bathing', 'select', 'רחצה', { options: ['עצמאי', 'זקוק לעזרה חלקית', 'זקוק לעזרה מלאה', 'אחר'] }),
+
+      // ---- עמוד 3 ----
+      sec('secExtra', 'פרטים נוספים'),
+      F('communityServices', 'checklist', 'שירותים תומכים בקהילה', {
+        options: ['עוזרת בית', 'טיפול בית חוק סיעוד', 'אפוטרופוס', 'מתנדב/שכן', 'מרכז יום', 'קופת חולים', 'אחר'],
+      }),
+      F('prevCaregivers', 'select', 'מטפלים קודמים', { options: ['לא', 'כן'] }),
+      F('prevCaregiversReason', 'text', 'מטפלים קודמים – סיבת עזיבה'),
+      F('incomeSources', 'checklist', 'מקורות הכנסה', {
+        options: ['קצבת ביטוח לאומי ללא השלמת הכנסה', 'קצבת ביטוח לאומי עם השלמת הכנסה', 'פנסיה מהעבודה', 'רנטה / שילומים', 'אחר'],
+      }),
+      F('functionalCognitiveDesc', 'textarea', 'תיאור מצב המטופל/ת ובן/בת הזוג מההיבט התפקודי-קוגניטיבי'),
+      F('socioEconomicDesc', 'textarea', 'תיאור מצב סוציו-אקונומי ותיאור תנאי מגורים (מטפל ומטופל)'),
+
+      sec('secWorker', 'פרטי עובד/ת זר/ה מבוקש/ת'),
+      F('wSex', 'select', 'מין', { options: ['זכר', 'נקבה'] }),
+      F('wCountry', 'text', 'ארץ מוצא'),
+      F('wLanguages', 'text', 'שפות'),
+      F('wAgeRange', 'text', 'טווח גילאים'),
+      F('wReligion', 'text', 'דת'),
+      F('wMaritalStatus', 'text', 'מצב משפחתי'),
+      F('wPhysical', 'text', 'נתונים פיזיים'),
+      F('wPersonality', 'text', 'נתונים אישיותיים'),
+      F('wSkills', 'text', 'מיומנות עם כישורים מיוחדים נדרשים'),
+      F('wDriving', 'select', 'נדרש רישיון נהיגה', { options: ['כן', 'לא'] }),
+
+      F('wDuties', 'checklist', 'תפקידי העובד/ת הזר/ה', {
+        options: ['ניקיון', 'כביסה', 'הלבשה', 'רחצה', 'בישול', 'האכלה', 'החתלה', 'ליווי לטיפולים רפואיים', 'טיפול לילה', 'השגחה ערה בלילות', 'מתן תרופות', 'קניות / סידורים', 'אחר'],
+      }),
+      F('wDayOff', 'checklist', 'יום חופשה של העובד/ת הזר/ה', { options: ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] }),
+      F('wHousing', 'select', 'מגורי העובד/ת הזר/ה', { options: ['חדר פרטי', 'חדר עם המטופל (נדרש לצרף תמונות)', 'אחר'] }),
+      F('wExpectations', 'textarea', 'ציפיות מהעובד/ת הזר/ה'),
+
+      // ---- עמוד 4 ----
+      sec('secSummary', 'סיכום והמלצות העובד/ת הסוציאלי/ת מבצע/ת הביקור'),
+      F('summary', 'textarea', 'סיכום והמלצות'),
+
+      sec('secSignPerformer', 'הצהרת העובד/ת הסוציאלי/ת מבצע/ת הביקור'),
+      F('performerName', 'text', 'שם העו"ס מבצע/ת הביקור'),
+      F('performerSignature', 'signature', 'חותמת + חתימה – מבצע/ת הביקור'),
+      F('patientName', 'text', 'שם המטופל / בן משפחה / אפוטרופוס'),
+      F('patientSignature', 'signature', 'חתימת המטופל / בן משפחה / אפוטרופוס'),
+
+      sec('secSignSenior', 'חתימת עובד/ת סוציאלי/ת אחראי/ת'),
+      F('seniorName', 'text', 'שם ומשפחה'),
+      F('seniorSignature', 'signature', 'חותמת + חתימה – אחראי/ת'),
+    ],
+  };
+}
+
 export const PREBUILT_FORMS = [
   { key: 'homeVisit', label: 'טופס ביקור בית', build: homeVisitForm, renderPdf: renderHomeVisitPdf },
+  { key: 'preplacement', label: 'דו"ח טרום השמה', build: preplacementForm, renderPdf: renderPreplacementPdf },
 ];
 
 // Built-in forms are always available in the worker portal without anyone
