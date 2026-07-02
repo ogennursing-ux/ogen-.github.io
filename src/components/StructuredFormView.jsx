@@ -51,6 +51,7 @@ export default function StructuredFormView({ template, brandIcon = '📋', brand
   const [status, setStatus] = useState('ready'); // ready | done
   const [busy, setBusy] = useState(false);
   const [signedBytes, setSignedBytes] = useState(null);
+  const [doneTitle, setDoneTitle] = useState(title);
   const [invalid, setInvalid] = useState(() => new Set());
   const [signingId, setSigningId] = useState(null); // field id whose pad is open
   const [savedSig, setSavedSig] = useState(getSavedSignature);
@@ -86,7 +87,15 @@ export default function StructuredFormView({ template, brandIcon = '📋', brand
       const bytes = template.renderPdf
         ? await template.renderPdf(title, schema, values)
         : await buildFormPdf(title, schema, values);
-      await api.submitForm(template, { fields: { schema, values }, signedPdfBytes: bytes });
+      // Descriptive submission title (e.g. "patient name — visit type") so the
+      // owner can identify each submission at a glance.
+      const submissionTitle = template.titleFor ? template.titleFor(values) : title;
+      setDoneTitle(submissionTitle);
+      await api.submitForm(template, {
+        fields: { schema, values, formKey: template.formKey || null },
+        signedPdfBytes: bytes,
+        title: submissionTitle,
+      });
       setSignedBytes(bytes);
       setStatus('done');
       if (template.webhook_url && template.owner_email) {
@@ -94,9 +103,9 @@ export default function StructuredFormView({ template, brandIcon = '📋', brand
         notify(template.webhook_url, {
           type: 'completed',
           to: template.owner_email,
-          title,
+          title: submissionTitle,
           link: location.href,
-          fileName: `${title}.pdf`,
+          fileName: `${submissionTitle}.pdf`,
           fileBase64: bytesToBase64(bytes),
           ip,
         });
@@ -131,7 +140,7 @@ export default function StructuredFormView({ template, brandIcon = '📋', brand
             <div className="big-check" aria-hidden>✓</div>
             <h2>{t('תודה! הטופס נשלח')}</h2>
             <p className="muted">{t('הטופס המלא נשמר ונשלח ל{company}.', { company: COMPANY_NAME })}</p>
-            <button className="btn-primary full" onClick={() => download(signedBytes, `${title}.pdf`)}>
+            <button className="btn-primary full" onClick={() => download(signedBytes, `${doneTitle}.pdf`)}>
               {t('הורד עותק PDF')}
             </button>
             {onBack && (

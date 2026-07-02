@@ -100,6 +100,7 @@ function FormsList({ onSelect }) {
                 <div className="tmpl-row">
                   <div className="req-main">
                     <span className="req-title">{item.title || t('טופס')}</span>
+                    {item.description && <span className="req-sub">{item.description}</span>}
                   </div>
                   <div className="req-side">
                     <button className="btn-primary sm" onClick={() => onSelect(item.id)}>

@@ -46,9 +46,10 @@ export default function WorkerFormsAdmin() {
     setSubs((s) => ({ ...s, [id]: 'loading' }));
     try {
       // Built-in forms don't carry a template_id, so match their submissions by
-      // title; published forms link directly by template_id.
+      // the formKey stored in the submission (older rows fall back to the form
+      // title); published forms link directly by template_id.
       const list = isBuiltinId(id)
-        ? (await api.listAllSigned()).filter((r) => r.title === item.title)
+        ? (await api.listAllSigned()).filter((r) => r.fields?.formKey === item.formKey || r.title === item.title)
         : await api.listSubmissions(id);
       setSubs((s) => ({ ...s, [id]: list }));
     } catch (e) {
@@ -139,7 +140,10 @@ export default function WorkerFormsAdmin() {
                     <ul className="sub-list">
                       {list.map((sub) => (
                         <li key={sub.id} className="sub-row">
-                          <span>{new Date(sub.signed_at || sub.created_at).toLocaleString()}</span>
+                          <span>
+                            <strong>{sub.title || t('טופס')}</strong>
+                            <span className="muted"> · {new Date(sub.signed_at || sub.created_at).toLocaleString()}</span>
+                          </span>
                           <button className="btn-ghost sm" onClick={() => downloadSubmission(sub)}>{t('הורד')}</button>
                         </li>
                       ))}

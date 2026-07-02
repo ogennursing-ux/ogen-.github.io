@@ -274,8 +274,25 @@ export function preplacementForm() {
 }
 
 export const PREBUILT_FORMS = [
-  { key: 'homeVisit', label: 'טופס ביקור בית', build: homeVisitForm, renderPdf: renderHomeVisitPdf },
-  { key: 'preplacement', label: 'דו"ח טרום השמה', build: preplacementForm, renderPdf: renderPreplacementPdf },
+  {
+    key: 'homeVisit',
+    label: 'טופס ביקור בית',
+    // Shown under the title in the worker portal so the social worker knows
+    // which form to use.
+    description: 'ביקור שוטף / לאחר השמה',
+    build: homeVisitForm,
+    renderPdf: renderHomeVisitPdf,
+    // Descriptive title for a submission: patient name — visit type.
+    titleFor: (v) => `${(v.empName || '').trim() || 'ללא שם'} — ${v.visitType || 'ביקור בית'}`,
+  },
+  {
+    key: 'preplacement',
+    label: 'דו"ח טרום השמה',
+    description: 'טרום השמה — לפני תחילת ההעסקה',
+    build: preplacementForm,
+    renderPdf: renderPreplacementPdf,
+    titleFor: (v) => `${`${v.pLastName || ''} ${v.pFirstName || ''}`.trim() || 'ללא שם'} — טרום השמה`,
+  },
 ];
 
 // Built-in forms are always available in the worker portal without anyone
@@ -291,13 +308,16 @@ export function prebuiltTemplate(key) {
   const { title, schema } = pf.build();
   return {
     id: BUILTIN_PREFIX + key,
+    formKey: key,
     title,
+    description: pf.description || '',
     pdf_path: null,
     owner_email: null,
     webhook_url: null,
     signers: { list: [], note: '', category: 'worker', active: true, formType: 'structured', schema },
-    // Optional faithful PDF renderer for this specific form.
+    // Optional faithful PDF renderer + submission-title builder for this form.
     renderPdf: pf.renderPdf || null,
+    titleFor: pf.titleFor || null,
     created_at: new Date(0).toISOString(),
   };
 }

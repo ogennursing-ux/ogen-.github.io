@@ -1660,3 +1660,5 @@ textarea.gov-input { resize: vertical; }
   background: #fff; padding: 10px; display: flex; justify-content: center;
 }
 .sign-upload-preview img { max-height: 150px; max-width: 100%; object-fit: contain; }
+
+.req-sub { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
