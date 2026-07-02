@@ -38,8 +38,8 @@ const EN = {
   'הוסף {label}': 'Add {label}',
   'שדה': 'Field',
   'לחץ על המסמך כדי למקם {label}': 'Click the document to place {label}',
-  'בחר סוג שדה מהסרגל למעלה ולחץ על המסמך כדי להוסיף שדה שהחותם ימלא':
-    'Pick a field type above, then click the document to add a field the signer fills',
+  'בחר סוג שדה מסרגל השדות ולחץ על המסמך כדי להוסיף שדה שהחותם ימלא':
+    'Pick a field type from the fields bar, then click the document to add a field the signer fills',
 
   // field labels
   חתימה: 'Signature',

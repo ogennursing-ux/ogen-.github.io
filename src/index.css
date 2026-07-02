@@ -1502,7 +1502,24 @@ button {
 
   /* Keep the "signing turn" bar from crowding the small header. */
   .signflow-bar { top: 52px; padding: 10px 12px; }
-}
+
+  /* ---- owner editor on the phone ---- */
+  /* Stack the "message to signer" label above a full-width input. */
+  .doc-name-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .doc-name-input {
+    max-width: none;
+    font-size: 16px; /* avoid iOS zoom-on-focus */
+  }
+  /* Editor field palette sits at the bottom on phones: leave room for it and
+     for the edit sheet so the document is never hidden behind them. */
+  .editor-layout .pages {
+    padding-bottom: 150px;
+  }
+
 
 /* ---------------- signer note / question / page-range ---------------- */
 .signer-note {
