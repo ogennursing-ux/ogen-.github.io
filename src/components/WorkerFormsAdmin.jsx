@@ -17,7 +17,7 @@ function download(bytes, name) {
 }
 const copy = (text) => navigator.clipboard?.writeText(text).catch(() => window.prompt('copy', text));
 
-export default function WorkerFormsAdmin() {
+export default function WorkerFormsAdmin({ onEditSubmission }) {
   const t = useT();
   const [items, setItems] = useState(null); // null = loading
   const [subs, setSubs] = useState({});
@@ -144,7 +144,12 @@ export default function WorkerFormsAdmin() {
                             <strong>{sub.title || t('טופס')}</strong>
                             <span className="muted"> · {new Date(sub.signed_at || sub.created_at).toLocaleString()}</span>
                           </span>
-                          <button className="btn-ghost sm" onClick={() => downloadSubmission(sub)}>{t('הורד')}</button>
+                          <span className="sub-actions">
+                            {onEditSubmission && sub.fields?.schema && (
+                              <button className="btn-ghost sm" onClick={() => onEditSubmission(sub)}>{t('ערוך')}</button>
+                            )}
+                            <button className="btn-ghost sm" onClick={() => downloadSubmission(sub)}>{t('הורד')}</button>
+                          </span>
                         </li>
                       ))}
                     </ul>

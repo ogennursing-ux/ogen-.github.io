@@ -166,6 +166,19 @@ export const mockApi = {
     return { id };
   },
 
+  async updateSubmission(id, { fields, signedPdfBytes, title }) {
+    const all = load(REQ_KEY);
+    if (!all[id]) throw new Error('ההגשה לא נמצאה');
+    all[id] = {
+      ...all[id],
+      fields,
+      ...(title ? { title } : {}),
+      ...(signedPdfBytes ? { signed_b64: bytesToB64(signedPdfBytes) } : {}),
+      signed_at: new Date().toISOString(),
+    };
+    save(REQ_KEY, all);
+  },
+
   async listSubmissions(templateId) {
     return Object.values(load(REQ_KEY))
       .filter((r) => r.template_id === templateId)

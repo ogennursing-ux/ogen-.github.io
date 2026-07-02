@@ -37,7 +37,15 @@ function download(bytes, name) {
 }
 
 // gov.il-style fill experience for a structured worker form.
-export default function StructuredFormView({ template, brandIcon = '📋', brandLabel, onBack }) {
+export default function StructuredFormView({
+  template,
+  brandIcon = '📋',
+  brandLabel,
+  onBack,
+  initialValues = null,
+  mode = 'fill', // 'fill' (worker) | 'edit' (owner editing a submission)
+  onSaved,
+}) {
   const t = useT();
   const meta = useMemo(() => formMeta(template), [template]);
   const schema = meta.schema;
@@ -46,6 +54,8 @@ export default function StructuredFormView({ template, brandIcon = '📋', brand
   const [values, setValues] = useState(() => {
     const v = {};
     for (const f of schema) if (f.type !== 'section') v[f.id] = emptyValue(f.type);
+    // Pre-fill when editing an existing submission.
+    if (initialValues) for (const k in initialValues) v[k] = initialValues[k];
     return v;
   });
   const [status, setStatus] = useState('ready'); // ready | done
@@ -91,11 +101,23 @@ export default function StructuredFormView({ template, brandIcon = '📋', brand
       // owner can identify each submission at a glance.
       const submissionTitle = template.titleFor ? template.titleFor(values) : title;
       setDoneTitle(submissionTitle);
-      await api.submitForm(template, {
+      const payload = {
         fields: { schema, values, formKey: template.formKey || null },
         signedPdfBytes: bytes,
         title: submissionTitle,
-      });
+      };
+      if (mode === 'edit') {
+        // The owner is editing an existing submission — update it in place.
+        await api.updateSubmission(template.id, payload);
+        setSignedBytes(bytes);
+        if (onSaved) {
+          onSaved();
+          return;
+        }
+        setStatus('done');
+        return;
+      }
+      await api.submitForm(template, payload);
       setSignedBytes(bytes);
       setStatus('done');
       if (template.webhook_url && template.owner_email) {
@@ -167,7 +189,9 @@ export default function StructuredFormView({ template, brandIcon = '📋', brand
         >
           <h1 className="gov-form-title">{title}</h1>
           {meta.note && <p className="gov-form-note">{meta.note}</p>}
-          <p className="gov-form-hint">{t('שדות המסומנים בכוכבית (*) הם שדות חובה')}</p>
+          <p className="gov-form-hint">
+            {mode === 'edit' ? t('עריכת ההגשה — שנה/י את הפרטים ושמור/י.') : t('שדות המסומנים בכוכבית (*) הם שדות חובה')}
+          </p>
 
           <div className="gov-grid">
             {schema.map((f) => {
@@ -297,7 +321,7 @@ export default function StructuredFormView({ template, brandIcon = '📋', brand
 
           <div className="gov-actions">
             <button className="btn-primary" type="submit" disabled={busy}>
-              {busy ? t('שולח…') : t('שליחה ›')}
+              {busy ? t('שולח…') : mode === 'edit' ? t('שמור שינויים') : t('שליחה ›')}
             </button>
           </div>
         </form>

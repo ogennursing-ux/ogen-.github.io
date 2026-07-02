@@ -275,6 +275,11 @@ const EN = {
   'טען טופס מוכן': 'Load a ready-made form',
   'טופס ביקור בית': 'Home visit form',
   'טופס מובנה': 'Built-in form',
+  ערוך: 'Edit',
+  'עריכת הגשה': 'Edit submission',
+  'שמור שינויים': 'Save changes',
+  'עריכת ההגשה — שנה/י את הפרטים ושמור/י.': 'Editing the submission — change the details and save.',
+  'עדכון ההגשה נכשל': 'Updating the submission failed',
 };
 
 export const LangContext = createContext({ lang: 'he', setLang: () => {} });

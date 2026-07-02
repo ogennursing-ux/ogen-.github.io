@@ -14,7 +14,9 @@ async function uploadPdf(path, bytes) {
 
 async function downloadPdf(path) {
   const { data } = sb.storage.from(BUCKET).getPublicUrl(path);
-  const res = await fetch(data.publicUrl);
+  // Cache-bust + no-store so an edited (re-uploaded) file isn't served stale.
+  const url = data.publicUrl + (data.publicUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+  const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error('הורדת הקובץ נכשלה (' + res.status + ')');
   return res.arrayBuffer();
 }
@@ -163,6 +165,17 @@ export const supabaseApi = {
     });
     if (error) throw new Error('שמירת החתימה נכשלה: ' + error.message);
     return { id };
+  },
+
+  // The owner edits a submitted form: overwrite the stored answers, the signed
+  // PDF and (optionally) the title.
+  async updateSubmission(id, { fields, signedPdfBytes, title }) {
+    if (signedPdfBytes) await uploadPdf(`signed/${id}.pdf`, signedPdfBytes);
+    const patch = { fields, signed_at: new Date().toISOString() };
+    if (title) patch.title = title;
+    if (signedPdfBytes) patch.signed_pdf_path = `signed/${id}.pdf`;
+    const { error } = await sb.from('sign_requests').update(patch).eq('id', id);
+    if (error) throw new Error('עדכון ההגשה נכשל: ' + error.message);
   },
 
   async listAllSigned() {

@@ -10,6 +10,7 @@ import AllSignatures from './components/AllSignatures.jsx';
 import Templates from './components/Templates.jsx';
 import WorkerFormsAdmin from './components/WorkerFormsAdmin.jsx';
 import FormBuilder from './components/FormBuilder.jsx';
+import StructuredFormView from './components/StructuredFormView.jsx';
 import Settings from './components/Settings.jsx';
 import LinkCreated from './components/LinkCreated.jsx';
 import SignerView from './components/SignerView.jsx';
@@ -24,7 +25,7 @@ import { api, rememberRequest, rememberTemplate, signingLink, formLink, listMyTe
 import { getSettings, notify } from './lib/notify.js';
 import { workerPortalLink } from './lib/workerPortal.js';
 import { buildFormPdf } from './lib/formPdf.js';
-import { PREBUILT_FORMS } from './lib/prebuiltForms.js';
+import { PREBUILT_FORMS, prebuiltTemplateById } from './lib/prebuiltForms.js';
 import { LangContext, getInitialLang, applyLang, useT } from './lib/i18n.js';
 
 const WORKER_SIGNERS = () => [{ name: 'עובד סוציאלי', color: '#1f7a53', email: '' }];
@@ -84,6 +85,27 @@ function PrepareApp({ onLogout }) {
   const [sendMode, setSendMode] = useState('regular');
   const [note, setNote] = useState('');
   const [builderInit, setBuilderInit] = useState(null); // { title, schema } for prebuilt forms
+  const [editing, setEditing] = useState(null); // { template, values } when editing a submission
+
+  // Build a template-shaped object for editing a stored submission: its schema
+  // + the form's faithful renderer/title builder (looked up by formKey).
+  function startEditSubmission(sub) {
+    const schema = sub.fields?.schema || [];
+    const formKey = sub.fields?.formKey || null;
+    const builtin = formKey ? prebuiltTemplateById('builtin:' + formKey) : null;
+    const template = {
+      id: sub.id, // updateSubmission targets this row
+      formKey,
+      title: builtin?.title || sub.title || 'טופס',
+      signers: { formType: 'structured', schema, note: '' },
+      renderPdf: builtin?.renderPdf || null,
+      titleFor: builtin?.titleFor || null,
+      owner_email: sub.owner_email || null,
+      webhook_url: sub.webhook_url || null,
+    };
+    setEditing({ template, values: sub.fields?.values || {} });
+    setScreen('editSubmission');
+  }
 
   const selectedField = useMemo(
     () => fields.find((f) => f.id === selectedId) || null,
@@ -398,6 +420,24 @@ function PrepareApp({ onLogout }) {
     );
   }
 
+  if (screen === 'editSubmission' && editing) {
+    return (
+      <div className="app">
+        {header}
+        <StructuredFormView
+          template={editing.template}
+          initialValues={editing.values}
+          mode="edit"
+          brandIcon="✏️"
+          brandLabel="עריכת הגשה"
+          onBack={() => { setEditing(null); setScreen('home'); }}
+          onSaved={() => { setEditing(null); setScreen('home'); }}
+        />
+        {settingsModal}
+      </div>
+    );
+  }
+
   if (screen === 'formBuilder') {
     return (
       <div className="app">
@@ -496,7 +536,7 @@ function PrepareApp({ onLogout }) {
               </div>
             </div>
             <Dropzone onFile={handleFile} busy={busy} />
-            <WorkerFormsAdmin />
+            <WorkerFormsAdmin onEditSubmission={startEditSubmission} />
           </>
         ) : (
           <>
