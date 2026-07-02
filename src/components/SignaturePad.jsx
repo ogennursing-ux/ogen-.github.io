@@ -177,7 +177,8 @@ export default function SignaturePad({ onSave, onClose }) {
         /* fall back to whatever is available */
       }
     }
-    onSave(renderTypedSignature(text, font.css));
+    // Pass the typed text too, so the signer's name can be recorded.
+    onSave(renderTypedSignature(text, font.css), { name: text });
   };
 
   return (

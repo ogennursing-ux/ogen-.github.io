@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, listMyRequests, forgetRequest, signingLink } from '../lib/api.js';
 import { mergePdfs, toCsv, downloadBlob } from '../lib/exporters.js';
+import { signerNameFromReq } from '../lib/fields.js';
 import PdfPreview from './PdfPreview.jsx';
 import { useT } from '../lib/i18n.js';
 
@@ -31,7 +32,7 @@ export default function Dashboard({ onDownloadSigned }) {
       try {
         const req = await api.getRequest(it.id);
         const s = req.signers && req.signers.list ? req.signers : { current: 0, list: [{}] };
-        if (alive) setInfo((p) => ({ ...p, [it.id]: { status: req.status, current: s.current || 0, total: s.list.length } }));
+        if (alive) setInfo((p) => ({ ...p, [it.id]: { status: req.status, current: s.current || 0, total: s.list.length, signer: signerNameFromReq(req) } }));
       } catch {
         if (alive) setInfo((p) => ({ ...p, [it.id]: { status: 'missing' } }));
       }
@@ -174,7 +175,10 @@ export default function Dashboard({ onDownloadSigned }) {
               <input className="req-check" type="checkbox" checked={sel} onChange={() => toggle(it.id)} />
               <div className="req-main">
                 <span className="req-title">{it.title || t('מסמך')}</span>
-                <span className="req-date">{new Date(it.createdAt).toLocaleDateString()}</span>
+                <span className="req-date">
+                  {d.signer ? `${d.signer} · ` : ''}
+                  {new Date(it.createdAt).toLocaleDateString()}
+                </span>
               </div>
               <div className="req-side">
                 {d.status === 'signed' ? (

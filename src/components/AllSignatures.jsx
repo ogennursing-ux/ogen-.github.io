@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api.js';
+import { signerNameFromReq } from '../lib/fields.js';
 import PdfPreview from './PdfPreview.jsx';
 import { useT } from '../lib/i18n.js';
 
@@ -86,6 +87,9 @@ export default function AllSignatures() {
   if (!items.length) return null;
 
   const signerName = (r) => {
+    // Prefer the actual name the signer entered (incl. a typed signature).
+    const real = signerNameFromReq(r);
+    if (real) return real;
     const list = r.signers && r.signers.list ? r.signers.list : Array.isArray(r.signers) ? r.signers : [];
     return list.map((s) => s.name).filter(Boolean).join(', ') || t('מסמך');
   };

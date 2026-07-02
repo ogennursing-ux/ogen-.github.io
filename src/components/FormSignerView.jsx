@@ -58,12 +58,20 @@ export default function FormSignerView({ id, brandIcon = '✒️', brandLabel, o
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  async function handleSubmit(filled) {
+  async function handleSubmit(filled, signerName) {
     setBusy(true);
     try {
       const ip = await getIp();
-      const bytes = await buildSignedPdf(originalBytes.slice(0), filled, { names: ['החותם'], ip });
-      await api.submitForm(template, { fields: filled, signedPdfBytes: bytes });
+      const bytes = await buildSignedPdf(originalBytes.slice(0), filled, {
+        names: [signerName || 'החותם'],
+        ip,
+      });
+      // Record the signer's name so it shows in the signatures list.
+      const base = normalizeSigners(template?.signers);
+      const list = (base.list && base.list.length ? base.list : SIGNERS).map((s, i) =>
+        i === 0 ? { ...s, signed: true, signedAt: new Date().toISOString(), ip, signedName: signerName || '' } : s,
+      );
+      await api.submitForm(template, { fields: filled, signedPdfBytes: bytes, signers: { ...base, list } });
       setSignedBytes(bytes);
       setStatus('done');
       if (template.webhook_url && template.owner_email) {

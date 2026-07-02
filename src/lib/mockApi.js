@@ -144,7 +144,7 @@ export const mockApi = {
     save(TMPL_KEY, all);
   },
 
-  async submitForm(template, { fields, signedPdfBytes, title }) {
+  async submitForm(template, { fields, signedPdfBytes, title, signers }) {
     const id = crypto.randomUUID();
     const builtin = String(template.id || '').startsWith('builtin:');
     const all = load(REQ_KEY);
@@ -152,7 +152,7 @@ export const mockApi = {
       id,
       title: title || template.title,
       fields,
-      signers: template.signers || [],
+      signers: signers || template.signers || [],
       status: 'signed',
       template_id: builtin ? null : template.id,
       owner_email: template.owner_email || null,

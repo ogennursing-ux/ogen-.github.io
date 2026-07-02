@@ -15,6 +15,7 @@ export default function SignFlow({ pages, fields, signers, currentSigner, title,
   const has = (ty) => myFields.some((f) => f.type === ty);
 
   const [data, setData] = useState({ firstName: '', lastName: '', fullName: '', idNumber: '', initials: '', signature: '' });
+  const [sigName, setSigName] = useState(''); // name typed into the signature pad, if any
   const [fullNameTouched, setFullNameTouched] = useState(false);
   const [perField, setPerField] = useState(() => {
     const init = {};
@@ -60,7 +61,14 @@ export default function SignFlow({ pages, fields, signers, currentSigner, title,
     }
     const emptySig = mine.filter((f) => f.type === 'signature' && !f.value).length;
     if (emptySig && !confirm(t('נשארו {n} שדות חתימה ריקים. לשלוח בכל זאת?', { n: emptySig }))) return;
-    onSubmit(filled);
+    // Signer's name: prefer the name fields, else the name typed in the signature.
+    const signerName = (
+      data.fullName ||
+      [data.firstName, data.lastName].filter(Boolean).join(' ') ||
+      sigName ||
+      ''
+    ).trim();
+    onSubmit(filled, signerName);
   }
 
   const textFields = myFields.filter((f) => f.type === 'text');
@@ -201,8 +209,9 @@ export default function SignFlow({ pages, fields, signers, currentSigner, title,
       {signFor && (
         <SignaturePad
           onClose={() => setSignFor(false)}
-          onSave={(dataUrl) => {
+          onSave={(dataUrl, meta) => {
             if (dataUrl) setData((d) => ({ ...d, signature: dataUrl }));
+            if (meta && meta.name) setSigName(meta.name);
             setSignFor(false);
           }}
         />

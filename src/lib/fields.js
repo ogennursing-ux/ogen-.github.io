@@ -57,6 +57,30 @@ export function normalizeSigners(s) {
 // A field counts as empty (unfilled) for validation purposes.
 export const isFieldEmpty = (f) => (f.type === 'checkbox' ? f.value !== true : !f.value);
 
+// Best-effort display name of whoever signed a request/template row: the name
+// captured at signing time (incl. a typed signature), falling back to the name
+// fields the signer filled in. Returns '' when nothing is available.
+export function signerNameFromReq(req) {
+  const list =
+    req && req.signers && req.signers.list
+      ? req.signers.list
+      : Array.isArray(req && req.signers)
+      ? req.signers
+      : [];
+  const captured = list.map((s) => (s && s.signedName ? String(s.signedName).trim() : '')).filter(Boolean);
+  if (captured.length) return [...new Set(captured)].join(', ');
+
+  const fields = (req && req.fields) || [];
+  const val = (ty) => {
+    const f = fields.find((f) => f.type === ty && f.value);
+    return f ? String(f.value).trim() : '';
+  };
+  const full = val('fullName');
+  if (full) return full;
+  const combo = [val('firstName'), val('lastName')].filter(Boolean).join(' ');
+  return combo;
+}
+
 export const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 export const uid = () =>

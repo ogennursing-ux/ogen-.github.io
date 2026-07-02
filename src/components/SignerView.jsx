@@ -66,13 +66,13 @@ export default function SignerView({ id }) {
     })();
   }, [id]);
 
-  async function handleSubmit(filled) {
+  async function handleSubmit(filled, signerName) {
     setBusy(true);
     try {
       const now = new Date().toISOString();
       const ip = await getIp();
       const newList = signers.list.map((s, i) =>
-        i === current ? { ...s, signed: true, signedAt: now, ip } : s,
+        i === current ? { ...s, signed: true, signedAt: now, ip, signedName: signerName || s.signedName || '' } : s,
       );
       const isLast = current >= signers.list.length - 1;
 
