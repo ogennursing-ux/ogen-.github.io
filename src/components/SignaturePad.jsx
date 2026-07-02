@@ -72,6 +72,7 @@ export default function SignaturePad({ onSave, onClose }) {
   const [mode, setMode] = useState('draw');
   const [typed, setTyped] = useState('');
   const [font, setFont] = useState(TYPE_FONTS[0]);
+  const [uploaded, setUploaded] = useState(null);
 
   const canvasRef = useRef(null);
   const drawing = useRef(false);
@@ -130,9 +131,37 @@ export default function SignaturePad({ onSave, onClose }) {
     hasInk.current = false;
   };
 
+  // Load a chosen image file, downscale it to a sensible width and keep it as a
+  // PNG data URL (used as the signature image).
+  const onFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const maxW = 700;
+        const scale = Math.min(1, maxW / img.width);
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        setUploaded(c.toDataURL('image/png'));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
   const save = async () => {
     if (mode === 'draw') {
       onSave(hasInk.current ? trimCanvas(canvasRef.current) : null);
+      return;
+    }
+    if (mode === 'upload') {
+      onSave(uploaded || null);
       return;
     }
     const text = typed.trim();
@@ -174,6 +203,12 @@ export default function SignaturePad({ onSave, onClose }) {
           >
             {t('הקלדה')}
           </button>
+          <button
+            className={`sign-tab${mode === 'upload' ? ' active' : ''}`}
+            onClick={() => setMode('upload')}
+          >
+            {t('העלאת תמונה')}
+          </button>
         </div>
 
         {mode === 'draw' ? (
@@ -187,6 +222,19 @@ export default function SignaturePad({ onSave, onClose }) {
               onPointerUp={end}
               onPointerCancel={end}
             />
+          </>
+        ) : mode === 'upload' ? (
+          <>
+            <p className="sign-hint">{t('העלה תמונה של החתימה (PNG/JPG)')}</p>
+            <label className="btn-ghost full sign-upload-btn">
+              {t('בחר תמונה')}
+              <input type="file" accept="image/*" onChange={onFile} style={{ display: 'none' }} />
+            </label>
+            {uploaded && (
+              <div className="sign-upload-preview">
+                <img src={uploaded} alt={t('חתימה')} />
+              </div>
+            )}
           </>
         ) : (
           <>

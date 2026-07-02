@@ -1652,3 +1652,11 @@ textarea.gov-input { resize: vertical; }
 .gov-field.invalid .gov-checklist { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(220,38,38,0.10); }
 
 .worker-create-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* ---------------- signature: upload-image mode ---------------- */
+.sign-upload-btn { text-align: center; cursor: pointer; margin-top: 4px; }
+.sign-upload-preview {
+  margin-top: 12px; border: 1px solid var(--line); border-radius: 10px;
+  background: #fff; padding: 10px; display: flex; justify-content: center;
+}
+.sign-upload-preview img { max-height: 150px; max-width: 100%; object-fit: contain; }
