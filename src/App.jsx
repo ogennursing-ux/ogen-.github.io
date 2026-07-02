@@ -158,7 +158,12 @@ function PrepareApp({ onLogout }) {
       setScreen('name'); // ask for the document name before the editor
     } catch (err) {
       console.error(err);
-      alert(t('לא ניתן לפתוח את המסמך') + ': ' + err.message);
+      const isPassword = err && (err.name === 'PasswordException' || /password/i.test(err.message || ''));
+      alert(
+        isPassword
+          ? t('המסמך מוגן בסיסמה ולכן לא ניתן לפתוח אותו. הסר את הסיסמה ונסה שוב.')
+          : t('לא ניתן לפתוח את המסמך') + ': ' + (err && err.message ? err.message : err),
+      );
     } finally {
       setBusy(false);
     }

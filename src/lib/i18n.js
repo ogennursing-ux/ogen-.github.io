@@ -194,6 +194,8 @@ const EN = {
   'יצירת הקישור נכשלה': 'Failed to create the link',
   'שמירת התבנית נכשלה': 'Failed to save the template',
   'הורדה נכשלה': 'Download failed',
+  'המסמך מוגן בסיסמה ולכן לא ניתן לפתוח אותו. הסר את הסיסמה ונסה שוב.':
+    'The document is password-protected and cannot be opened. Remove the password and try again.',
   'כמה מסמכים אוחדו לאחד': 'Multiple documents were merged into one',
 
   // pdf preview

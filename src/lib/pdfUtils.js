@@ -40,6 +40,13 @@ export async function getPdfJs() {
  * @param {Uint8Array} data  bytes pdf.js is free to consume
  * @returns {Promise<Array<{url:string,width:number,height:number,aspect:number}>>}
  */
+// Cap the longest side of a rendered page (in px). Without this, a large or
+// high-resolution PDF rendered at devicePixelRatio×baseScale can allocate
+// enormous canvases and crash the browser tab on phones (blank screen). The
+// preview is only for on-screen display — the signed PDF is built from the
+// original bytes — so this cap costs nothing in output quality.
+const MAX_PAGE_PX = 2200;
+
 export async function renderPdfPages(data, { baseScale = 1.5 } = {}) {
   const pdfjs = await getPdfJs();
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -53,7 +60,11 @@ export async function renderPdfPages(data, { baseScale = 1.5 } = {}) {
   try {
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
-      const viewport = page.getViewport({ scale });
+      const base = page.getViewport({ scale });
+      // Shrink the scale so neither side exceeds MAX_PAGE_PX.
+      const longest = Math.max(base.width, base.height);
+      const effScale = longest > MAX_PAGE_PX ? scale * (MAX_PAGE_PX / longest) : scale;
+      const viewport = page.getViewport({ scale: effScale });
       const canvas = document.createElement('canvas');
       canvas.width = Math.floor(viewport.width);
       canvas.height = Math.floor(viewport.height);
@@ -66,6 +77,10 @@ export async function renderPdfPages(data, { baseScale = 1.5 } = {}) {
         height: viewport.height,
         aspect: viewport.height / viewport.width,
       });
+      // Release the canvas memory immediately (important for large multi-page
+      // PDFs on phones).
+      canvas.width = 0;
+      canvas.height = 0;
       page.cleanup();
     }
   } finally {
