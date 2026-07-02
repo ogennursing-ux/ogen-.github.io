@@ -30,8 +30,17 @@ export default class ErrorBoundary extends Component {
             <p className="muted">
               ייתכן שהקובץ גדול מדי, פגום או מוגן בסיסמה. אפשר לנסות שוב, או לבחור קובץ אחר.
             </p>
+            {this.state.error && (this.state.error.message || String(this.state.error)) && (
+              <p
+                className="muted"
+                style={{ fontSize: 12, direction: 'ltr', background: '#f6f7f9', borderRadius: 8, padding: '8px 10px', marginTop: 8, wordBreak: 'break-word' }}
+              >
+                {this.state.error.message || String(this.state.error)}
+              </p>
+            )}
             <button
               className="btn-primary full"
+              style={{ marginTop: 12 }}
               onClick={() => {
                 this.setState({ error: null });
                 location.reload();
