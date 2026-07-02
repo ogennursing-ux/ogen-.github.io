@@ -9,6 +9,8 @@ export default function PdfPreview({ getBytes, name, onClose, onDownload }) {
   const [pages, setPages] = useState(null);
   const [error, setError] = useState('');
   const [range, setRange] = useState('');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [showRange, setShowRange] = useState(false);
 
   async function downloadPages() {
     const total = pages ? pages.length : 0;
@@ -55,7 +57,7 @@ export default function PdfPreview({ getBytes, name, onClose, onDownload }) {
 
   return (
     <div className="modal-backdrop" onPointerDown={onClose}>
-      <div className="preview-modal" onPointerDown={(e) => e.stopPropagation()}>
+      <div className="preview-modal" onPointerDown={(e) => { e.stopPropagation(); setMenuOpen(false); }}>
         <div className="sign-modal-head">
           <h3 className="preview-title">{name || t('תצוגה מקדימה')}</h3>
           <button className="icon-btn" onClick={onClose} aria-label="close">✕</button>
@@ -70,19 +72,54 @@ export default function PdfPreview({ getBytes, name, onClose, onDownload }) {
           )}
         </div>
         <div className="preview-download">
-          <div className="preview-range">
-            <input
-              className="text-input"
-              value={range}
-              placeholder={t('דפים (למשל 1-3,5)')}
-              onChange={(e) => setRange(e.target.value)}
-            />
-            <button className="btn-ghost" onClick={downloadPages}>{t('הורד דפים נבחרים')}</button>
+          <div className="dl-kebab-wrap" onPointerDown={(e) => e.stopPropagation()}>
+            <button
+              className="btn-primary dl-kebab-btn"
+              onClick={() => { setMenuOpen((o) => !o); setShowRange(false); }}
+            >
+              {t('הורדה')} ⋮
+            </button>
+            {menuOpen && (
+              <div className="dl-kebab-menu">
+                {onDownload && (
+                  <button
+                    className="dl-kebab-item"
+                    onClick={() => { setMenuOpen(false); onDownload(); }}
+                  >
+                    📄 {t('הורד הכל (PDF)')}
+                  </button>
+                )}
+                <button
+                  className="dl-kebab-item"
+                  onClick={() => { setMenuOpen(false); downloadPagesSeparately(); }}
+                >
+                  🖼️ {t('הורד כל דף כתמונה')}
+                </button>
+                <button
+                  className="dl-kebab-item"
+                  onClick={() => setShowRange((s) => !s)}
+                >
+                  🔢 {t('הורד דפים נבחרים')}
+                </button>
+                {showRange && (
+                  <div className="dl-kebab-range">
+                    <input
+                      className="text-input"
+                      value={range}
+                      placeholder={t('דפים (למשל 1-3,5)')}
+                      onChange={(e) => setRange(e.target.value)}
+                    />
+                    <button
+                      className="btn-primary sm"
+                      onClick={() => { downloadPages(); setMenuOpen(false); }}
+                    >
+                      {t('הורד')}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          <button className="btn-ghost" onClick={downloadPagesSeparately}>{t('הורד כל דף כתמונה')}</button>
-          {onDownload && (
-            <button className="btn-primary" onClick={onDownload}>{t('הורד הכל')}</button>
-          )}
         </div>
       </div>
     </div>

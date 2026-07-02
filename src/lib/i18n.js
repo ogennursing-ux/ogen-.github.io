@@ -186,6 +186,8 @@ const EN = {
   'הורד דפים נבחרים': 'Download selected pages',
   'הורד כל דף כתמונה': 'Download each page as an image',
   'הורד הכל': 'Download all',
+  הורדה: 'Download',
+  'הורד הכל (PDF)': 'Download all (PDF)',
   'אופן ההורדה': 'Download format',
   'הכל ביחד (PDF)': 'All together (PDF)',
   'כל דף בנפרד (תמונות)': 'Each page separately (images)',
