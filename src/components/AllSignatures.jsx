@@ -6,6 +6,11 @@ import { useT } from '../lib/i18n.js';
 
 const SEEN_KEY = 'all_signed_seen';
 
+// A social-worker form submission carries the form's schema/formKey in its
+// fields. Those belong in the worker-forms area (forms.html), not in the
+// family "signed documents" list, so we filter them out here.
+const isWorkerSubmission = (r) => !!(r && r.fields && (r.fields.schema || r.fields.formKey));
+
 function download(bytes, name) {
   const blob = new Blob([bytes], { type: 'application/pdf' });
   const url = URL.createObjectURL(blob);
@@ -44,7 +49,7 @@ export default function AllSignatures() {
     let alive = true;
     async function load(notifyOnNew) {
       try {
-        const list = await api.listAllSigned();
+        const list = (await api.listAllSigned()).filter((r) => !isWorkerSubmission(r));
         if (!alive) return;
         setItems(list);
         const fresh = list.filter((r) => (r.signed_at || '') > seenRef.current).length;
