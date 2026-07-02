@@ -90,8 +90,9 @@ export default function AllSignatures() {
     // Prefer the actual name the signer entered (incl. a typed signature).
     const real = signerNameFromReq(r);
     if (real) return real;
-    const list = r.signers && r.signers.list ? r.signers.list : Array.isArray(r.signers) ? r.signers : [];
-    return list.map((s) => s.name).filter(Boolean).join(', ') || t('מסמך');
+    const s = r && r.signers;
+    const list = s && Array.isArray(s.list) ? s.list : Array.isArray(s) ? s : [];
+    return list.map((x) => x && x.name).filter(Boolean).join(', ') || t('מסמך');
   };
 
   return (

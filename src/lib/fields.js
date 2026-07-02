@@ -61,24 +61,27 @@ export const isFieldEmpty = (f) => (f.type === 'checkbox' ? f.value !== true : !
 // captured at signing time (incl. a typed signature), falling back to the name
 // fields the signer filled in. Returns '' when nothing is available.
 export function signerNameFromReq(req) {
-  const list =
-    req && req.signers && req.signers.list
-      ? req.signers.list
-      : Array.isArray(req && req.signers)
-      ? req.signers
-      : [];
-  const captured = list.map((s) => (s && s.signedName ? String(s.signedName).trim() : '')).filter(Boolean);
-  if (captured.length) return [...new Set(captured)].join(', ');
+  // Fully defensive: stored records vary in shape (older rows, form rows, etc.)
+  // and this runs during render — it must never throw.
+  try {
+    const s = req && req.signers;
+    const list = s && Array.isArray(s.list) ? s.list : Array.isArray(s) ? s : [];
+    const captured = list
+      .map((x) => (x && x.signedName ? String(x.signedName).trim() : ''))
+      .filter(Boolean);
+    if (captured.length) return [...new Set(captured)].join(', ');
 
-  const fields = (req && req.fields) || [];
-  const val = (ty) => {
-    const f = fields.find((f) => f.type === ty && f.value);
-    return f ? String(f.value).trim() : '';
-  };
-  const full = val('fullName');
-  if (full) return full;
-  const combo = [val('firstName'), val('lastName')].filter(Boolean).join(' ');
-  return combo;
+    const fields = Array.isArray(req && req.fields) ? req.fields : [];
+    const val = (ty) => {
+      const f = fields.find((f) => f && f.type === ty && f.value);
+      return f ? String(f.value).trim() : '';
+    };
+    const full = val('fullName');
+    if (full) return full;
+    return [val('firstName'), val('lastName')].filter(Boolean).join(' ');
+  } catch {
+    return '';
+  }
 }
 
 export const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
