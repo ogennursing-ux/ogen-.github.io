@@ -287,6 +287,8 @@ const EN = {
   'שמור שינויים': 'Save changes',
   'עריכת ההגשה — שנה/י את הפרטים ושמור/י.': 'Editing the submission — change the details and save.',
   'עדכון ההגשה נכשל': 'Updating the submission failed',
+  'אזור החתימות': 'Signatures area',
+  'חזרה לניהול הטפסים': 'Back to form management',
 };
 
 export const LangContext = createContext({ lang: 'he', setLang: () => {} });

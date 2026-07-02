@@ -30,7 +30,7 @@ import { LangContext, getInitialLang, applyLang, useT } from './lib/i18n.js';
 
 const WORKER_SIGNERS = () => [{ name: 'עובד סוציאלי', color: '#1f7a53', email: '' }];
 
-export default function App() {
+export default function App({ workerAdmin = false }) {
   const [lang, setLang] = useState(getInitialLang);
   const [authed, setAuthed] = useState(() => {
     try {
@@ -60,14 +60,14 @@ export default function App() {
   if (reqId) view = <SignerView id={reqId} />;
   else if (formId) view = <FormSignerView id={formId} />;
   else if (!authed) view = <Login onLogin={() => setAuthed(true)} />;
-  else view = <PrepareApp onLogout={logout} />;
+  else view = <PrepareApp onLogout={logout} workerAdmin={workerAdmin} />;
 
   return <LangContext.Provider value={{ lang, setLang }}>{view}</LangContext.Provider>;
 }
 
 const newSigners = () => [{ ...DEFAULT_SIGNERS[0], email: '' }];
 
-function PrepareApp({ onLogout }) {
+function PrepareApp({ onLogout, workerAdmin = false }) {
   const t = useT();
   const [screen, setScreen] = useState('home'); // home | name | editor | created
   const [pages, setPages] = useState([]);
@@ -82,7 +82,7 @@ function PrepareApp({ onLogout }) {
   const [created, setCreated] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
-  const [sendMode, setSendMode] = useState('regular');
+  const [sendMode, setSendMode] = useState(workerAdmin ? 'worker' : 'regular');
   const [note, setNote] = useState('');
   const [builderInit, setBuilderInit] = useState(null); // { title, schema } for prebuilt forms
   const [editing, setEditing] = useState(null); // { template, values } when editing a submission
@@ -374,11 +374,16 @@ function PrepareApp({ onLogout }) {
   const header = (
     <header className="app-header">
       <div className="brand">
-        <span className="brand-mark">✒️</span>
-        <span className="brand-name">{t('חתימה דיגיטלית')}</span>
+        <span className="brand-mark">{workerAdmin ? '📋' : '✒️'}</span>
+        <span className="brand-name">{workerAdmin ? t('טפסים לעובדים סוציאליים') : t('חתימה דיגיטלית')}</span>
       </div>
       <div className="header-actions">
         {screen === 'editor' && <span className="doc-name">{baseName}.pdf</span>}
+        {screen !== 'editor' && (
+          <a className="header-settings" href={workerAdmin ? 'index.html' : 'forms.html'}>
+            {workerAdmin ? t('אזור החתימות') : t('טפסים לעובדים סוציאליים')}
+          </a>
+        )}
         {screen !== 'editor' && (
           <button className="header-settings" onClick={() => setShowSettings(true)}>{t('⚙ הגדרות')}</button>
         )}
@@ -403,10 +408,7 @@ function PrepareApp({ onLogout }) {
                 {t('הטופס יופיע כעת בפורטל הטפסים לעובדים הסוציאליים. אפשר לנהל טפסים וקוד גישה תחת "טפסים לעובדים סוציאליים".')}
               </p>
               <div className="card-actions">
-                <button className="btn-ghost" onClick={() => { setSendMode('worker'); startOver(); }}>
-                  {t('טפסים לעובדים סוציאליים')}
-                </button>
-                <button className="btn-primary" onClick={startOver}>{t('מסמך חדש')}</button>
+                <button className="btn-primary" onClick={startOver}>{t('חזרה לניהול הטפסים')}</button>
               </div>
             </div>
           </div>
@@ -487,27 +489,23 @@ function PrepareApp({ onLogout }) {
     return (
       <div className="app">
         {header}
-        <div className="home-tabs">
-          <button
-            className={`home-tab${sendMode === 'regular' ? ' active' : ''}`}
-            onClick={() => setSendMode('regular')}
-          >
-            {t('שליחה רגילה')}
-          </button>
-          <button
-            className={`home-tab${sendMode === 'round' ? ' active' : ''}`}
-            onClick={() => setSendMode('round')}
-          >
-            {t('סבב חתימות (2 חותמים)')}
-          </button>
-          <button
-            className={`home-tab${sendMode === 'worker' ? ' active' : ''}`}
-            onClick={() => setSendMode('worker')}
-          >
-            {t('טפסים לעובדים סוציאליים')}
-          </button>
-        </div>
-        {sendMode === 'worker' ? (
+        {!workerAdmin && (
+          <div className="home-tabs">
+            <button
+              className={`home-tab${sendMode === 'regular' ? ' active' : ''}`}
+              onClick={() => setSendMode('regular')}
+            >
+              {t('שליחה רגילה')}
+            </button>
+            <button
+              className={`home-tab${sendMode === 'round' ? ' active' : ''}`}
+              onClick={() => setSendMode('round')}
+            >
+              {t('סבב חתימות (2 חותמים)')}
+            </button>
+          </div>
+        )}
+        {workerAdmin ? (
           <>
             <div className="worker-create card">
               <div>
@@ -551,7 +549,7 @@ function PrepareApp({ onLogout }) {
           </>
         )}
 
-        {sendMode !== 'worker' && (
+        {!workerAdmin && (
         <button className="fab" onClick={() => setShowTemplates(true)}>
           📁 {t('תבניות')}
         </button>

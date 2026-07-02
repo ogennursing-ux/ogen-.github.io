@@ -9,10 +9,12 @@ export default defineConfig({
   plugins: [react()],
   build: {
     rollupOptions: {
-      // Two independent entry points: the family signing app (index.html)
-      // and the standalone social-worker forms portal (worker.html).
+      // Independent entry points: the family signing app (index.html), the
+      // social-worker forms admin (forms.html), and the standalone worker
+      // forms portal (worker.html).
       input: {
         main: resolve(__dirname, 'index.html'),
+        forms: resolve(__dirname, 'forms.html'),
         worker: resolve(__dirname, 'worker.html'),
       },
     },
