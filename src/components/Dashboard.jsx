@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, listMyRequests, forgetRequest, signingLink } from '../lib/api.js';
-import { mergePdfs, toCsv, downloadBlob } from '../lib/exporters.js';
+import { mergePdfs, toCsv, downloadBlob, downloadPagesAsImages } from '../lib/exporters.js';
 import { signerNameFromReq } from '../lib/fields.js';
 import PdfPreview from './PdfPreview.jsx';
 import { useT } from '../lib/i18n.js';
@@ -16,6 +16,25 @@ export default function Dashboard({ onDownloadSigned }) {
   const [selected, setSelected] = useState(() => new Set());
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState(null);
+  const [dlMode, setDlMode] = useState({}); // per-document: 'all' (one PDF) | 'sep' (a image per page)
+
+  // Download a signed document either as one PDF or as one image per page.
+  async function downloadDoc(id, name) {
+    if ((dlMode[id] || 'all') === 'all') {
+      onDownloadSigned(id);
+      return;
+    }
+    setBusy(true);
+    try {
+      const req = await api.getRequest(id);
+      const bytes = await api.getSignedBytes(req);
+      await downloadPagesAsImages(bytes, name);
+    } catch (e) {
+      alert(t('הורדה נכשלה') + ': ' + e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const statusText = (d) => {
     if (!d || !d.status) return t('טוען…');
@@ -185,7 +204,16 @@ export default function Dashboard({ onDownloadSigned }) {
                   <>
                     <span className="badge ok">{t('נחתם')}</span>
                     <button className="btn-ghost sm" onClick={() => setPreview({ id: it.id, name: it.title || t('מסמך') })}>{t('הצג')}</button>
-                    <button className="btn-primary sm" onClick={() => onDownloadSigned(it.id)}>{t('הורד')}</button>
+                    <select
+                      className="dl-mode"
+                      value={dlMode[it.id] || 'all'}
+                      onChange={(e) => setDlMode((m) => ({ ...m, [it.id]: e.target.value }))}
+                      aria-label={t('אופן ההורדה')}
+                    >
+                      <option value="all">{t('הכל ביחד (PDF)')}</option>
+                      <option value="sep">{t('כל דף בנפרד (תמונות)')}</option>
+                    </select>
+                    <button className="btn-primary sm" disabled={busy} onClick={() => downloadDoc(it.id, it.title || t('מסמך'))}>{t('הורד')}</button>
                   </>
                 ) : d.status === 'missing' ? (
                   <span className="badge muted">{t('לא נמצא')}</span>

@@ -12,6 +12,19 @@ export function downloadBlob(data, type, name) {
   URL.revokeObjectURL(url);
 }
 
+// Render each PDF page and download it as its own image file, all from one
+// click (used by the "each page separately" download option).
+export async function downloadPagesAsImages(bytes, name) {
+  const { renderPdfPages } = await import('./pdfUtils.js');
+  const base = (name || 'document').replace(/\.pdf$/i, '');
+  const pages = await renderPdfPages(new Uint8Array(bytes.slice(0)));
+  for (let i = 0; i < pages.length; i++) {
+    const res = await fetch(pages[i].url);
+    const blob = await res.blob();
+    downloadBlob(blob, 'image/jpeg', `${base}-page-${i + 1}.jpg`);
+  }
+}
+
 // Merge several signed PDFs (ArrayBuffers) into one document.
 export async function mergePdfs(buffers) {
   const { PDFDocument } = await import('pdf-lib');

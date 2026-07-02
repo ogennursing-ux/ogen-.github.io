@@ -1059,6 +1059,16 @@ button {
   font-size: 13.5px;
   background: #fff;
 }
+.dl-mode {
+  padding: 5px 8px;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 12px;
+  background: #fff;
+  color: var(--ink);
+  max-width: 150px;
+}
 .dash-filters {
   display: flex;
   gap: 6px;
