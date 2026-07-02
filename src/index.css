@@ -1456,8 +1456,12 @@ button {
     justify-content: center;
   }
 
-  .dash-controls { width: 100%; }
-  .dash-search { flex: 1; width: auto; }
+  /* Search + the two dropdowns never fit one phone row (an <input> keeps a
+     large intrinsic min-width). Put the search box on its own full-width line,
+     then let the sort/count dropdowns share the line below it. */
+  .dash-controls { width: 100%; flex-wrap: wrap; }
+  .dash-search { flex: 1 1 100%; min-width: 0; width: auto; }
+  .dash-show { flex: 1 1 0; min-width: 0; }
 
   /* comfortable tap targets */
   .btn-primary,
