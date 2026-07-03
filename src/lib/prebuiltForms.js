@@ -2,6 +2,7 @@
 // Encoded faithfully from the source Word documents provided by the client.
 import { renderHomeVisitPdf } from './homeVisitPdf.js';
 import { renderPreplacementPdf } from './preplacementPdf.js';
+import { COMPANY_NAME } from './workerPortal.js';
 
 // Helpers. Ready-made forms use stable field ids so a faithful PDF renderer can
 // reference each value. No field is required — the social worker may submit
@@ -132,7 +133,9 @@ export function preplacementForm() {
       // ---- עמוד 1 ----
       sec('secHeader', 'פרטי הביקור'),
       F('visitDate', 'date', 'תאריך הביקור'),
-      F('bureauName', 'text', 'שם הלשכה'),
+      // The bureau conducting the report is always our company — fill it in
+      // automatically so the social worker doesn't have to type it.
+      F('bureauName', 'text', 'שם הלשכה', { default: COMPANY_NAME }),
       F('swName', 'text', 'שם העו"ס מבצע/ת הביקור'),
       F('attendees', 'text', 'נכחו בביקור'),
 

@@ -53,7 +53,9 @@ export default function StructuredFormView({
 
   const [values, setValues] = useState(() => {
     const v = {};
-    for (const f of schema) if (f.type !== 'section') v[f.id] = emptyValue(f.type);
+    // A field may carry a fixed default (e.g. our company name) so it shows up
+    // pre-filled without the worker typing it.
+    for (const f of schema) if (f.type !== 'section') v[f.id] = f.default != null ? f.default : emptyValue(f.type);
     // Pre-fill when editing an existing submission.
     if (initialValues) for (const k in initialValues) v[k] = initialValues[k];
     return v;
