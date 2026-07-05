@@ -1,0 +1,106 @@
+{
+  "name": "Telegram → קובץ מנות סיעוד",
+  "flow": [
+    {
+      "id": 1,
+      "module": "telegram:WatchUpdates",
+      "version": 1,
+      "parameters": {},
+      "mapper": {},
+      "metadata": {
+        "designer": { "x": 0, "y": 0 },
+        "restore": {},
+        "expect": []
+      }
+    },
+    {
+      "id": 2,
+      "module": "telegram:DownloadFile",
+      "version": 1,
+      "parameters": {},
+      "mapper": { "fileId": "{{1.message.photo[].file_id}}" },
+      "metadata": {
+        "designer": { "x": 300, "y": 0 },
+        "restore": {}
+      }
+    },
+    {
+      "id": 3,
+      "module": "openai-gpt-3:CreateCompletion",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "model": "gpt-4o",
+        "prompt": "אתה מחלץ נתונים מצילום דרכון/ת\"ז ישראלית. החזר אך ורק JSON עם המפתחות: id, lastNameLatin, firstNameLatin, lastNameHebrew, firstNameHebrew, birthDate (YYYYMMDD), city, street, house, phone. שדה חסר = מחרוזת ריקה.",
+        "image": "{{2.data}}"
+      },
+      "metadata": {
+        "designer": { "x": 600, "y": 0 },
+        "restore": {}
+      }
+    },
+    {
+      "id": 4,
+      "module": "json:ParseJSON",
+      "version": 1,
+      "parameters": {},
+      "mapper": { "json": "{{3.result}}" },
+      "metadata": {
+        "designer": { "x": 900, "y": 0 },
+        "restore": {}
+      }
+    },
+    {
+      "id": 5,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {},
+      "mapper": {
+        "url": "https://YOUR_PROJECT.functions.supabase.co/generate-siud",
+        "method": "post",
+        "headers": [ { "name": "Content-Type", "value": "application/json" } ],
+        "bodyType": "raw",
+        "contentType": "application/json",
+        "data": "{\n  \"id\": \"{{4.id}}\",\n  \"lastNameLatin\": \"{{4.lastNameLatin}}\",\n  \"firstNameLatin\": \"{{4.firstNameLatin}}\",\n  \"lastNameHebrew\": \"{{4.lastNameHebrew}}\",\n  \"firstNameHebrew\": \"{{4.firstNameHebrew}}\",\n  \"birthDate\": \"{{4.birthDate}}\",\n  \"city\": \"{{4.city}}\",\n  \"street\": \"{{4.street}}\",\n  \"house\": \"{{4.house}}\",\n  \"phone\": \"{{4.phone}}\"\n}",
+        "parseResponse": true
+      },
+      "metadata": {
+        "designer": { "x": 1200, "y": 0 },
+        "restore": {}
+      }
+    },
+    {
+      "id": 6,
+      "module": "telegram:SendDocument",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "chatId": "{{1.message.chat.id}}",
+        "file": {
+          "fileName": "{{5.data.filename}}",
+          "data": "{{toBinary(5.data.base64; \"base64\")}}"
+        }
+      },
+      "metadata": {
+        "designer": { "x": 1500, "y": 0 },
+        "restore": {}
+      }
+    }
+  ],
+  "metadata": {
+    "instant": true,
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "sequential": false,
+      "confidential": false,
+      "dataloss": false,
+      "dlq": false
+    },
+    "designer": { "orphans": [] },
+    "zone": "eu1.make.com",
+    "notes": "שלד לייבוא. יש לחבר חשבון Telegram Bot + ספק OCR/Vision, ולעדכן את כתובת ה-generate-siud. ראו docs/telegram-siud-automation.md."
+  }
+}
