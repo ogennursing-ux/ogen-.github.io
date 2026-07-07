@@ -67,6 +67,36 @@ export async function extractPages(buffer, indices) {
   return out.save();
 }
 
+// A download-split spec is groups of page ranges separated by ";" or newlines,
+// e.g. "1 ; 12-20" → group A = page 1, group B = pages 12-20.
+export function parseGroups(str) {
+  return String(str || '')
+    .split(/[;\n]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+// Split a signed PDF into one file per group and download each separately.
+// Returns the number of files produced (0 if no valid group matched).
+export async function downloadByGroups(bytes, name, groups) {
+  const { PDFDocument } = await import('pdf-lib');
+  const src = await PDFDocument.load(bytes);
+  const total = src.getPageCount();
+  const base = (name || 'document').replace(/\.pdf$/i, '');
+  let made = 0;
+  for (const g of groups) {
+    const indices = parseRanges(g, total);
+    if (!indices.length) continue;
+    const out = await PDFDocument.create();
+    const copied = await out.copyPages(src, indices);
+    copied.forEach((p) => out.addPage(p));
+    const label = g.replace(/\s+/g, '');
+    downloadBlob(await out.save(), 'application/pdf', `${base}-${label}.pdf`);
+    made += 1;
+  }
+  return made;
+}
+
 // Build a UTF-8 CSV (with BOM so Hebrew opens correctly in Excel).
 export function toCsv(rows) {
   const esc = (s) => `"${String(s ?? '').replace(/"/g, '""')}"`;

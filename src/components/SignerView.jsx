@@ -74,6 +74,8 @@ export default function SignerView({ id }) {
       const newList = signers.list.map((s, i) =>
         i === current ? { ...s, signed: true, signedAt: now, ip, signedName: signerName || s.signedName || '' } : s,
       );
+      // Preserve any extra fields stored on signers (note, downloadGroups, …).
+      const base = req && req.signers && !Array.isArray(req.signers) ? req.signers : {};
       const isLast = current >= signers.list.length - 1;
 
       if (isLast) {
@@ -82,7 +84,7 @@ export default function SignerView({ id }) {
           refId: id,
           ip,
         });
-        await api.submitSigned(id, { fields: filled, signers: { current, list: newList }, signedPdfBytes: bytes });
+        await api.submitSigned(id, { fields: filled, signers: { ...base, current, list: newList }, signedPdfBytes: bytes });
         setSignedBytes(bytes);
         setDoneKind('final');
         if (req.webhook_url && req.owner_email) {
@@ -96,7 +98,7 @@ export default function SignerView({ id }) {
           });
         }
       } else {
-        await api.advance(id, { fields: filled, signers: { current: current + 1, list: newList } });
+        await api.advance(id, { fields: filled, signers: { ...base, current: current + 1, list: newList } });
         setDoneKind('intermediate');
         const next = newList[current + 1];
         if (req.webhook_url && next?.email) {

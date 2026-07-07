@@ -19,7 +19,7 @@ import Login from './components/Login.jsx';
 import LangToggle from './components/LangToggle.jsx';
 import { renderPdfPages } from './lib/pdfUtils.js';
 import { fileToPdfBytes } from './lib/docx.js';
-import { mergePdfs } from './lib/exporters.js';
+import { mergePdfs, downloadByGroups, parseGroups, downloadBlob } from './lib/exporters.js';
 import { FIELD_DEFAULTS, FIELD_LABELS, DEFAULT_SIGNERS, clamp, uid, todayISO } from './lib/fields.js';
 import { api, rememberRequest, rememberTemplate, signingLink, formLink, listMyTemplates, saveLayout, listLayouts, forgetLayout } from './lib/api.js';
 import { getSettings, notify } from './lib/notify.js';
@@ -84,6 +84,7 @@ function PrepareApp({ onLogout, workerAdmin = false }) {
   const [showTemplates, setShowTemplates] = useState(false);
   const [sendMode, setSendMode] = useState(workerAdmin ? 'worker' : 'regular');
   const [note, setNote] = useState('');
+  const [downloadGroups, setDownloadGroups] = useState(''); // e.g. "1 ; 12-20" — split the signed file on download
   const [builderInit, setBuilderInit] = useState(null); // { title, schema } for prebuilt forms
   const [appliedLayout, setAppliedLayout] = useState(''); // name of a layout applied on this upload
   const [layoutTick, setLayoutTick] = useState(0); // bump to re-read the saved-layouts list
@@ -157,6 +158,7 @@ function PrepareApp({ onLogout, workerAdmin = false }) {
       setSelectedId(null);
       setActiveTool(null);
       setNote('');
+      setDownloadGroups('');
       setAppliedLayout('');
       setScreen('name'); // ask for the document name before the editor
     } catch (err) {
@@ -231,6 +233,7 @@ function PrepareApp({ onLogout, workerAdmin = false }) {
     setSelectedId(null);
     setActiveTool(null);
     setNote('');
+    setDownloadGroups('');
     setScreen('home');
   }
 
@@ -250,7 +253,7 @@ function PrepareApp({ onLogout, workerAdmin = false }) {
         title: baseName,
         pdfBytes,
         fields,
-        signers: { current: 0, list, note },
+        signers: { current: 0, list, note, downloadGroups: downloadGroups.trim() },
         signerEmail: list[0].email,
         ownerEmail: settings.ownerEmail || null,
         webhook: settings.webhook || null,
@@ -314,6 +317,7 @@ function PrepareApp({ onLogout, workerAdmin = false }) {
       fields: fields.map(({ id, value, ...rest }) => rest),
       signers: signers.map((s) => ({ name: s.name, color: s.color })),
       note: note || '',
+      downloadGroups: downloadGroups.trim(),
       pages: pages.length,
       createdAt: Date.now(),
     });
@@ -338,6 +342,7 @@ function PrepareApp({ onLogout, workerAdmin = false }) {
       setSendMode(layout.signers.length > 1 ? 'round' : 'regular');
     }
     setNote(layout.note || '');
+    setDownloadGroups(layout.downloadGroups || '');
     setActiveSigner(0);
     setSelectedId(null);
     setActiveTool(null);
@@ -409,15 +414,14 @@ function PrepareApp({ onLogout, workerAdmin = false }) {
     try {
       const req = await api.getRequest(id);
       const bytes = await api.getSignedBytes(req);
-      const blob = new Blob([bytes], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${req.title || 'document'}-signed.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      // If this document was set up with a download-split preset, download one
+      // file per page-range group; otherwise download the whole signed PDF.
+      const groups = parseGroups(req.signers && !Array.isArray(req.signers) ? req.signers.downloadGroups : '');
+      if (groups.length) {
+        const made = await downloadByGroups(bytes, req.title || 'document', groups);
+        if (made) return;
+      }
+      downloadBlob(bytes, 'application/pdf', `${req.title || 'document'}-signed.pdf`);
     } catch (err) {
       alert(t('הורדה נכשלה') + ': ' + err.message);
     }
@@ -681,6 +685,18 @@ function PrepareApp({ onLogout, workerAdmin = false }) {
           placeholder={t('הודעה לחותם (לא תופיע במסמך)')}
         />
       </div>
+      {sendMode !== 'worker' && (
+        <div className="doc-name-bar">
+          <label>{t('פיצול הורדה (לא חובה)')}</label>
+          <input
+            className="doc-name-input"
+            dir="ltr"
+            value={downloadGroups}
+            onChange={(e) => setDownloadGroups(e.target.value)}
+            placeholder={t('למשל: 1 ; 12-20')}
+          />
+        </div>
+      )}
       {activeTool ? (
         <div className="place-hint">
           {t('לחץ על המסמך כדי למקם {label}', { label: t(FIELD_LABELS[activeTool]) })}

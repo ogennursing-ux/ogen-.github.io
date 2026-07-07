@@ -186,6 +186,8 @@ const EN = {
   '{n} שדות': '{n} fields',
   'הוחלה התבנית: {name}': 'Applied template: {name}',
   'המשך לעריכה (השדות כבר ממוקמים)': 'Continue to editor (fields already placed)',
+  'פיצול הורדה (לא חובה)': 'Split download (optional)',
+  'למשל: 1 ; 12-20': 'e.g. 1 ; 12-20',
 
   // all signatures + notifications
   'כל החתימות במערכת': 'All signatures',
