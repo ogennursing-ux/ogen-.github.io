@@ -172,6 +172,21 @@ const EN = {
   'איך לקרוא למסמך?': 'What should we call the document?',
   'המשך לעריכה': 'Continue to editor',
 
+  // signature layout templates
+  '💾 שמור פריסת חתימות': '💾 Save signature layout',
+  'הוסף לפחות שדה אחד לפני שמירת תבנית הפריסה.':
+    'Add at least one field before saving the layout template.',
+  'שם לתבנית פריסת החתימות:': 'Name for the signature layout template:',
+  'תבנית פריסה': 'Layout template',
+  'התבנית נשמרה! בפעם הבאה שתעלה חוזה, בחר אותה כדי למקם את כל השדות אוטומטית.':
+    'Saved! Next time you upload a contract, pick it to place all fields automatically.',
+  '{n} שדות מהתבנית חורגים ממספר העמודים של המסמך ולכן לא נוספו.':
+    "{n} fields from the template are beyond the document's pages and were not added.",
+  'החל תבנית פריסת חתימות (לא חובה):': 'Apply a signature layout template (optional):',
+  '{n} שדות': '{n} fields',
+  'הוחלה התבנית: {name}': 'Applied template: {name}',
+  'המשך לעריכה (השדות כבר ממוקמים)': 'Continue to editor (fields already placed)',
+
   // all signatures + notifications
   'כל החתימות במערכת': 'All signatures',
   'אין עדיין חתימות במערכת.': 'No signatures yet.',

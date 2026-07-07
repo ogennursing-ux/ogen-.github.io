@@ -342,6 +342,43 @@ button {
   }
 }
 
+/* ---------------- signature layout picker (name step) ---------------- */
+.layout-picker {
+  margin-top: 16px;
+  text-align: start;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.layout-picker-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.layout-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.layout-apply-btn {
+  flex: 1;
+  text-align: start;
+  justify-content: flex-start;
+  font-size: 13.5px;
+}
+.layout-apply-btn.active {
+  border-color: var(--primary);
+  background: #f0faf5;
+  color: var(--primary-dark);
+}
+.layout-applied {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary-dark);
+  margin-top: 8px;
+}
+
 /* ---------------- login ---------------- */
 .login-card {
   text-align: start;

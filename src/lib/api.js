@@ -42,6 +42,20 @@ export function forgetTemplate(id) {
   localStorage.setItem(TMPLS, JSON.stringify(read(TMPLS).filter((t) => t.id !== id)));
 }
 
+// Field-layout templates: a reusable set of field positions (percent-based, so
+// PDF-agnostic) + signer order + note, saved locally. Apply one to a freshly
+// uploaded contract with the same layout and every field lands pre-placed.
+const LAYOUTS = 'my_layouts';
+export function saveLayout(entry) {
+  const list = read(LAYOUTS);
+  list.unshift(entry);
+  localStorage.setItem(LAYOUTS, JSON.stringify(list.slice(0, 100)));
+}
+export const listLayouts = () => read(LAYOUTS);
+export function forgetLayout(id) {
+  localStorage.setItem(LAYOUTS, JSON.stringify(read(LAYOUTS).filter((l) => l.id !== id)));
+}
+
 const mockSuffix = () =>
   new URLSearchParams(location.search).has('mock') ? '&mock=1' : '';
 

@@ -21,7 +21,7 @@ import { renderPdfPages } from './lib/pdfUtils.js';
 import { fileToPdfBytes } from './lib/docx.js';
 import { mergePdfs } from './lib/exporters.js';
 import { FIELD_DEFAULTS, FIELD_LABELS, DEFAULT_SIGNERS, clamp, uid, todayISO } from './lib/fields.js';
-import { api, rememberRequest, rememberTemplate, signingLink, formLink, listMyTemplates } from './lib/api.js';
+import { api, rememberRequest, rememberTemplate, signingLink, formLink, listMyTemplates, saveLayout, listLayouts, forgetLayout } from './lib/api.js';
 import { getSettings, notify } from './lib/notify.js';
 import { workerPortalLink } from './lib/workerPortal.js';
 import { buildFormPdf } from './lib/formPdf.js';
@@ -85,6 +85,8 @@ function PrepareApp({ onLogout, workerAdmin = false }) {
   const [sendMode, setSendMode] = useState(workerAdmin ? 'worker' : 'regular');
   const [note, setNote] = useState('');
   const [builderInit, setBuilderInit] = useState(null); // { title, schema } for prebuilt forms
+  const [appliedLayout, setAppliedLayout] = useState(''); // name of a layout applied on this upload
+  const [layoutTick, setLayoutTick] = useState(0); // bump to re-read the saved-layouts list
   const [editing, setEditing] = useState(null); // { template, values } when editing a submission
 
   // Build a template-shaped object for editing a stored submission: its schema
@@ -155,6 +157,7 @@ function PrepareApp({ onLogout, workerAdmin = false }) {
       setSelectedId(null);
       setActiveTool(null);
       setNote('');
+      setAppliedLayout('');
       setScreen('name'); // ask for the document name before the editor
     } catch (err) {
       console.error(err);
@@ -292,6 +295,55 @@ function PrepareApp({ onLogout, workerAdmin = false }) {
       alert(t('שמירת התבנית נכשלה') + ': ' + err.message);
     } finally {
       setBusy(false);
+    }
+  }
+
+  // Save the current field positions + signer order as a reusable layout
+  // template (no PDF) that can be applied to a new contract with the same look.
+  function saveAsLayout() {
+    if (!fields.length) {
+      alert(t('הוסף לפחות שדה אחד לפני שמירת תבנית הפריסה.'));
+      return;
+    }
+    const name = window.prompt(t('שם לתבנית פריסת החתימות:'), baseName || t('תבנית פריסה'));
+    if (name == null) return; // cancelled
+    saveLayout({
+      id: uid(),
+      name: (name || '').trim() || baseName || t('תבנית פריסה'),
+      // store only position/size/type/signer — id & value are regenerated on apply
+      fields: fields.map(({ id, value, ...rest }) => rest),
+      signers: signers.map((s) => ({ name: s.name, color: s.color })),
+      note: note || '',
+      pages: pages.length,
+      createdAt: Date.now(),
+    });
+    alert(t('התבנית נשמרה! בפעם הבאה שתעלה חוזה, בחר אותה כדי למקם את כל השדות אוטומטית.'));
+  }
+
+  // Apply a saved layout to the currently uploaded document.
+  function applyLayout(layout) {
+    const maxPage = pages.length;
+    const src = Array.isArray(layout.fields) ? layout.fields : [];
+    const kept = src
+      .filter((f) => (f.pageIndex || 0) < maxPage)
+      .map((f) => ({
+        ...f,
+        id: uid(),
+        value: f.type === 'checkbox' ? false : f.type === 'date' ? todayISO() : '',
+      }));
+    const dropped = src.length - kept.length;
+    setFields(kept);
+    if (Array.isArray(layout.signers) && layout.signers.length) {
+      setSigners(layout.signers.map((s) => ({ name: s.name, color: s.color, email: '' })));
+      setSendMode(layout.signers.length > 1 ? 'round' : 'regular');
+    }
+    setNote(layout.note || '');
+    setActiveSigner(0);
+    setSelectedId(null);
+    setActiveTool(null);
+    setAppliedLayout(layout.name || '');
+    if (dropped) {
+      alert(t('{n} שדות מהתבנית חורגים ממספר העמודים של המסמך ולכן לא נוספו.', { n: dropped }));
     }
   }
 
@@ -462,6 +514,7 @@ function PrepareApp({ onLogout, workerAdmin = false }) {
   }
 
   if (screen === 'name') {
+    const layouts = !workerAdmin && layoutTick >= 0 ? listLayouts() : [];
     return (
       <div className="app">
         {header}
@@ -475,8 +528,33 @@ function PrepareApp({ onLogout, workerAdmin = false }) {
               onChange={(e) => setBaseName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && setScreen('editor')}
             />
+            {layouts.length > 0 && (
+              <div className="layout-picker">
+                <div className="layout-picker-title">{t('החל תבנית פריסת חתימות (לא חובה):')}</div>
+                {layouts.map((l) => (
+                  <div className="layout-row" key={l.id}>
+                    <button
+                      className={`btn-ghost layout-apply-btn${appliedLayout === l.name ? ' active' : ''}`}
+                      onClick={() => applyLayout(l)}
+                    >
+                      📐 {l.name} · {t('{n} שדות', { n: (l.fields || []).length })}
+                    </button>
+                    <button
+                      className="icon-btn"
+                      aria-label="delete"
+                      onClick={() => { forgetLayout(l.id); setLayoutTick((n) => n + 1); if (appliedLayout === l.name) setAppliedLayout(''); }}
+                    >
+                      🗑
+                    </button>
+                  </div>
+                ))}
+                {appliedLayout && (
+                  <div className="layout-applied">✓ {t('הוחלה התבנית: {name}', { name: appliedLayout })}</div>
+                )}
+              </div>
+            )}
             <button className="btn-primary full" style={{ marginTop: 14 }} onClick={() => setScreen('editor')}>
-              {t('המשך לעריכה')}
+              {appliedLayout ? t('המשך לעריכה (השדות כבר ממוקמים)') : t('המשך לעריכה')}
             </button>
           </div>
         </div>
@@ -581,6 +659,7 @@ function PrepareApp({ onLogout, workerAdmin = false }) {
         onContinue={sendMode === 'worker' ? publishWorkerForm : createLink}
         onReset={startOver}
         onSaveTemplate={sendMode === 'worker' ? undefined : saveTemplate}
+        onSaveLayout={sendMode === 'worker' ? undefined : saveAsLayout}
         busy={busy}
         canContinue={fields.length > 0}
         continueLabel={sendMode === 'worker' ? t('פרסם כטופס לעובדים סוציאליים ›') : t('צור קישור לחתימה ›')}
