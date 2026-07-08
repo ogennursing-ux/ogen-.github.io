@@ -10,12 +10,13 @@ export default defineConfig({
   build: {
     rollupOptions: {
       // Independent entry points: the family signing app (index.html), the
-      // social-worker forms admin (forms.html), and the standalone worker
-      // forms portal (worker.html).
+      // social-worker forms admin (forms.html), the standalone worker forms
+      // portal (worker.html), and the foreign-worker file cabinet (tik.html).
       input: {
         main: resolve(__dirname, 'index.html'),
         forms: resolve(__dirname, 'forms.html'),
         worker: resolve(__dirname, 'worker.html'),
+        tik: resolve(__dirname, 'tik.html'),
       },
     },
   },

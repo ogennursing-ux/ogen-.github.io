@@ -1798,3 +1798,53 @@ textarea.gov-input { resize: vertical; }
 .req-sub { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
 
 .sub-actions { display: inline-flex; gap: 6px; }
+
+/* ================= foreign-worker file cabinet (tik.html) ================= */
+.tik-list { max-width: 860px; margin: 0 auto; padding: 20px 16px 60px; }
+.tik-list-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tik-empty { text-align: center; padding: 28px 20px; }
+.tik-chevron { font-size: 22px; color: var(--muted); line-height: 1; }
+
+.tik-editor { max-width: 860px; margin: 0 auto; padding: 16px 16px 80px; display: flex; flex-direction: column; gap: 16px; }
+.tik-section { padding: 18px 18px 20px; }
+.tik-section h3 { margin: 0 0 14px; font-size: 16px; color: var(--ink); }
+.tik-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+.tik-field { display: flex; flex-direction: column; gap: 5px; }
+.tik-field > span { font-size: 13px; color: var(--muted); font-weight: 600; }
+.tik-field .text-input, .tik-field select, .tik-field textarea { width: 100%; max-width: none; }
+.tik-field textarea { resize: vertical; font-family: inherit; }
+
+.tik-renewal {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  background: #f4f8ff; border: 1.5px solid #d5e3fb; border-radius: 14px; padding: 14px 18px;
+}
+.tik-renewal.due { background: #fff6ed; border-color: #f3cfa2; }
+.tik-renewal strong { font-size: 15px; color: var(--ink); }
+
+.tik-upload { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.tik-doc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.tik-doc {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: #fbfcfe;
+}
+.tik-doc-main { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.tik-doc-icon { font-size: 22px; }
+.tik-doc-name { font-weight: 600; color: var(--ink); font-size: 14px; word-break: break-word; }
+.tik-doc-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.tik-doc-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+.tik-editor-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tik-foot-right { display: flex; align-items: center; gap: 12px; }
+.tik-saved { color: var(--primary); font-weight: 600; font-size: 14px; }
+
+.tik-lightbox {
+  background: #fff; border-radius: 14px; width: min(920px, 94vw); max-height: 90vh;
+  display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--shadow);
+}
+.tik-lightbox-img { max-width: 100%; max-height: 78vh; object-fit: contain; margin: auto; padding: 12px; }
+.tik-lightbox-frame { width: 100%; height: 78vh; border: 0; }
+
+@media (max-width: 640px) {
+  .tik-grid { grid-template-columns: 1fr; }
+  .tik-renewal { flex-direction: column; align-items: stretch; }
+}

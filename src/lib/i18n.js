@@ -305,6 +305,7 @@ const EN = {
   'עריכת ההגשה — שנה/י את הפרטים ושמור/י.': 'Editing the submission — change the details and save.',
   'עדכון ההגשה נכשל': 'Updating the submission failed',
   'אזור החתימות': 'Signatures area',
+  'תיקי עובדים': 'Worker files',
   'חזרה לניהול הטפסים': 'Back to form management',
 };
 

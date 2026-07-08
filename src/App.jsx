@@ -441,6 +441,9 @@ function PrepareApp({ onLogout, workerAdmin = false }) {
           </a>
         )}
         {screen !== 'editor' && (
+          <a className="header-settings" href="tik.html">🗂️ {t('תיקי עובדים')}</a>
+        )}
+        {screen !== 'editor' && (
           <button className="header-settings" onClick={() => setShowSettings(true)}>{t('⚙ הגדרות')}</button>
         )}
         <LangToggle />
