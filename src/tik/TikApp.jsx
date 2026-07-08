@@ -13,6 +13,26 @@ import {
   deleteFile,
   fileObjectUrl,
 } from './workerFilesApi.js';
+import {
+  extractDocument,
+  getGeminiKey,
+  setGeminiKey,
+  getGeminiModel,
+  setGeminiModel,
+} from './gemini.js';
+
+// Hebrew labels for the fields Gemini fills, used in the "filled X, Y" summary.
+const FIELD_LABELS = {
+  nameEn: 'שם באנגלית',
+  nameHe: 'שם בעברית',
+  passportNo: 'מספר דרכון',
+  nationality: 'אזרחות',
+  dob: 'תאריך לידה',
+  gender: 'מין',
+  passportExpiry: 'תוקף דרכון',
+  visaExpiry: 'תוקף אשרה',
+  permitExpiry: 'תוקף היתר',
+};
 
 const AUTH_KEY = 'tik_auth';
 const PASS = '12345';
@@ -68,7 +88,7 @@ function downloadBlob(blob, name) {
 
 // ---------------------------------------------------------------------------
 
-function Header({ onLogout, right }) {
+function Header({ onLogout, onSettings, right }) {
   return (
     <header className="app-header">
       <div className="brand">
@@ -77,11 +97,66 @@ function Header({ onLogout, right }) {
       </div>
       <div className="header-actions">
         {right}
+        {onSettings && (
+          <button className="header-settings" onClick={onSettings}>⚙ הגדרות</button>
+        )}
         {onLogout && (
           <button className="header-settings" onClick={onLogout}>התנתק</button>
         )}
       </div>
     </header>
+  );
+}
+
+function SettingsModal({ onClose }) {
+  const [key, setKey] = useState(getGeminiKey());
+  const [model, setModel] = useState(getGeminiModel());
+
+  function save() {
+    setGeminiKey(key.trim());
+    setGeminiModel(model.trim());
+    onClose();
+  }
+
+  return (
+    <div className="modal-backdrop" onPointerDown={onClose}>
+      <div className="drawer tik-settings" onPointerDown={(e) => e.stopPropagation()}>
+        <div className="drawer-head">
+          <strong>⚙ הגדרות</strong>
+          <button className="icon-btn" onClick={onClose} aria-label="close">✕</button>
+        </div>
+        <h3 style={{ margin: '4px 0 6px', fontSize: 15 }}>קריאה אוטומטית של מסמכים (Gemini)</h3>
+        <p className="muted small">
+          כדי שהמערכת תקרא דרכון/אשרה ותמלא את השדות אוטומטית, הזן/י מפתח Gemini.
+          מפתח חינמי מתקבל ב-Google AI Studio (aistudio.google.com/apikey). המפתח נשמר במכשיר בלבד.
+        </p>
+        <label className="tik-field" style={{ marginTop: 10 }}>
+          <span>מפתח Gemini API</span>
+          <input
+            className="text-input"
+            dir="ltr"
+            type="password"
+            value={key}
+            placeholder="AIza…"
+            onChange={(e) => setKey(e.target.value)}
+          />
+        </label>
+        <label className="tik-field" style={{ marginTop: 10 }}>
+          <span>דגם (ברירת מחדל: gemini-2.5-flash)</span>
+          <input
+            className="text-input"
+            dir="ltr"
+            value={model}
+            placeholder="gemini-2.5-flash"
+            onChange={(e) => setModel(e.target.value)}
+          />
+        </label>
+        <div className="card-actions" style={{ marginTop: 14 }}>
+          <button className="btn-primary" onClick={save}>שמור</button>
+          <button className="btn-ghost" onClick={onClose}>ביטול</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -126,6 +201,7 @@ function Gate({ onEnter }) {
 function WorkerList({ onOpen, onNew, onLogout }) {
   const [workers, setWorkers] = useState(null);
   const [q, setQ] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
 
   const reload = () => listWorkers().then(setWorkers);
   useEffect(() => {
@@ -147,8 +223,10 @@ function WorkerList({ onOpen, onNew, onLogout }) {
     <div className="app">
       <Header
         onLogout={onLogout}
+        onSettings={() => setShowSettings(true)}
         right={<a className="header-settings" href="index.html">אזור החתימות</a>}
       />
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       <div className="tik-list">
         <div className="tik-list-head">
           <h2 style={{ margin: 0 }}>תיקי עובדים</h2>
@@ -239,8 +317,10 @@ function Lightbox({ file, onClose }) {
   );
 }
 
-function DocRow({ file, onView, onChanged }) {
+function DocRow({ file, onView, onChanged, onExtract, extracting }) {
   const [copied, setCopied] = useState(false);
+  const isImage = file.mime?.startsWith('image/');
+  const canExtract = isImage && ['passport', 'visa', 'permit'].includes(file.category);
 
   async function copy() {
     // Copy the scan for review elsewhere: images go to the clipboard when the
@@ -270,6 +350,16 @@ function DocRow({ file, onView, onChanged }) {
         </div>
       </div>
       <div className="tik-doc-actions">
+        {canExtract && (
+          <button
+            className="btn-ghost sm tik-extract-btn"
+            title="קריאה אוטומטית ומילוי השדות"
+            disabled={extracting}
+            onClick={() => onExtract(file)}
+          >
+            {extracting ? '⏳ קורא…' : '✨ קרא ומלא'}
+          </button>
+        )}
         <button className="icon-btn" title="עיון" onClick={() => onView(file)}>👁</button>
         <button className="icon-btn" title="העתקה" onClick={copy}>{copied ? '✓' : '⧉'}</button>
         <button className="icon-btn" title="הורדה" onClick={() => downloadBlob(file.blob, file.name)}>⬇</button>
@@ -297,6 +387,8 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
   const [busyUpload, setBusyUpload] = useState(false);
   const [viewing, setViewing] = useState(null);
   const [makingContract, setMakingContract] = useState(false);
+  const [extractingId, setExtractingId] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
   const fileInput = useRef(null);
 
   const isNew = workerId == null;
@@ -351,6 +443,46 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
     }
   }
 
+  async function extractFrom(file) {
+    if (!getGeminiKey()) {
+      alert('כדי לקרוא מסמכים אוטומטית צריך מפתח Gemini. פותח את ההגדרות…');
+      setShowSettings(true);
+      return;
+    }
+    setExtractingId(file.id);
+    try {
+      const { patch } = await extractDocument(file.blob, file.category);
+      const keys = Object.keys(patch);
+      if (!keys.length) {
+        alert('לא זוהו פרטים בתמונה. נסה/י תמונה ברורה וחדה יותר.');
+        return;
+      }
+      // Fill empty fields freely; ask before overwriting fields already filled.
+      const conflicts = keys.filter((k) => worker[k] && worker[k] !== patch[k]);
+      let apply = patch;
+      if (conflicts.length) {
+        const overwrite = confirm(
+          `זוהו ${keys.length} שדות. ${conflicts.length} מהם כבר מלאים (${conflicts
+            .map((k) => FIELD_LABELS[k] || k)
+            .join(', ')}).\nאישור = לעדכן גם אותם · ביטול = למלא רק שדות ריקים.`,
+        );
+        if (!overwrite) apply = Object.fromEntries(Object.entries(patch).filter(([k]) => !worker[k]));
+      }
+      const applied = Object.keys(apply);
+      if (!applied.length) {
+        alert('כל השדות שזוהו כבר מלאים — לא בוצע שינוי.');
+        return;
+      }
+      set(apply);
+      alert('מולאו הפרטים: ' + applied.map((k) => FIELD_LABELS[k] || k).join(', ') + '.\nבדוק/י ולחץ/י «שמור תיק».');
+    } catch (err) {
+      console.error(err);
+      alert(err?.message || String(err));
+    } finally {
+      setExtractingId(null);
+    }
+  }
+
   async function makeContract() {
     setMakingContract(true);
     try {
@@ -380,6 +512,7 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
     <div className="app">
       <Header
         onLogout={null}
+        onSettings={() => setShowSettings(true)}
         right={<button className="header-settings" onClick={onBack}>‹ חזרה לרשימה</button>}
       />
       <div className="tik-editor">
@@ -476,12 +609,22 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
               onChange={onPickFiles}
             />
           </div>
+          <p className="muted small" style={{ marginBottom: 10 }}>
+            ✨ אחרי העלאת תמונת דרכון/אשרה/היתר, לחץ/י «קרא ומלא» כדי שהמערכת תזהה את הפרטים ותמלא את השדות אוטומטית (דורש מפתח Gemini ב-⚙ הגדרות).
+          </p>
           {files.length === 0 ? (
             <p className="muted" style={{ marginTop: 8 }}>עדיין לא הועלו מסמכים. בחר סוג והעלה דרכון, אשרה, היתר וכו'.</p>
           ) : (
             <ul className="tik-doc-list">
               {files.map((f) => (
-                <DocRow key={f.id} file={f} onView={setViewing} onChanged={reloadFiles} />
+                <DocRow
+                  key={f.id}
+                  file={f}
+                  onView={setViewing}
+                  onChanged={reloadFiles}
+                  onExtract={extractFrom}
+                  extracting={extractingId === f.id}
+                />
               ))}
             </ul>
           )}
@@ -498,6 +641,7 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
         </div>
       </div>
       {viewing && <Lightbox file={viewing} onClose={() => setViewing(null)} />}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </div>
   );
 }

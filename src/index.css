@@ -1848,3 +1848,9 @@ textarea.gov-input { resize: vertical; }
   .tik-grid { grid-template-columns: 1fr; }
   .tik-renewal { flex-direction: column; align-items: stretch; }
 }
+
+/* Gemini scan-to-fill button + settings drawer (tik module) */
+.tik-extract-btn { white-space: nowrap; }
+.tik-doc-actions { align-items: center; flex-wrap: wrap; }
+.tik-settings { max-width: 460px; }
+.tik-settings .tik-field .text-input { width: 100%; max-width: none; }
