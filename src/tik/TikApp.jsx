@@ -7,6 +7,11 @@ import {
   getWorker,
   saveWorker,
   deleteWorker,
+  emptyFamily,
+  listFamilies,
+  getFamily,
+  saveFamily,
+  deleteFamily,
   listFiles,
   addFile,
   duplicateFile,
@@ -65,8 +70,18 @@ const CATEGORIES = [
   { key: 'photo', label: 'תמונה', icon: '🖼️' },
   { key: 'other', label: 'מסמך אחר', icon: '📎' },
 ];
-const catLabel = (k) => CATEGORIES.find((c) => c.key === k)?.label || 'מסמך';
-const catIcon = (k) => CATEGORIES.find((c) => c.key === k)?.icon || '📎';
+// Document categories for a family/patient file.
+const FAMILY_CATEGORIES = [
+  { key: 'id', label: 'תעודת זהות', icon: '🪪' },
+  { key: 'bituach', label: 'אישור ביטוח לאומי', icon: '🏛️' },
+  { key: 'medical', label: 'מסמך רפואי', icon: '🩺' },
+  { key: 'contract', label: 'חוזה', icon: '📃' },
+  { key: 'photo', label: 'תמונה', icon: '🖼️' },
+  { key: 'other', label: 'מסמך אחר', icon: '📎' },
+];
+const ALL_CATEGORIES = [...CATEGORIES, ...FAMILY_CATEGORIES];
+const catLabel = (k) => ALL_CATEGORIES.find((c) => c.key === k)?.label || 'מסמך';
+const catIcon = (k) => ALL_CATEGORIES.find((c) => c.key === k)?.icon || '📎';
 
 function fmt(iso) {
   if (!iso) return '';
@@ -80,6 +95,16 @@ function fmtSize(bytes) {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
   return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+}
+function ageFrom(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const t = new Date();
+  let a = t.getFullYear() - d.getFullYear();
+  const m = t.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && t.getDate() < d.getDate())) a--;
+  return a >= 0 && a < 130 ? a : '';
 }
 
 // Anniversary math: contract renewal falls one year after the start date (or,
@@ -518,7 +543,7 @@ function ContractPicker({ worker, onClose, onBuiltin, onSigned }) {
   );
 }
 
-function WorkerList({ onOpen, onNew, onLogout }) {
+function WorkerList({ mode, onMode, onOpen, onNew, onLogout }) {
   const [workers, setWorkers] = useState(null);
   const [q, setQ] = useState('');
   const [showSettings, setShowSettings] = useState(false);
@@ -550,6 +575,7 @@ function WorkerList({ onOpen, onNew, onLogout }) {
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showContracts && <ContractsManager onClose={() => setShowContracts(false)} />}
       <div className="tik-list">
+        <ModeTabs mode={mode} onMode={onMode} />
         <div className="tik-list-head">
           <h2 style={{ margin: 0 }}>תיקי עובדים</h2>
           <div className="tik-head-actions">
@@ -1083,6 +1109,239 @@ function SignLinkModal({ link, who, onClose }) {
 }
 
 // ---------------------------------------------------------------------------
+// Family / patient (client) files
+// ---------------------------------------------------------------------------
+
+function ModeTabs({ mode, onMode }) {
+  return (
+    <div className="tik-modetabs">
+      <button className={`tik-modetab${mode === 'workers' ? ' active' : ''}`} onClick={() => onMode('workers')}>🗂️ תיקי עובדים</button>
+      <button className={`tik-modetab${mode === 'families' ? ' active' : ''}`} onClick={() => onMode('families')}>👨‍👩‍👧 תיקי משפחות</button>
+    </div>
+  );
+}
+
+// Field groups for a family/patient file, modelled on the Tik-Tak client card.
+const FAMILY_SECTIONS = [
+  { title: 'פרטי מטופל/לקוח', fields: [
+    ['fullName', 'שם מלא'], ['idNumber', 'ת.זהות', 'text', 'ltr'], ['dob', 'ת.לידה', 'date', 'ltr'],
+    ['gender', 'מין'], ['maritalStatus', 'מצב משפחתי'], ['city', 'יישוב'], ['street', 'רחוב'],
+    ['zip', 'מיקוד', 'text', 'ltr'], ['phone', 'טלפון', 'text', 'ltr'], ['mobile', 'נייד', 'text', 'ltr'],
+    ['email', 'אימייל', 'text', 'ltr'], ['birthCountry', 'ארץ לידה'], ['language', 'שפה'],
+  ] },
+  { title: 'איש קשר', fields: [
+    ['contactName', 'שם איש קשר'], ['contactRelation', 'קרבה'],
+    ['contactMobile', 'נייד א.קשר', 'text', 'ltr'], ['contactId', 'ת.ז איש קשר', 'text', 'ltr'],
+  ] },
+  { title: 'תיק ומנהלה', fields: [
+    ['clientNo', 'מספר לקוח', 'text', 'ltr'], ['branch', 'סניף'], ['coordinator', 'רכז/ת'],
+    ['status', 'סטטוס'], ['openDate', 'תאריך פתיחה', 'date', 'ltr'], ['referrer', 'גורם מפנה'],
+  ] },
+  { title: 'תוקף אשרה / ביטוח / היתר', fields: [
+    ['visaExpiry', 'תוקף אשרה', 'date', 'ltr'], ['insuranceExpiry', 'תוקף ביטוח', 'date', 'ltr'],
+    ['permitExpiry', 'תוקף היתר', 'date', 'ltr'],
+  ] },
+  { title: 'זכאות לסיעוד', fields: [
+    ['eligibilityLevel', 'רמת זכאות'], ['careLaw', 'חוק סיעוד / ו.הומניטרית'], ['disabilityPct', 'אחוזי נכות', 'text', 'ltr'],
+    ['careInsurance', 'ביטוח סיעודי'], ['eligibilityGrantor', 'נותן זכאות'], ['contractNote', 'הערה לחוזה'],
+  ] },
+  { title: 'מצב תפקודי', fields: [
+    ['mobility', 'ניידות'], ['sight', 'ראיה'], ['hearing', 'שמיעה'],
+    ['emotional', 'מצב רגשי'], ['continence', 'שליטה בסוגרים'], ['cognitive', 'מצב קוגניטיבי'],
+  ] },
+  { title: 'דרישות מהמטפל', fields: [
+    ['reqLanguage', 'שפה מבוקשת'], ['reqGender', 'מין מבוקש'], ['offeredSalary', 'שכר מוצע', 'text', 'ltr'],
+    ['caregiverRoom', 'חדר למטפל'], ['okSmoker', 'מוכן למעשן'],
+  ] },
+];
+
+function FamilyList({ mode, onMode, onOpen, onNew, onLogout }) {
+  const [items, setItems] = useState(null);
+  const [q, setQ] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
+
+  useEffect(() => { listFamilies().then(setItems); }, []);
+
+  const filtered = useMemo(() => {
+    if (!items) return [];
+    const s = q.trim().toLowerCase();
+    if (!s) return items;
+    return items.filter((f) =>
+      [f.fullName, f.idNumber, f.city, f.contactName, f.clientNo]
+        .filter(Boolean).some((v) => String(v).toLowerCase().includes(s)),
+    );
+  }, [items, q]);
+
+  return (
+    <div className="app">
+      <Header onLogout={onLogout} onSettings={() => setShowSettings(true)} />
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      <div className="tik-list">
+        <ModeTabs mode={mode} onMode={onMode} />
+        <div className="tik-list-head">
+          <h2 style={{ margin: 0 }}>תיקי משפחות</h2>
+          <button className="btn-primary" onClick={onNew}>➕ משפחה חדשה</button>
+        </div>
+        <input
+          className="text-input"
+          placeholder="חיפוש לפי שם, ת.ז, יישוב או איש קשר…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          style={{ margin: '12px 0' }}
+        />
+        {items === null && <p className="muted">טוען…</p>}
+        {items && !items.length && (
+          <div className="card tik-empty"><p className="muted">עדיין אין תיקי משפחות. לחץ «משפחה חדשה» כדי לפתוח תיק.</p></div>
+        )}
+        {filtered.length > 0 && (
+          <ul className="req-list">
+            {filtered.map((f) => (
+              <li key={f.id} className="req-item" onClick={() => onOpen(f.id)}>
+                <div className="req-main">
+                  <span className="req-title">{f.fullName || 'ללא שם'}</span>
+                  <span className="req-sub">
+                    {[f.idNumber && 'ת.ז ' + f.idNumber, f.city, f.contactName && 'איש קשר: ' + f.contactName]
+                      .filter(Boolean).join('  ·  ')}
+                  </span>
+                </div>
+                <div className="req-side"><span className="tik-chevron">‹</span></div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FamilyEditor({ familyId, onBack, onDeleted }) {
+  const [family, setFamily] = useState(null);
+  const [files, setFiles] = useState([]);
+  const [workers, setWorkers] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [savedTick, setSavedTick] = useState(false);
+  const [uploadCat, setUploadCat] = useState('id');
+  const [busyUpload, setBusyUpload] = useState(false);
+  const [viewing, setViewing] = useState(null);
+  const fileInput = useRef(null);
+  const isNew = familyId == null;
+
+  useEffect(() => {
+    if (isNew) { setFamily(emptyFamily()); setFiles([]); }
+    else { getFamily(familyId).then((f) => setFamily(f || emptyFamily())); listFiles(familyId).then(setFiles); }
+    listWorkers().then(setWorkers);
+  }, [familyId, isNew]);
+
+  if (!family) {
+    return <div className="app"><Header /><p className="muted" style={{ padding: 24 }}>טוען…</p></div>;
+  }
+
+  const set = (patch) => setFamily((f) => ({ ...f, ...patch }));
+  const reloadFiles = () => listFiles(family.id).then(setFiles);
+
+  async function persist() {
+    setSaving(true);
+    try {
+      const saved = await saveFamily(family);
+      setFamily(saved);
+      setSavedTick(true);
+      setTimeout(() => setSavedTick(false), 1600);
+      return saved;
+    } finally { setSaving(false); }
+  }
+
+  async function onPickFiles(e) {
+    const picked = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (!picked.length) return;
+    setBusyUpload(true);
+    try {
+      const saved = await persist();
+      for (const f of picked) await addFile(saved.id, { category: uploadCat, file: f });
+      await listFiles(saved.id).then(setFiles);
+    } finally { setBusyUpload(false); }
+  }
+
+  async function remove() {
+    if (isNew) return onBack();
+    if (!confirm('למחוק את תיק המשפחה ואת כל המסמכים שבו? פעולה זו אינה הפיכה.')) return;
+    await deleteFamily(family.id);
+    onDeleted();
+  }
+
+  return (
+    <div className="app">
+      <Header onLogout={null} right={<button className="header-settings" onClick={onBack}>‹ חזרה לרשימה</button>} />
+      <div className="tik-editor">
+        {FAMILY_SECTIONS.map((sec) => (
+          <section className="card tik-section" key={sec.title}>
+            <h3>{sec.title}</h3>
+            <div className="tik-grid">
+              {sec.fields.map(([key, label, type, dir]) => (
+                <F key={key} label={label} type={type || 'text'} dir={dir} value={family[key]} onChange={(v) => set({ [key]: v })} />
+              ))}
+            </div>
+            {sec.title === 'פרטי מטופל/לקוח' && family.dob && (
+              <p className="muted small" style={{ marginTop: 8 }}>גיל: {ageFrom(family.dob)}</p>
+            )}
+          </section>
+        ))}
+
+        {/* current placement — link a worker file */}
+        <section className="card tik-section">
+          <h3>השמה נוכחית (עובד/מטפל)</h3>
+          <div className="tik-grid">
+            <label className="tik-field">
+              <span>עובד/ת מטפל/ת</span>
+              <select className="text-input" value={family.caregiverWorkerId || ''} onChange={(e) => set({ caregiverWorkerId: e.target.value })}>
+                <option value="">— ללא —</option>
+                {workers.map((w) => (
+                  <option key={w.id} value={w.id}>{w.nameHe || w.nameEn || w.passportNo || 'עובד'}</option>
+                ))}
+              </select>
+            </label>
+            <F label="תאריך תחילת השמה" type="date" dir="ltr" value={family.placementStart} onChange={(v) => set({ placementStart: v })} />
+          </div>
+        </section>
+
+        {/* documents */}
+        <section className="card tik-section">
+          <h3>מסמכים סרוקים</h3>
+          <div className="tik-upload">
+            <label className="tik-field" style={{ maxWidth: 220 }}>
+              <span>סוג מסמך</span>
+              <select className="text-input" value={uploadCat} onChange={(e) => setUploadCat(e.target.value)}>
+                {FAMILY_CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.icon} {c.label}</option>)}
+              </select>
+            </label>
+            <button className="btn-ghost" disabled={busyUpload} onClick={() => fileInput.current?.click()}>
+              {busyUpload ? 'מעלה…' : '⬆ העלאת קובץ (תמונה / PDF)'}
+            </button>
+            <input ref={fileInput} type="file" accept="image/*,application/pdf" multiple hidden onChange={onPickFiles} />
+          </div>
+          {files.length === 0 ? (
+            <p className="muted" style={{ marginTop: 8 }}>עדיין לא הועלו מסמכים.</p>
+          ) : (
+            <ul className="tik-doc-list">
+              {files.map((f) => <DocRow key={f.id} file={f} onView={setViewing} onChanged={reloadFiles} />)}
+            </ul>
+          )}
+        </section>
+
+        <div className="tik-editor-foot">
+          <button className="btn-danger" onClick={remove}>🗑 מחק תיק</button>
+          <div className="tik-foot-right">
+            {savedTick && <span className="tik-saved">✓ נשמר</span>}
+            <button className="btn-primary" onClick={persist} disabled={saving}>{saving ? 'שומר…' : '💾 שמור תיק'}</button>
+          </div>
+        </div>
+      </div>
+      {viewing && <Lightbox file={viewing} onClose={() => setViewing(null)} />}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 
 export default function TikApp() {
   const [authed, setAuthed] = useState(() => {
@@ -1092,7 +1351,8 @@ export default function TikApp() {
       return false;
     }
   });
-  const [view, setView] = useState({ screen: 'list' }); // {screen:'list'} | {screen:'edit', id}
+  const [mode, setMode] = useState('workers'); // workers | families
+  const [view, setView] = useState({ screen: 'list' }); // list | editWorker | editFamily
 
   function logout() {
     try {
@@ -1105,7 +1365,7 @@ export default function TikApp() {
 
   if (!authed) return <Gate onEnter={() => setAuthed(true)} />;
 
-  if (view.screen === 'edit') {
+  if (view.screen === 'editWorker') {
     return (
       <WorkerEditor
         workerId={view.id}
@@ -1114,11 +1374,34 @@ export default function TikApp() {
       />
     );
   }
+  if (view.screen === 'editFamily') {
+    return (
+      <FamilyEditor
+        familyId={view.id}
+        onBack={() => setView({ screen: 'list' })}
+        onDeleted={() => setView({ screen: 'list' })}
+      />
+    );
+  }
+
+  if (mode === 'families') {
+    return (
+      <FamilyList
+        mode={mode}
+        onMode={setMode}
+        onOpen={(id) => setView({ screen: 'editFamily', id })}
+        onNew={() => setView({ screen: 'editFamily', id: null })}
+        onLogout={logout}
+      />
+    );
+  }
 
   return (
     <WorkerList
-      onOpen={(id) => setView({ screen: 'edit', id })}
-      onNew={() => setView({ screen: 'edit', id: null })}
+      mode={mode}
+      onMode={setMode}
+      onOpen={(id) => setView({ screen: 'editWorker', id })}
+      onNew={() => setView({ screen: 'editWorker', id: null })}
       onLogout={logout}
     />
   );

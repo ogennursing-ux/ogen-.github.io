@@ -13,8 +13,9 @@
 //             (the Blob itself is stored, not a base64 string).
 
 const DB_NAME = 'ogen_worker_files';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const WORKERS = 'workers';
+const FAMILIES = 'families';
 const FILES = 'files';
 const CONTRACTS = 'contracts';
 
@@ -35,6 +36,9 @@ function openDb() {
       }
       if (!db.objectStoreNames.contains(CONTRACTS)) {
         db.createObjectStore(CONTRACTS, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(FAMILIES)) {
+        db.createObjectStore(FAMILIES, { keyPath: 'id' });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -132,6 +136,94 @@ export async function deleteWorker(id) {
   const files = await listFiles(id);
   await Promise.all(files.map((f) => deleteFile(f.id)));
   await tx(WORKERS, 'readwrite', (os) => os.delete(id));
+}
+
+// ---- family / patient (client) records ----
+
+// A blank family/patient file, modelled on the Tik-Tak client card.
+export function emptyFamily() {
+  return {
+    id: uid(),
+    // client / patient
+    fullName: '',
+    idNumber: '',
+    dob: '',
+    gender: '',
+    maritalStatus: '',
+    city: '',
+    street: '',
+    zip: '',
+    phone: '',
+    mobile: '',
+    email: '',
+    birthCountry: '',
+    language: '',
+    // contact person
+    contactName: '',
+    contactRelation: '',
+    contactMobile: '',
+    contactId: '',
+    // file / admin
+    clientNo: '',
+    branch: '',
+    coordinator: '',
+    status: '',
+    openDate: '',
+    referrer: '',
+    // current placement
+    caregiverWorkerId: '', // linked worker file
+    placementStart: '',
+    // validity
+    visaExpiry: '',
+    insuranceExpiry: '',
+    permitExpiry: '',
+    // care eligibility
+    eligibilityLevel: '',
+    careLaw: '',
+    disabilityPct: '',
+    careInsurance: '',
+    eligibilityGrantor: '',
+    contractNote: '',
+    // functional state
+    mobility: '',
+    sight: '',
+    hearing: '',
+    emotional: '',
+    continence: '',
+    cognitive: '',
+    // requirements from caregiver
+    reqLanguage: '',
+    reqGender: '',
+    offeredSalary: '',
+    caregiverRoom: '',
+    okSmoker: '',
+    notes: '',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+export async function listFamilies() {
+  const rows = await tx(FAMILIES, 'readonly', (os, set) => reqToPromise(os.getAll()).then(set));
+  return (rows || []).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+}
+
+export async function getFamily(id) {
+  return tx(FAMILIES, 'readonly', (os, set) => reqToPromise(os.get(id)).then(set));
+}
+
+export async function saveFamily(family) {
+  const record = { ...family, updatedAt: Date.now() };
+  if (!record.id) record.id = uid();
+  if (!record.createdAt) record.createdAt = Date.now();
+  await tx(FAMILIES, 'readwrite', (os) => os.put(record));
+  return record;
+}
+
+export async function deleteFamily(id) {
+  const files = await listFiles(id);
+  await Promise.all(files.map((f) => deleteFile(f.id)));
+  await tx(FAMILIES, 'readwrite', (os) => os.delete(id));
 }
 
 // ---- uploaded document scans ----
@@ -267,11 +359,13 @@ export async function exportAll() {
     const { blob, ...meta } = c;
     contracts.push({ ...meta, dataUrl: await blobToDataUrl(blob) });
   }
+  const families = await listFamilies();
   return {
     app: BACKUP_APP,
-    version: 2,
+    version: 3,
     exportedAt: new Date().toISOString(),
     workers,
+    families,
     files,
     contracts,
   };
@@ -286,6 +380,9 @@ export async function importAll(data) {
   for (const w of data.workers) {
     await tx(WORKERS, 'readwrite', (os) => os.put(w));
   }
+  for (const fam of data.families || []) {
+    await tx(FAMILIES, 'readwrite', (os) => os.put(fam));
+  }
   for (const f of data.files || []) {
     const { dataUrl, ...meta } = f;
     const blob = await dataUrlToBlob(dataUrl);
@@ -296,5 +393,9 @@ export async function importAll(data) {
     const blob = await dataUrlToBlob(dataUrl);
     await tx(CONTRACTS, 'readwrite', (os) => os.put({ ...meta, blob }));
   }
-  return { workers: data.workers.length, files: (data.files || []).length };
+  return {
+    workers: data.workers.length,
+    families: (data.families || []).length,
+    files: (data.files || []).length,
+  };
 }

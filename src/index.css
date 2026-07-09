@@ -1898,3 +1898,8 @@ textarea.gov-input { resize: vertical; }
 .pp-box.align-right { justify-content: flex-end; }
 .pp-chip.sig { border-color: #1f7a53; color: #1f7a53; font-weight: 600; }
 .pp-chip.sig.active { background: #1f7a53; color: #fff; }
+
+/* worker/family mode switch (tik module) */
+.tik-modetabs { display: flex; gap: 6px; background: #e6ecf5; padding: 4px; border-radius: 12px; margin-bottom: 14px; }
+.tik-modetab { flex: 1; border: 0; background: transparent; border-radius: 9px; padding: 9px 10px; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; }
+.tik-modetab.active { background: #fff; color: var(--ink); box-shadow: 0 1px 4px rgba(13,27,42,0.10); }
