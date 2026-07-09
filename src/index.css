@@ -1896,3 +1896,5 @@ textarea.gov-input { resize: vertical; }
 .pp-box.align-left { justify-content: flex-start; }
 .pp-box.align-center { justify-content: center; }
 .pp-box.align-right { justify-content: flex-end; }
+.pp-chip.sig { border-color: #1f7a53; color: #1f7a53; font-weight: 600; }
+.pp-chip.sig.active { background: #1f7a53; color: #fff; }

@@ -5,8 +5,14 @@ import { CONTRACT_FIELD_LABELS, PLACEHOLDER_KEYS } from './contractMerge.js';
 const uid = () =>
   (crypto.randomUUID && crypto.randomUUID()) || Date.now().toString(36) + Math.random().toString(36).slice(2);
 
+// The placeable fields: every text placeholder plus a special signature spot
+// (where the worker/employer will sign in the signature system).
+const FIELD_CHOICES = [...PLACEHOLDER_KEYS, 'signature'];
+
 const DEFAULT_W = 0.26;
 const DEFAULT_H = 0.028;
+const SIG_W = 0.24;
+const SIG_H = 0.07;
 
 // One-time positioning of worker fields on a PDF contract. The user picks a
 // field, clicks where it goes on the page, and can drag/resize/align it. The
@@ -31,14 +37,17 @@ export default function PdfPlacementEditor({ template, onClose, onSave }) {
   }, [template]);
 
   function addAt(pageIndex, xPct, yPct) {
+    const isSig = activeField === 'signature';
+    const w = isSig ? SIG_W : DEFAULT_W;
+    const h = isSig ? SIG_H : DEFAULT_H;
     const p = {
       id: uid(),
       fieldKey: activeField,
       pageIndex,
-      xPct: Math.max(0, Math.min(1 - DEFAULT_W, xPct - DEFAULT_W / 2)),
-      yPct: Math.max(0, Math.min(1 - DEFAULT_H, yPct - DEFAULT_H / 2)),
-      wPct: DEFAULT_W,
-      hPct: DEFAULT_H,
+      xPct: Math.max(0, Math.min(1 - w, xPct - w / 2)),
+      yPct: Math.max(0, Math.min(1 - h, yPct - h / 2)),
+      wPct: w,
+      hPct: h,
       align: 'right',
     };
     setPlacements((prev) => [...prev, p]);
@@ -97,10 +106,10 @@ export default function PdfPlacementEditor({ template, onClose, onSave }) {
 
       <div className="pp-palette">
         <span className="muted small">בחר שדה ואז לחץ על הדף כדי למקם:</span>
-        {PLACEHOLDER_KEYS.map((k) => (
+        {FIELD_CHOICES.map((k) => (
           <button
             key={k}
-            className={`pp-chip${activeField === k ? ' active' : ''}`}
+            className={`pp-chip${activeField === k ? ' active' : ''}${k === 'signature' ? ' sig' : ''}`}
             onClick={() => setActiveField(k)}
           >
             {CONTRACT_FIELD_LABELS[k] || k}

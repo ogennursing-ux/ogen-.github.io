@@ -19,8 +19,10 @@ import {
   updateContract,
   deleteContract,
 } from './workerFilesApi.js';
+import { uid } from './workerFilesApi.js';
 import { mergeDocx, PLACEHOLDER_KEYS } from './contractMerge.js';
 import { buildOverlayPdf } from './contractOverlay.js';
+import { createSigningRequest, getSigningUrl, setSigningUrl } from './signingBridge.js';
 import PdfPlacementEditor from './PdfPlacementEditor.jsx';
 import {
   extractDocument,
@@ -126,12 +128,14 @@ function Header({ onLogout, onSettings, right }) {
 function SettingsModal({ onClose }) {
   const [key, setKey] = useState(getGeminiKey());
   const [model, setModel] = useState(getGeminiModel());
+  const [signUrl, setSignUrl] = useState(getSigningUrl());
   const [busy, setBusy] = useState('');
   const importRef = useRef(null);
 
   function save() {
     setGeminiKey(key.trim());
     setGeminiModel(model.trim());
+    setSigningUrl(signUrl.trim());
     onClose();
   }
 
@@ -199,6 +203,16 @@ function SettingsModal({ onClose }) {
             onChange={(e) => setModel(e.target.value)}
           />
         </label>
+        <hr className="tik-hr" />
+        <h3 style={{ margin: '4px 0 6px', fontSize: 15 }}>חתימה דיגיטלית</h3>
+        <p className="muted small">
+          כתובת מערכת החתימות שאליה נשלחים חוזים לחתימה מרחוק. הזן/י את הכתובת שבה נפתח אתר החתימות שלך.
+        </p>
+        <label className="tik-field" style={{ marginTop: 10 }}>
+          <span>כתובת מערכת החתימות</span>
+          <input className="text-input" dir="ltr" value={signUrl} placeholder="https://…" onChange={(e) => setSignUrl(e.target.value)} />
+        </label>
+
         <div className="card-actions" style={{ marginTop: 14 }}>
           <button className="btn-primary" onClick={save}>שמור</button>
           <button className="btn-ghost" onClick={onClose}>ביטול</button>
@@ -388,15 +402,16 @@ function ContractsManager({ onClose }) {
 }
 
 // Choose which contract to produce for a worker.
-function ContractPicker({ worker, onClose, onBuiltin }) {
+function ContractPicker({ worker, onClose, onBuiltin, onSigned }) {
   const [items, setItems] = useState(null);
   const [busyId, setBusyId] = useState(null);
   useEffect(() => { listContracts().then(setItems); }, []);
 
+  const who = worker.nameHe || worker.nameEn || 'עובד';
+
   async function gen(t) {
     setBusyId(t.id);
     try {
-      const who = worker.nameHe || worker.nameEn || 'עובד';
       if (t.kind === 'pdf') {
         if (!(t.placements || []).length) {
           alert('לתבנית ה-PDF עדיין לא הוגדרו מיקומי שדות. פתח «🎯 מיקומים» ב«חוזים» ומקם את השדות.');
@@ -412,6 +427,40 @@ function ContractPicker({ worker, onClose, onBuiltin }) {
       onClose();
     } catch (e) {
       alert('הפקת החוזה נכשלה: ' + (e?.message || e));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  // Fill the contract, then open a remote signing request in the signature app.
+  async function sendToSign(t) {
+    if (t.kind !== 'pdf') {
+      alert('שליחה לחתימה דיגיטלית נתמכת בחוזי PDF (שם אפשר למקם את מקום החתימה).');
+      return;
+    }
+    const sigs = (t.placements || []).filter((p) => p.fieldKey === 'signature');
+    if (!sigs.length) {
+      alert('קודם סמן מקום חתימה על החוזה: פתח «🎯 מיקומים», בחר את השדה «חתימה ✍️» ולחץ במקום שבו חותמים.');
+      return;
+    }
+    setBusyId(t.id + ':sign');
+    try {
+      const buf = await t.blob.arrayBuffer();
+      const bytes = await buildOverlayPdf(new Uint8Array(buf.slice(0)), t.placements, worker, { companyName: COMPANY_NAME });
+      const fields = sigs.map((p) => ({
+        id: uid(), type: 'signature', pageIndex: p.pageIndex, signer: 0,
+        xPct: p.xPct, yPct: p.yPct, wPct: p.wPct, hPct: p.hPct, value: '',
+      }));
+      const { link } = await createSigningRequest({
+        pdfBytes: bytes,
+        title: `חוזה - ${t.name} - ${who}`,
+        fields,
+        signerName: who,
+      });
+      onClose();
+      onSigned(link);
+    } catch (e) {
+      alert('שליחה לחתימה נכשלה: ' + (e?.message || e));
     } finally {
       setBusyId(null);
     }
@@ -435,6 +484,11 @@ function ContractPicker({ worker, onClose, onBuiltin }) {
                 </div>
               </div>
               <div className="tik-doc-actions">
+                {t.kind === 'pdf' && (
+                  <button className="btn-ghost sm" disabled={busyId === t.id + ':sign'} onClick={() => sendToSign(t)}>
+                    {busyId === t.id + ':sign' ? 'שולח…' : '✍️ לחתימה'}
+                  </button>
+                )}
                 <button className="btn-primary sm" disabled={busyId === t.id} onClick={() => gen(t)}>
                   {busyId === t.id ? 'מפיק…' : 'הפק'}
                 </button>
@@ -689,6 +743,7 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
   const [extractingId, setExtractingId] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showContractPicker, setShowContractPicker] = useState(false);
+  const [signLink, setSignLink] = useState(null);
   const [flash, setFlash] = useState('');
   const fileInput = useRef(null);
 
@@ -991,8 +1046,38 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
           worker={worker}
           onClose={() => setShowContractPicker(false)}
           onBuiltin={makeBuiltinContract}
+          onSigned={(link) => setSignLink(link)}
         />
       )}
+      {signLink && <SignLinkModal link={signLink} who={worker.nameHe || worker.nameEn || 'העובד/ת'} onClose={() => setSignLink(null)} />}
+    </div>
+  );
+}
+
+// The signing request was created — show the link to send to the signer.
+function SignLinkModal({ link, who, onClose }) {
+  const [copied, setCopied] = useState(false);
+  const msg = `שלום, ${who} מתבקש/ת לחתום על החוזה בקישור: ${link}`;
+  return (
+    <div className="modal-backdrop" onPointerDown={onClose}>
+      <div className="drawer tik-settings" onPointerDown={(e) => e.stopPropagation()}>
+        <div className="drawer-head">
+          <strong>✍️ החוזה נשלח לחתימה</strong>
+          <button className="icon-btn" onClick={onClose} aria-label="close">✕</button>
+        </div>
+        <p className="muted small">שלח את הקישור לעובד/מעסיק. אחרי החתימה, העותק החתום יישמר במערכת החתימות (עם תיעוד).</p>
+        <input className="text-input" dir="ltr" readOnly value={link} onFocus={(e) => e.target.select()} style={{ marginTop: 8 }} />
+        <div className="card-actions" style={{ marginTop: 12 }}>
+          <button
+            className="btn-primary"
+            onClick={async () => { try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* ignore */ } }}
+          >
+            {copied ? '✓ הועתק' : 'העתק קישור'}
+          </button>
+          <a className="btn-ghost" href={`https://wa.me/?text=${encodeURIComponent(msg)}`} target="_blank" rel="noreferrer">שלח בוואטסאפ</a>
+          <a className="btn-ghost" href={`mailto:?subject=${encodeURIComponent('חוזה לחתימה')}&body=${encodeURIComponent(msg)}`}>שלח במייל</a>
+        </div>
+      </div>
     </div>
   );
 }

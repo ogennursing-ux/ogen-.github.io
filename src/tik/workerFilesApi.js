@@ -100,6 +100,7 @@ export function emptyWorker() {
     startDate: '',
     salary: '',
     notes: '',
+    signature: '', // PNG data URL of the worker's drawn signature
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };

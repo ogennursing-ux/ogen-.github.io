@@ -71,6 +71,7 @@ export const CONTRACT_FIELD_LABELS = {
   notes: 'הערות',
   today: 'תאריך היום',
   companyName: 'שם החברה',
+  signature: 'חתימה ✍️',
 };
 
 const PLACEHOLDER = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
