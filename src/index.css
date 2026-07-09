@@ -1903,3 +1903,8 @@ textarea.gov-input { resize: vertical; }
 .tik-modetabs { display: flex; gap: 6px; background: #e6ecf5; padding: 4px; border-radius: 12px; margin-bottom: 14px; }
 .tik-modetab { flex: 1; border: 0; background: transparent; border-radius: 9px; padding: 9px 10px; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; }
 .tik-modetab.active { background: #fff; color: var(--ink); box-shadow: 0 1px 4px rgba(13,27,42,0.10); }
+
+/* recognized raw-text panel (tik family Gemini) */
+.tik-rawtext { margin-top: 12px; }
+.tik-rawtext-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: var(--ink); }
+.tik-rawtext textarea { width: 100%; max-width: none; font-family: inherit; }

@@ -58,14 +58,14 @@ function drawTextDataUrl(text, boxW, boxH, { align = 'right' } = {}) {
 /**
  * @param {ArrayBuffer|Uint8Array} originalBytes  the template PDF (a copy)
  * @param {Array} placements  [{ fieldKey, pageIndex, xPct, yPct, wPct, hPct, align }]
- * @param {object} worker
+ * @param {object} records  { worker, family } — both sides of the placement
  * @param {object} [opts]  { companyName }
  * @returns {Promise<Uint8Array>}
  */
-export async function buildOverlayPdf(originalBytes, placements, worker, opts = {}) {
+export async function buildOverlayPdf(originalBytes, placements, records, opts = {}) {
   const { PDFDocument } = await import('pdf-lib');
   await ensureFont();
-  const map = buildValueMap(worker, opts);
+  const map = buildValueMap(records, opts);
   const pdf = await PDFDocument.load(originalBytes);
   const pages = pdf.getPages();
 

@@ -141,90 +141,121 @@ const CATEGORY_HINT = {
  * @param {string} category  passport|visa|permit|insurance|other
  * @returns {Promise<{patch: object, raw: object}>}
  */
-export async function extractDocument(blob, category) {
+// Shared call: send an image + prompt + JSON schema to Gemini, return the parsed
+// object. Handles the key check and error messages.
+async function callGemini(blob, prompt, schema) {
   const key = getGeminiKey();
   if (!key) throw new Error('לא הוגדר מפתח Gemini. פתח/י את ההגדרות (⚙) והזן/י מפתח.');
   if (!blob || !blob.type?.startsWith('image/')) {
     throw new Error('הקריאה האוטומטית עובדת על תמונות (JPG/PNG). ל-PDF, צלם/י או ייצא/י כתמונה.');
   }
-
   const b64 = await blobToBase64(blob);
   const model = getGeminiModel();
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
+  const body = {
+    contents: [{ role: 'user', parts: [{ text: prompt }, { inline_data: { mime_type: blob.type, data: b64 } }] }],
+    generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: schema },
+  };
 
+  let res;
+  try {
+    res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  } catch (e) {
+    throw new Error('החיבור ל-Gemini נכשל. בדוק/י חיבור אינטרנט. (' + (e?.message || e) + ')');
+  }
+  if (!res.ok) {
+    let detail = '';
+    try { detail = (await res.json())?.error?.message || ''; } catch { /* ignore */ }
+    if (res.status === 400 && /API key not valid/i.test(detail)) throw new Error('מפתח ה-Gemini אינו תקין. בדוק/י אותו בהגדרות.');
+    if (res.status === 429) throw new Error('חרגת ממכסת השימוש ב-Gemini. נסה/י שוב מאוחר יותר.');
+    throw new Error('שגיאת Gemini (' + res.status + ')' + (detail ? ': ' + detail : ''));
+  }
+  const data = await res.json();
+  const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join('') || '';
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error('לא הצלחתי לפענח את תשובת Gemini. נסה/י תמונה ברורה יותר.');
+  }
+}
+
+export async function extractDocument(blob, category) {
   const prompt =
     'You are reading a scanned identity/immigration document of a foreign care worker in Israel. ' +
     (CATEGORY_HINT[category] || '') +
-    ' Read EVERY field visible on the document (printed data and the MRZ) and return them as JSON:\n' +
+    ' The document may be printed OR handwritten. Read EVERY field visible (printed data and the MRZ) and return them as JSON:\n' +
     '- nameEn: full name in Latin letters (as printed)\n' +
     '- nameHe: full name in Hebrew letters. If the document shows Hebrew, use it; otherwise transliterate the Latin name into Hebrew letters.\n' +
     '- passportNo: passport/document number\n' +
-    '- nationality: nationality or issuing country, in Hebrew if you know it (e.g. "סרי לנקה", "הפיליפינים", "הודו"), else as printed\n' +
+    '- nationality: nationality or issuing country, in Hebrew if you know it, else as printed\n' +
     '- dob: date of birth\n' +
     "- gender: 'ז' for male, 'נ' for female\n" +
     '- placeOfBirth: place/city of birth, in Hebrew if you know it, else as printed\n' +
     "- fatherName: father's name if shown, else empty\n" +
     "- motherName: mother's name if shown, else empty\n" +
-    '- maritalStatus: marital status in Hebrew ("רווק/ה", "נשוי/אה" וכו\'), else empty\n' +
+    '- maritalStatus: marital status in Hebrew, else empty\n' +
     '- passportIssueDate: date the passport/document was issued\n' +
     '- issuePlace: place/authority of issue, in Hebrew if you know it, else as printed\n' +
     '- passportExpiry: passport expiry date (only for a passport)\n' +
     '- visaExpiry: visa expiry date (only for a visa)\n' +
     '- permitExpiry: work-permit expiry date (only for a permit)\n' +
     'Return every date as YYYY-MM-DD. If a field is not visible, return an empty string. Do not guess.';
-
-  const body = {
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          { text: prompt },
-          { inline_data: { mime_type: blob.type, data: b64 } },
-        ],
-      },
-    ],
-    generationConfig: {
-      temperature: 0,
-      responseMimeType: 'application/json',
-      responseSchema: RESPONSE_SCHEMA,
-    },
-  };
-
-  let res;
-  try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-  } catch (e) {
-    throw new Error('החיבור ל-Gemini נכשל. בדוק/י חיבור אינטרנט. (' + (e?.message || e) + ')');
-  }
-
-  if (!res.ok) {
-    let detail = '';
-    try {
-      const err = await res.json();
-      detail = err?.error?.message || '';
-    } catch {
-      /* ignore */
-    }
-    if (res.status === 400 && /API key not valid/i.test(detail)) {
-      throw new Error('מפתח ה-Gemini אינו תקין. בדוק/י אותו בהגדרות.');
-    }
-    if (res.status === 429) {
-      throw new Error('חרגת ממכסת השימוש ב-Gemini. נסה/י שוב מאוחר יותר.');
-    }
-    throw new Error('שגיאת Gemini (' + res.status + ')' + (detail ? ': ' + detail : ''));
-  }
-
-  const data = await res.json();
-  const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join('') || '';
-  let raw;
-  try {
-    raw = JSON.parse(text);
-  } catch {
-    throw new Error('לא הצלחתי לפענח את תשובת Gemini. נסה/י תמונה ברורה יותר.');
-  }
+  const raw = await callGemini(blob, prompt, RESPONSE_SCHEMA);
   return { patch: toWorkerPatch(raw), raw };
+}
+
+// ---- family / patient documents (Israeli ID, permit, insurance) ----
+
+const FAMILY_FIELD_KEYS = [
+  'fullName', 'idNumber', 'dob', 'gender', 'city', 'street', 'zip', 'phone',
+  'contactName', 'contactMobile', 'permitExpiry', 'insuranceExpiry',
+];
+const FAMILY_SCHEMA = {
+  type: 'object',
+  properties: [...FAMILY_FIELD_KEYS, 'rawText'].reduce((a, k) => { a[k] = { type: 'string' }; return a; }, {}),
+};
+const FAMILY_DATE_KEYS = new Set(['dob', 'permitExpiry', 'insuranceExpiry']);
+
+export function toFamilyPatch(raw) {
+  const patch = {};
+  for (const k of FAMILY_FIELD_KEYS) {
+    let v = raw && raw[k] != null ? String(raw[k]).trim() : '';
+    if (!v) continue;
+    if (FAMILY_DATE_KEYS.has(k)) v = normalizeDate(v);
+    else if (k === 'gender') v = normalizeGender(v);
+    if (v) patch[k] = v;
+  }
+  return patch;
+}
+
+const FAMILY_HINT = {
+  id: 'This is an Israeli identity card / appendix (תעודת זהות / ספח).',
+  permit: 'This is an employment permit (היתר העסקה).',
+  insurance: 'This is an insurance document.',
+};
+
+// Extract patient/family fields. Also returns rawText — everything Gemini can
+// read (useful when details are handwritten and do not map to a field, so the
+// user can copy the words and place them manually).
+export async function extractFamilyDocument(blob, category) {
+  const prompt =
+    'You are reading a scanned document of an elderly care patient / their family in Israel. ' +
+    (FAMILY_HINT[category] || '') +
+    ' The document may be printed OR HANDWRITTEN. Read carefully, including handwriting, and return JSON:\n' +
+    '- fullName: full name of the patient (Hebrew)\n' +
+    '- idNumber: Israeli ID number (ת.ז), digits only\n' +
+    '- dob: date of birth\n' +
+    "- gender: 'ז' for male, 'נ' for female\n" +
+    '- city: city / town of residence\n' +
+    '- street: street and house/apartment\n' +
+    '- zip: postal code\n' +
+    '- phone: any phone number of the patient\n' +
+    '- contactName: a contact person name if present\n' +
+    '- contactMobile: a contact person phone if present\n' +
+    '- permitExpiry: permit validity date if present\n' +
+    '- insuranceExpiry: insurance validity date if present\n' +
+    '- rawText: ALL text you can read on the document, exactly as written (including handwriting), line by line\n' +
+    'Return every date as YYYY-MM-DD. If a field is not visible, return an empty string. Do not guess field values, but DO include everything you see in rawText.';
+  const raw = await callGemini(blob, prompt, FAMILY_SCHEMA);
+  return { patch: toFamilyPatch(raw), raw, rawText: raw?.rawText ? String(raw.rawText) : '' };
 }

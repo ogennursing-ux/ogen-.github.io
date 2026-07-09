@@ -31,6 +31,7 @@ import { createSigningRequest, getSigningUrl, setSigningUrl } from './signingBri
 import PdfPlacementEditor from './PdfPlacementEditor.jsx';
 import {
   extractDocument,
+  extractFamilyDocument,
   getGeminiKey,
   setGeminiKey,
   getGeminiModel,
@@ -426,13 +427,15 @@ function ContractsManager({ onClose }) {
   );
 }
 
-// Choose which contract to produce for a worker.
-function ContractPicker({ worker, onClose, onBuiltin, onSigned }) {
+// Choose which contract to produce. A contract merges both sides of the same
+// placement: the worker and the linked family/patient.
+function ContractPicker({ worker, family, onClose, onBuiltin, onSigned }) {
   const [items, setItems] = useState(null);
   const [busyId, setBusyId] = useState(null);
   useEffect(() => { listContracts().then(setItems); }, []);
 
-  const who = worker.nameHe || worker.nameEn || 'עובד';
+  const records = { worker, family };
+  const who = worker?.nameHe || worker?.nameEn || family?.fullName || 'תיק';
 
   async function gen(t) {
     setBusyId(t.id);
@@ -443,10 +446,10 @@ function ContractPicker({ worker, onClose, onBuiltin, onSigned }) {
           return;
         }
         const buf = await t.blob.arrayBuffer();
-        const bytes = await buildOverlayPdf(new Uint8Array(buf.slice(0)), t.placements, worker, { companyName: COMPANY_NAME });
+        const bytes = await buildOverlayPdf(new Uint8Array(buf.slice(0)), t.placements, records, { companyName: COMPANY_NAME });
         downloadBlob(new Blob([bytes], { type: 'application/pdf' }), `חוזה - ${t.name} - ${who}.pdf`);
       } else {
-        const blob = await mergeDocx(t.blob, worker, { companyName: COMPANY_NAME });
+        const blob = await mergeDocx(t.blob, records, { companyName: COMPANY_NAME });
         downloadBlob(blob, `חוזה - ${t.name} - ${who}.docx`);
       }
       onClose();
@@ -471,7 +474,7 @@ function ContractPicker({ worker, onClose, onBuiltin, onSigned }) {
     setBusyId(t.id + ':sign');
     try {
       const buf = await t.blob.arrayBuffer();
-      const bytes = await buildOverlayPdf(new Uint8Array(buf.slice(0)), t.placements, worker, { companyName: COMPANY_NAME });
+      const bytes = await buildOverlayPdf(new Uint8Array(buf.slice(0)), t.placements, records, { companyName: COMPANY_NAME });
       const fields = sigs.map((p) => ({
         id: uid(), type: 'signature', pageIndex: p.pageIndex, signer: 0,
         xPct: p.xPct, yPct: p.yPct, wPct: p.wPct, hPct: p.hPct, value: '',
@@ -696,10 +699,10 @@ function Lightbox({ file, onClose }) {
   );
 }
 
-function DocRow({ file, onView, onChanged, onExtract, extracting }) {
+function DocRow({ file, onView, onChanged, onExtract, extracting, extractCats }) {
   const [copied, setCopied] = useState(false);
   const isImage = file.mime?.startsWith('image/');
-  const canExtract = isImage && ['passport', 'visa', 'permit'].includes(file.category);
+  const canExtract = isImage && !!onExtract && (extractCats || ['passport', 'visa', 'permit']).includes(file.category);
 
   async function copy() {
     // Copy the scan for review elsewhere: images go to the clipboard when the
@@ -769,6 +772,7 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
   const [extractingId, setExtractingId] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showContractPicker, setShowContractPicker] = useState(false);
+  const [linkedFamily, setLinkedFamily] = useState(null);
   const [signLink, setSignLink] = useState(null);
   const [flash, setFlash] = useState('');
   const fileInput = useRef(null);
@@ -889,9 +893,16 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
   }
 
   // Open the picker (your Word templates + a built-in default), saving first so
-  // the picker merges the latest field values.
+  // the picker merges the latest field values. Also resolve the linked family so
+  // the contract can include the patient's side of the placement.
   async function openContractPicker() {
-    await persist();
+    const saved = await persist();
+    try {
+      const fams = await listFamilies();
+      setLinkedFamily(fams.find((f) => f.caregiverWorkerId === saved.id) || null);
+    } catch {
+      setLinkedFamily(null);
+    }
     setShowContractPicker(true);
   }
 
@@ -1070,6 +1081,7 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
       {showContractPicker && (
         <ContractPicker
           worker={worker}
+          family={linkedFamily}
           onClose={() => setShowContractPicker(false)}
           onBuiltin={makeBuiltinContract}
           onSigned={(link) => setSignLink(link)}
@@ -1223,8 +1235,20 @@ function FamilyEditor({ familyId, onBack, onDeleted }) {
   const [uploadCat, setUploadCat] = useState('id');
   const [busyUpload, setBusyUpload] = useState(false);
   const [viewing, setViewing] = useState(null);
+  const [showContractPicker, setShowContractPicker] = useState(false);
+  const [linkedWorker, setLinkedWorker] = useState(null);
+  const [signLink, setSignLink] = useState(null);
+  const [makingContract, setMakingContract] = useState(false);
+  const [extractingId, setExtractingId] = useState(null);
+  const [flash, setFlash] = useState('');
+  const [rawText, setRawText] = useState('');
   const fileInput = useRef(null);
   const isNew = familyId == null;
+  const FAM_LABELS = {
+    fullName: 'שם מלא', idNumber: 'ת.ז', dob: 'ת.לידה', gender: 'מין', city: 'יישוב',
+    street: 'רחוב', zip: 'מיקוד', phone: 'טלפון', contactName: 'איש קשר',
+    contactMobile: 'נייד א.קשר', permitExpiry: 'תוקף היתר', insuranceExpiry: 'תוקף ביטוח',
+  };
 
   useEffect(() => {
     if (isNew) { setFamily(emptyFamily()); setFiles([]); }
@@ -1259,7 +1283,52 @@ function FamilyEditor({ familyId, onBack, onDeleted }) {
       const saved = await persist();
       for (const f of picked) await addFile(saved.id, { category: uploadCat, file: f });
       await listFiles(saved.id).then(setFiles);
+
+      // Auto-read the first ID/permit/insurance image (fills only empty fields).
+      const img = picked.find((f) => f.type?.startsWith('image/'));
+      if (img && ['id', 'permit', 'insurance'].includes(uploadCat) && getGeminiKey()) {
+        setFlash('✨ קורא את המסמך…');
+        try {
+          const { patch, rawText: rt } = await extractFamilyDocument(img, uploadCat);
+          const apply = Object.fromEntries(Object.entries(patch).filter(([k]) => !family[k]));
+          const applied = Object.keys(apply);
+          if (applied.length) {
+            const merged = { ...saved, ...apply };
+            setFamily(merged);
+            await saveFamily(merged);
+            setFlash('✨ מולאו אוטומטית: ' + applied.map((k) => FAM_LABELS[k] || k).join(', '));
+          } else {
+            setFlash('✨ הקריאה הסתיימה — לא נמצאו שדות ריקים למילוי.');
+          }
+          if (rt) setRawText(rt);
+        } catch (err) {
+          setFlash('הקריאה האוטומטית נכשלה: ' + (err?.message || err));
+        }
+        setTimeout(() => setFlash(''), 7000);
+      }
     } finally { setBusyUpload(false); }
+  }
+
+  async function extractFromFamily(file) {
+    if (!getGeminiKey()) { alert('כדי לקרוא מסמכים אוטומטית צריך מפתח Gemini (⚙ הגדרות).'); return; }
+    setExtractingId(file.id);
+    try {
+      const { patch, rawText: rt } = await extractFamilyDocument(file.blob, file.category);
+      setRawText(rt || '');
+      const keys = Object.keys(patch);
+      if (!keys.length) { alert('לא זוהו שדות. אפשר להשתמש בטקסט המזוהה למטה ולהעתיק ידנית.'); return; }
+      const conflicts = keys.filter((k) => family[k] && family[k] !== patch[k]);
+      let apply = patch;
+      if (conflicts.length) {
+        const overwrite = confirm(`זוהו ${keys.length} שדות. ${conflicts.length} כבר מלאים. אישור = לעדכן גם אותם · ביטול = רק ריקים.`);
+        if (!overwrite) apply = Object.fromEntries(Object.entries(patch).filter(([k]) => !family[k]));
+      }
+      const applied = Object.keys(apply);
+      if (applied.length) { set(apply); alert('מולאו: ' + applied.map((k) => FAM_LABELS[k] || k).join(', ')); }
+      else alert('כל השדות שזוהו כבר מלאים.');
+    } catch (err) {
+      alert(err?.message || String(err));
+    } finally { setExtractingId(null); }
   }
 
   async function remove() {
@@ -1269,10 +1338,38 @@ function FamilyEditor({ familyId, onBack, onDeleted }) {
     onDeleted();
   }
 
+  // Produce a contract from the family side — pulls in the linked worker so the
+  // contract has both sides of the placement.
+  async function openContractPicker() {
+    const saved = await saveFamily(family).then((s) => { setFamily(s); return s; });
+    const w = saved.caregiverWorkerId ? await getWorker(saved.caregiverWorkerId) : null;
+    setLinkedWorker(w || null);
+    setShowContractPicker(true);
+  }
+  async function makeBuiltinContract() {
+    if (!linkedWorker) { alert('אין עובד מקושר. בחר/י עובד/ת ב«השמה נוכחית» כדי להפיק חוזה ברירת מחדל.'); return; }
+    setMakingContract(true);
+    try {
+      const bytes = await buildContractPdf(linkedWorker, { companyName: COMPANY_NAME });
+      downloadBlob(new Blob([bytes], { type: 'application/pdf' }), `חוזה - ${family.fullName || 'משפחה'}.pdf`);
+    } catch (e) {
+      alert('הפקת החוזה נכשלה: ' + (e?.message || e));
+    } finally { setMakingContract(false); }
+  }
+
   return (
     <div className="app">
       <Header onLogout={null} right={<button className="header-settings" onClick={onBack}>‹ חזרה לרשימה</button>} />
       <div className="tik-editor">
+        <div className="tik-renewal">
+          <div>
+            <strong>📄 הפקת חוזה</strong>
+            <div className="muted small">החוזה משלב את פרטי המשפחה ואת פרטי העובד/ת המקושר/ת ב«השמה נוכחית».</div>
+          </div>
+          <button className="btn-primary" onClick={openContractPicker} disabled={makingContract}>
+            {makingContract ? 'מפיק…' : '📄 הפק חוזה'}
+          </button>
+        </div>
         {FAMILY_SECTIONS.map((sec) => (
           <section className="card tik-section" key={sec.title}>
             <h3>{sec.title}</h3>
@@ -1319,12 +1416,35 @@ function FamilyEditor({ familyId, onBack, onDeleted }) {
             </button>
             <input ref={fileInput} type="file" accept="image/*,application/pdf" multiple hidden onChange={onPickFiles} />
           </div>
+          <p className="muted small" style={{ marginBottom: 10 }}>
+            ✨ עם מפתח Gemini, תמונת ת.ז / היתר / ביטוח נקראת אוטומטית (גם בכתב יד). הטקסט המזוהה יוצג למטה כדי שתוכל להעתיק מילים ולמקם ידנית.
+          </p>
+          {flash && <div className="tik-flash">{flash}</div>}
           {files.length === 0 ? (
             <p className="muted" style={{ marginTop: 8 }}>עדיין לא הועלו מסמכים.</p>
           ) : (
             <ul className="tik-doc-list">
-              {files.map((f) => <DocRow key={f.id} file={f} onView={setViewing} onChanged={reloadFiles} />)}
+              {files.map((f) => (
+                <DocRow
+                  key={f.id}
+                  file={f}
+                  onView={setViewing}
+                  onChanged={reloadFiles}
+                  onExtract={extractFromFamily}
+                  extracting={extractingId === f.id}
+                  extractCats={['id', 'permit', 'insurance']}
+                />
+              ))}
             </ul>
+          )}
+          {rawText && (
+            <div className="tik-rawtext">
+              <div className="tik-rawtext-head">
+                <span>📝 טקסט שזוהה במסמך (להעתקה ומיקום ידני)</span>
+                <button className="btn-ghost sm" onClick={async () => { try { await navigator.clipboard.writeText(rawText); } catch { /* ignore */ } }}>העתק הכל</button>
+              </div>
+              <textarea className="text-input" readOnly rows={6} value={rawText} onFocus={(e) => e.target.select()} />
+            </div>
           )}
         </section>
 
@@ -1337,6 +1457,16 @@ function FamilyEditor({ familyId, onBack, onDeleted }) {
         </div>
       </div>
       {viewing && <Lightbox file={viewing} onClose={() => setViewing(null)} />}
+      {showContractPicker && (
+        <ContractPicker
+          worker={linkedWorker}
+          family={family}
+          onClose={() => setShowContractPicker(false)}
+          onBuiltin={makeBuiltinContract}
+          onSigned={(link) => setSignLink(link)}
+        />
+      )}
+      {signLink && <SignLinkModal link={signLink} who={family.fullName || 'המטופל/ת'} onClose={() => setSignLink(null)} />}
     </div>
   );
 }

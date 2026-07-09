@@ -23,20 +23,53 @@ const DATE_FIELDS = new Set([
   'insuranceExpiry', 'startDate',
 ]);
 
-// Build the placeholder -> value map the template can reference.
-export function buildValueMap(worker, opts = {}) {
+const genderWord = (v) => (v === 'ז' ? 'זכר' : v === 'נ' ? 'נקבה' : '');
+
+// Build the placeholder -> value map a template can reference. A care contract
+// combines BOTH sides of the same placement: the worker (דרכון) and the
+// family/patient (ת.ז). Pass { worker, family } and both are available —
+// worker fields keep their own keys, patient fields use patient*/contact* keys.
+export function buildValueMap(records = {}, opts = {}) {
+  // Back-compat: a bare worker object (not { worker, family }) is treated as the
+  // worker.
+  const worker = records.worker || (records.family ? null : records);
+  const family = records.family || null;
   const map = {};
-  for (const [k, v] of Object.entries(worker || {})) {
-    if (v == null) {
-      map[k] = '';
-    } else if (DATE_FIELDS.has(k)) {
-      map[k] = fmtDate(v);
-    } else if (k === 'gender') {
-      map[k] = v === 'ז' ? 'זכר' : v === 'נ' ? 'נקבה' : '';
-    } else {
-      map[k] = String(v);
+
+  if (worker) {
+    for (const [k, v] of Object.entries(worker)) {
+      if (k === 'signature') continue; // never dump the signature image as text
+      if (v == null) map[k] = '';
+      else if (DATE_FIELDS.has(k)) map[k] = fmtDate(v);
+      else if (k === 'gender') map[k] = genderWord(v);
+      else map[k] = String(v);
     }
   }
+
+  if (family) {
+    const f = family;
+    map.patientName = f.fullName || '';
+    map.patientId = f.idNumber || '';
+    map.patientDob = fmtDate(f.dob);
+    map.patientGender = genderWord(f.gender);
+    map.patientCity = f.city || '';
+    map.patientStreet = f.street || '';
+    map.patientAddress = [f.street, f.city].filter(Boolean).join(', ');
+    map.patientPhone = f.phone || f.mobile || '';
+    map.patientMobile = f.mobile || '';
+    map.patientMaritalStatus = f.maritalStatus || '';
+    map.contactName = f.contactName || '';
+    map.contactRelation = f.contactRelation || '';
+    map.contactPhone = f.contactMobile || '';
+    map.contactId = f.contactId || '';
+    map.clientNo = f.clientNo || '';
+    map.eligibilityLevel = f.eligibilityLevel || '';
+    map.contractNote = f.contractNote || '';
+    map.patientVisaExpiry = fmtDate(f.visaExpiry);
+    map.patientPermitExpiry = fmtDate(f.permitExpiry);
+    map.patientInsuranceExpiry = fmtDate(f.insuranceExpiry);
+  }
+
   map.today = fmtDate(new Date().toISOString());
   map.companyName = opts.companyName || '';
   return map;
@@ -72,18 +105,48 @@ export const CONTRACT_FIELD_LABELS = {
   today: 'תאריך היום',
   companyName: 'שם החברה',
   signature: 'חתימה ✍️',
+  // family / patient side of the contract
+  patientName: 'שם המטופל',
+  patientId: 'ת.ז מטופל',
+  patientDob: 'ת.לידה מטופל',
+  patientGender: 'מין מטופל',
+  patientAddress: 'כתובת מטופל',
+  patientCity: 'יישוב מטופל',
+  patientStreet: 'רחוב מטופל',
+  patientPhone: 'טלפון מטופל',
+  patientMaritalStatus: 'מצב משפחתי מטופל',
+  contactName: 'שם איש קשר',
+  contactRelation: 'קרבה',
+  contactPhone: 'טלפון איש קשר',
+  contactId: 'ת.ז איש קשר',
+  clientNo: 'מספר לקוח',
+  eligibilityLevel: 'רמת זכאות',
+  contractNote: 'הערה לחוזה',
+  patientVisaExpiry: 'תוקף אשרה (מטופל)',
+  patientPermitExpiry: 'תוקף היתר (מטופל)',
+  patientInsuranceExpiry: 'תוקף ביטוח (מטופל)',
 };
 
 const PLACEHOLDER = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
 
-// List of placeholder keys available to templates (for the on-screen help).
-export const PLACEHOLDER_KEYS = [
+// Worker-side placeholder keys.
+export const WORKER_KEYS = [
   'nameHe', 'nameEn', 'passportNo', 'nationality', 'dob', 'gender',
   'placeOfBirth', 'fatherName', 'motherName', 'maritalStatus',
   'passportIssueDate', 'issuePlace', 'passportExpiry', 'visaExpiry',
-  'permitExpiry', 'insuranceExpiry', 'employer', 'patientName', 'address',
-  'startDate', 'salary', 'phone', 'email', 'notes', 'today', 'companyName',
+  'permitExpiry', 'insuranceExpiry', 'employer', 'address',
+  'startDate', 'salary', 'phone', 'email', 'notes',
 ];
+// Family/patient-side placeholder keys (both sides feed one contract).
+export const PATIENT_KEYS = [
+  'patientName', 'patientId', 'patientDob', 'patientGender', 'patientAddress',
+  'patientCity', 'patientStreet', 'patientPhone', 'patientMaritalStatus',
+  'contactName', 'contactRelation', 'contactPhone', 'contactId', 'clientNo',
+  'eligibilityLevel', 'contractNote', 'patientVisaExpiry', 'patientPermitExpiry',
+  'patientInsuranceExpiry',
+];
+// All keys available to templates (for the on-screen help + placement palette).
+export const PLACEHOLDER_KEYS = [...WORKER_KEYS, ...PATIENT_KEYS, 'today', 'companyName'];
 
 function replaceInText(text, map) {
   return text.replace(PLACEHOLDER, (whole, key) =>
@@ -116,14 +179,14 @@ function mergeXml(xml, map) {
 
 /**
  * @param {Blob|ArrayBuffer} template  the .docx template
- * @param {object} worker              the worker record
+ * @param {object} records             { worker, family } — both sides of the placement
  * @param {object} [opts]              { companyName }
  * @returns {Promise<Blob>}            the filled .docx
  */
-export async function mergeDocx(template, worker, opts = {}) {
+export async function mergeDocx(template, records, opts = {}) {
   const buf = template instanceof Blob ? await template.arrayBuffer() : template;
   const zip = await JSZip.loadAsync(buf);
-  const map = buildValueMap(worker, opts);
+  const map = buildValueMap(records, opts);
 
   // Every main text part: document, all headers and footers.
   const names = Object.keys(zip.files).filter((n) =>
