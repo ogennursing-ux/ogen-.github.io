@@ -14,7 +14,11 @@ import {
   fileObjectUrl,
   exportAll,
   importAll,
+  listContracts,
+  saveContractTemplate,
+  deleteContract,
 } from './workerFilesApi.js';
+import { mergeDocx, PLACEHOLDER_KEYS } from './contractMerge.js';
 import {
   extractDocument,
   getGeminiKey,
@@ -255,10 +259,181 @@ function Gate({ onEnter }) {
 
 // ---------------------------------------------------------------------------
 
+const LANGS = [
+  { key: 'he', label: 'עברית' },
+  { key: 'en', label: 'אנגלית' },
+  { key: 'es', label: 'ספרדית' },
+  { key: 'other', label: 'אחר' },
+];
+const langLabel = (k) => LANGS.find((l) => l.key === k)?.label || k;
+
+// Manage the reusable .docx contract templates.
+function ContractsManager({ onClose }) {
+  const [items, setItems] = useState(null);
+  const [name, setName] = useState('');
+  const [lang, setLang] = useState('he');
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef(null);
+
+  const reload = () => listContracts().then(setItems);
+  useEffect(() => { reload(); }, []);
+
+  async function onPick(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!/\.docx$/i.test(file.name)) {
+      alert('יש להעלות קובץ Word בפורמט .docx (לא .doc או PDF).');
+      return;
+    }
+    setBusy(true);
+    try {
+      await saveContractTemplate({ name: name.trim() || file.name.replace(/\.docx$/i, ''), lang, file });
+      setName('');
+      await reload();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onPointerDown={onClose}>
+      <div className="drawer tik-settings" onPointerDown={(e) => e.stopPropagation()}>
+        <div className="drawer-head">
+          <strong>📄 תבניות חוזה</strong>
+          <button className="icon-btn" onClick={onClose} aria-label="close">✕</button>
+        </div>
+        <p className="muted small">
+          העלה קובץ Word (.docx) של חוזה. במקומות שבהם צריך למלא פרטי עובד, כתוב בקובץ סימון כמו
+          {' '}<code>{'{{nameHe}}'}</code> — בהפקת החוזה זה יוחלף אוטומטית בערך מהשדה, בלי לפגוע בעיצוב.
+        </p>
+        <div className="tik-upload" style={{ marginTop: 10 }}>
+          <label className="tik-field" style={{ flex: '1 1 160px' }}>
+            <span>שם התבנית</span>
+            <input className="text-input" value={name} placeholder="למשל: חוזה סיעוד - אנגלית" onChange={(e) => setName(e.target.value)} />
+          </label>
+          <label className="tik-field" style={{ maxWidth: 130 }}>
+            <span>שפה</span>
+            <select className="text-input" value={lang} onChange={(e) => setLang(e.target.value)}>
+              {LANGS.map((l) => <option key={l.key} value={l.key}>{l.label}</option>)}
+            </select>
+          </label>
+          <button className="btn-primary" disabled={busy} onClick={() => fileRef.current?.click()}>
+            {busy ? 'מעלה…' : '⬆ העלה .docx'}
+          </button>
+          <input ref={fileRef} type="file" accept=".docx" hidden onChange={onPick} />
+        </div>
+
+        {items === null && <p className="muted">טוען…</p>}
+        {items && !items.length && <p className="muted" style={{ marginTop: 10 }}>עדיין אין תבניות. העלה חוזה למעלה.</p>}
+        {items && items.length > 0 && (
+          <ul className="tik-doc-list" style={{ marginTop: 12 }}>
+            {items.map((t) => (
+              <li key={t.id} className="tik-doc">
+                <div className="tik-doc-main">
+                  <span className="tik-doc-icon">📄</span>
+                  <div>
+                    <div className="tik-doc-name">{t.name}</div>
+                    <div className="tik-doc-meta">{langLabel(t.lang)} · {t.fileName}</div>
+                  </div>
+                </div>
+                <div className="tik-doc-actions">
+                  <button
+                    className="icon-btn"
+                    title="מחיקה"
+                    onClick={async () => { if (confirm('למחוק את התבנית?')) { await deleteContract(t.id); reload(); } }}
+                  >🗑</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <hr className="tik-hr" />
+        <details className="tik-ph">
+          <summary>רשימת הסימונים הזמינים ({'{{...}}'})</summary>
+          <div className="tik-ph-grid">
+            {PLACEHOLDER_KEYS.map((k) => (
+              <code key={k}>{`{{${k}}}`} — {FIELD_LABELS[k] || k}</code>
+            ))}
+          </div>
+        </details>
+      </div>
+    </div>
+  );
+}
+
+// Choose which contract to produce for a worker.
+function ContractPicker({ worker, onClose, onBuiltin }) {
+  const [items, setItems] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+  useEffect(() => { listContracts().then(setItems); }, []);
+
+  async function gen(t) {
+    setBusyId(t.id);
+    try {
+      const blob = await mergeDocx(t.blob, worker, { companyName: COMPANY_NAME });
+      downloadBlob(blob, `חוזה - ${t.name} - ${worker.nameHe || worker.nameEn || 'עובד'}.docx`);
+      onClose();
+    } catch (e) {
+      alert('הפקת החוזה נכשלה: ' + (e?.message || e));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onPointerDown={onClose}>
+      <div className="drawer tik-settings" onPointerDown={(e) => e.stopPropagation()}>
+        <div className="drawer-head">
+          <strong>📄 בחר חוזה להפקה</strong>
+          <button className="icon-btn" onClick={onClose} aria-label="close">✕</button>
+        </div>
+        <ul className="tik-doc-list">
+          {items && items.map((t) => (
+            <li key={t.id} className="tik-doc">
+              <div className="tik-doc-main">
+                <span className="tik-doc-icon">📄</span>
+                <div>
+                  <div className="tik-doc-name">{t.name}</div>
+                  <div className="tik-doc-meta">{langLabel(t.lang)} · Word</div>
+                </div>
+              </div>
+              <div className="tik-doc-actions">
+                <button className="btn-primary sm" disabled={busyId === t.id} onClick={() => gen(t)}>
+                  {busyId === t.id ? 'מפיק…' : 'הפק'}
+                </button>
+              </div>
+            </li>
+          ))}
+          <li className="tik-doc">
+            <div className="tik-doc-main">
+              <span className="tik-doc-icon">🧾</span>
+              <div>
+                <div className="tik-doc-name">חוזה ברירת מחדל (עברית)</div>
+                <div className="tik-doc-meta">נוצר אוטומטית · PDF</div>
+              </div>
+            </div>
+            <div className="tik-doc-actions">
+              <button className="btn-ghost sm" onClick={() => { onClose(); onBuiltin(); }}>הפק</button>
+            </div>
+          </li>
+        </ul>
+        {items && !items.length && (
+          <p className="muted small" style={{ marginTop: 10 }}>
+            כדי להשתמש בחוזים שלך, הוסף תבניות Word דרך «📄 חוזים» במסך הראשי.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function WorkerList({ onOpen, onNew, onLogout }) {
   const [workers, setWorkers] = useState(null);
   const [q, setQ] = useState('');
   const [showSettings, setShowSettings] = useState(false);
+  const [showContracts, setShowContracts] = useState(false);
 
   const reload = () => listWorkers().then(setWorkers);
   useEffect(() => {
@@ -284,10 +459,14 @@ function WorkerList({ onOpen, onNew, onLogout }) {
         right={<a className="header-settings" href="index.html">אזור החתימות</a>}
       />
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showContracts && <ContractsManager onClose={() => setShowContracts(false)} />}
       <div className="tik-list">
         <div className="tik-list-head">
           <h2 style={{ margin: 0 }}>תיקי עובדים</h2>
-          <button className="btn-primary" onClick={onNew}>➕ עובד חדש</button>
+          <div className="tik-head-actions">
+            <button className="btn-ghost" onClick={() => setShowContracts(true)}>📄 חוזים</button>
+            <button className="btn-primary" onClick={onNew}>➕ עובד חדש</button>
+          </div>
         </div>
         <input
           className="text-input"
@@ -474,6 +653,7 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
   const [makingContract, setMakingContract] = useState(false);
   const [extractingId, setExtractingId] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showContractPicker, setShowContractPicker] = useState(false);
   const [flash, setFlash] = useState('');
   const fileInput = useRef(null);
 
@@ -592,7 +772,14 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
     }
   }
 
-  async function makeContract() {
+  // Open the picker (your Word templates + a built-in default), saving first so
+  // the picker merges the latest field values.
+  async function openContractPicker() {
+    await persist();
+    setShowContractPicker(true);
+  }
+
+  async function makeBuiltinContract() {
     setMakingContract(true);
     try {
       await persist();
@@ -635,7 +822,7 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
                 : `החוזה יהיה זמין לחידוש בעוד ${r.days} ימים (${fmt(new Date(r.due).toISOString())}). אפשר להפיק חוזה גם עכשיו.`}
             </div>
           </div>
-          <button className="btn-primary" onClick={makeContract} disabled={makingContract}>
+          <button className="btn-primary" onClick={openContractPicker} disabled={makingContract}>
             {makingContract ? 'מפיק…' : '📄 הפק חוזה'}
           </button>
         </div>
@@ -764,6 +951,13 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
       </div>
       {viewing && <Lightbox file={viewing} onClose={() => setViewing(null)} />}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showContractPicker && (
+        <ContractPicker
+          worker={worker}
+          onClose={() => setShowContractPicker(false)}
+          onBuiltin={makeBuiltinContract}
+        />
+      )}
     </div>
   );
 }

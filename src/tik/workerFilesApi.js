@@ -13,9 +13,10 @@
 //             (the Blob itself is stored, not a base64 string).
 
 const DB_NAME = 'ogen_worker_files';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const WORKERS = 'workers';
 const FILES = 'files';
+const CONTRACTS = 'contracts';
 
 let dbPromise = null;
 
@@ -31,6 +32,9 @@ function openDb() {
       if (!db.objectStoreNames.contains(FILES)) {
         const store = db.createObjectStore(FILES, { keyPath: 'id' });
         store.createIndex('workerId', 'workerId', { unique: false });
+      }
+      if (!db.objectStoreNames.contains(CONTRACTS)) {
+        db.createObjectStore(CONTRACTS, { keyPath: 'id' });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -185,6 +189,34 @@ export function fileObjectUrl(fileRecord) {
   return URL.createObjectURL(fileRecord.blob);
 }
 
+// ---- contract templates (.docx with {{placeholders}}) ----
+
+export async function listContracts() {
+  const rows = await tx(CONTRACTS, 'readonly', (os, set) => reqToPromise(os.getAll()).then(set));
+  return (rows || []).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'he'));
+}
+
+export async function getContract(id) {
+  return tx(CONTRACTS, 'readonly', (os, set) => reqToPromise(os.get(id)).then(set));
+}
+
+export async function saveContractTemplate({ id, name, lang, file }) {
+  const record = {
+    id: id || uid(),
+    name: name || file?.name || 'חוזה',
+    lang: lang || 'he',
+    fileName: file?.name || '',
+    blob: file, // the .docx File/Blob
+    updatedAt: Date.now(),
+  };
+  await tx(CONTRACTS, 'readwrite', (os) => os.put(record));
+  return record;
+}
+
+export async function deleteContract(id) {
+  await tx(CONTRACTS, 'readwrite', (os) => os.delete(id));
+}
+
 // ---- backup / restore ----
 // Since everything lives in this browser only, export bundles every worker and
 // every scan (blobs base64-encoded as data URLs) into one JSON file that can be
@@ -215,12 +247,19 @@ export async function exportAll() {
       files.push({ ...meta, dataUrl: await blobToDataUrl(blob) });
     }
   }
+  const contractsRaw = await listContracts();
+  const contracts = [];
+  for (const c of contractsRaw) {
+    const { blob, ...meta } = c;
+    contracts.push({ ...meta, dataUrl: await blobToDataUrl(blob) });
+  }
   return {
     app: BACKUP_APP,
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     workers,
     files,
+    contracts,
   };
 }
 
@@ -237,6 +276,11 @@ export async function importAll(data) {
     const { dataUrl, ...meta } = f;
     const blob = await dataUrlToBlob(dataUrl);
     await tx(FILES, 'readwrite', (os) => os.put({ ...meta, blob }));
+  }
+  for (const c of data.contracts || []) {
+    const { dataUrl, ...meta } = c;
+    const blob = await dataUrlToBlob(dataUrl);
+    await tx(CONTRACTS, 'readwrite', (os) => os.put({ ...meta, blob }));
   }
   return { workers: data.workers.length, files: (data.files || []).length };
 }
