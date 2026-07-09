@@ -12,6 +12,8 @@ import {
   duplicateFile,
   deleteFile,
   fileObjectUrl,
+  exportAll,
+  importAll,
 } from './workerFilesApi.js';
 import {
   extractDocument,
@@ -117,11 +119,44 @@ function Header({ onLogout, onSettings, right }) {
 function SettingsModal({ onClose }) {
   const [key, setKey] = useState(getGeminiKey());
   const [model, setModel] = useState(getGeminiModel());
+  const [busy, setBusy] = useState('');
+  const importRef = useRef(null);
 
   function save() {
     setGeminiKey(key.trim());
     setGeminiModel(model.trim());
     onClose();
+  }
+
+  async function doExport() {
+    setBusy('export');
+    try {
+      const data = await exportAll();
+      const stamp = new Date().toISOString().slice(0, 10);
+      downloadBlob(new Blob([JSON.stringify(data)], { type: 'application/json' }), `tik-backup-${stamp}.json`);
+    } catch (e) {
+      alert('הייצוא נכשל: ' + (e?.message || e));
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function doImport(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!confirm('שחזור גיבוי יוסיף/יעדכן תיקים לפי הקובץ. להמשיך?')) return;
+    setBusy('import');
+    try {
+      const data = JSON.parse(await file.text());
+      const res = await importAll(data);
+      alert(`שוחזרו ${res.workers} תיקים ו-${res.files} מסמכים. הדף ייטען מחדש.`);
+      location.reload();
+    } catch (err) {
+      alert('השחזור נכשל: ' + (err?.message || err));
+    } finally {
+      setBusy('');
+    }
   }
 
   return (
@@ -160,6 +195,22 @@ function SettingsModal({ onClose }) {
         <div className="card-actions" style={{ marginTop: 14 }}>
           <button className="btn-primary" onClick={save}>שמור</button>
           <button className="btn-ghost" onClick={onClose}>ביטול</button>
+        </div>
+
+        <hr className="tik-hr" />
+        <h3 style={{ margin: '4px 0 6px', fontSize: 15 }}>גיבוי ושחזור</h3>
+        <p className="muted small">
+          כל הנתונים נשמרים במכשיר הזה בלבד. מומלץ לייצא גיבוי מדי פעם — הקובץ כולל את כל התיקים והסריקות,
+          וניתן לשחזר אותו כאן או במחשב אחר.
+        </p>
+        <div className="card-actions" style={{ marginTop: 10 }}>
+          <button className="btn-ghost" onClick={doExport} disabled={busy === 'export'}>
+            {busy === 'export' ? 'מייצא…' : '⬇ ייצוא גיבוי'}
+          </button>
+          <button className="btn-ghost" onClick={() => importRef.current?.click()} disabled={busy === 'import'}>
+            {busy === 'import' ? 'משחזר…' : '⬆ שחזור מגיבוי'}
+          </button>
+          <input ref={importRef} type="file" accept="application/json,.json" hidden onChange={doImport} />
         </div>
       </div>
     </div>

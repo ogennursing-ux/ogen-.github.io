@@ -184,3 +184,59 @@ export async function deleteFile(id) {
 export function fileObjectUrl(fileRecord) {
   return URL.createObjectURL(fileRecord.blob);
 }
+
+// ---- backup / restore ----
+// Since everything lives in this browser only, export bundles every worker and
+// every scan (blobs base64-encoded as data URLs) into one JSON file that can be
+// stored safely or restored on another machine.
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(blob);
+  });
+}
+async function dataUrlToBlob(dataUrl) {
+  const res = await fetch(dataUrl);
+  return res.blob();
+}
+
+export const BACKUP_APP = 'ogen-tik-ovdim';
+
+export async function exportAll() {
+  const workers = await listWorkers();
+  const files = [];
+  for (const w of workers) {
+    const rows = await listFiles(w.id);
+    for (const f of rows) {
+      const { blob, ...meta } = f;
+      files.push({ ...meta, dataUrl: await blobToDataUrl(blob) });
+    }
+  }
+  return {
+    app: BACKUP_APP,
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    workers,
+    files,
+  };
+}
+
+// Restore a backup, merging by id (an existing worker/file with the same id is
+// overwritten). Returns how many records were written.
+export async function importAll(data) {
+  if (!data || data.app !== BACKUP_APP || !Array.isArray(data.workers)) {
+    throw new Error('קובץ הגיבוי אינו תקין.');
+  }
+  for (const w of data.workers) {
+    await tx(WORKERS, 'readwrite', (os) => os.put(w));
+  }
+  for (const f of data.files || []) {
+    const { dataUrl, ...meta } = f;
+    const blob = await dataUrlToBlob(dataUrl);
+    await tx(FILES, 'readwrite', (os) => os.put({ ...meta, blob }));
+  }
+  return { workers: data.workers.length, files: (data.files || []).length };
+}
