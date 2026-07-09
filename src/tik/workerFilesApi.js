@@ -201,16 +201,29 @@ export async function getContract(id) {
 }
 
 export async function saveContractTemplate({ id, name, lang, file }) {
+  const isPdf = /\.pdf$/i.test(file?.name || '') || file?.type === 'application/pdf';
   const record = {
     id: id || uid(),
     name: name || file?.name || 'חוזה',
     lang: lang || 'he',
+    kind: isPdf ? 'pdf' : 'docx',
+    placements: [], // used by pdf templates
     fileName: file?.name || '',
-    blob: file, // the .docx File/Blob
+    blob: file, // the .docx / .pdf File/Blob
     updatedAt: Date.now(),
   };
   await tx(CONTRACTS, 'readwrite', (os) => os.put(record));
   return record;
+}
+
+// Update fields of an existing contract template (e.g. its placements) without
+// touching the stored file blob.
+export async function updateContract(id, patch) {
+  const cur = await getContract(id);
+  if (!cur) throw new Error('התבנית לא נמצאה');
+  const next = { ...cur, ...patch, updatedAt: Date.now() };
+  await tx(CONTRACTS, 'readwrite', (os) => os.put(next));
+  return next;
 }
 
 export async function deleteContract(id) {

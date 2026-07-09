@@ -42,6 +42,37 @@ export function buildValueMap(worker, opts = {}) {
   return map;
 }
 
+// Hebrew label for each placeholder/field, shared by the template help and the
+// PDF placement editor.
+export const CONTRACT_FIELD_LABELS = {
+  nameHe: 'שם בעברית',
+  nameEn: 'שם באנגלית',
+  passportNo: 'מספר דרכון',
+  nationality: 'אזרחות',
+  dob: 'תאריך לידה',
+  gender: 'מין',
+  placeOfBirth: 'מקום לידה',
+  fatherName: 'שם האב',
+  motherName: 'שם האם',
+  maritalStatus: 'מצב משפחתי',
+  passportIssueDate: 'תאריך הנפקת דרכון',
+  issuePlace: 'מקום הנפקה',
+  passportExpiry: 'תוקף דרכון',
+  visaExpiry: 'תוקף אשרה',
+  permitExpiry: 'תוקף היתר',
+  insuranceExpiry: 'תוקף ביטוח',
+  employer: 'מעסיק',
+  patientName: 'שם המטופל/ת',
+  address: 'כתובת',
+  startDate: 'תאריך תחילת עבודה',
+  salary: 'שכר חודשי',
+  phone: 'טלפון',
+  email: 'אימייל',
+  notes: 'הערות',
+  today: 'תאריך היום',
+  companyName: 'שם החברה',
+};
+
 const PLACEHOLDER = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
 
 // List of placeholder keys available to templates (for the on-screen help).

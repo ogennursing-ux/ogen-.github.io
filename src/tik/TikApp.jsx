@@ -16,9 +16,12 @@ import {
   importAll,
   listContracts,
   saveContractTemplate,
+  updateContract,
   deleteContract,
 } from './workerFilesApi.js';
 import { mergeDocx, PLACEHOLDER_KEYS } from './contractMerge.js';
+import { buildOverlayPdf } from './contractOverlay.js';
+import PdfPlacementEditor from './PdfPlacementEditor.jsx';
 import {
   extractDocument,
   getGeminiKey,
@@ -273,6 +276,7 @@ function ContractsManager({ onClose }) {
   const [name, setName] = useState('');
   const [lang, setLang] = useState('he');
   const [busy, setBusy] = useState(false);
+  const [placing, setPlacing] = useState(null); // template being positioned
   const fileRef = useRef(null);
 
   const reload = () => listContracts().then(setItems);
@@ -282,18 +286,30 @@ function ContractsManager({ onClose }) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    if (!/\.docx$/i.test(file.name)) {
-      alert('יש להעלות קובץ Word בפורמט .docx (לא .doc או PDF).');
+    if (!/\.(docx|pdf)$/i.test(file.name)) {
+      alert('יש להעלות קובץ Word ‏(.docx) או PDF.');
       return;
     }
     setBusy(true);
     try {
-      await saveContractTemplate({ name: name.trim() || file.name.replace(/\.docx$/i, ''), lang, file });
+      const rec = await saveContractTemplate({ name: name.trim() || file.name.replace(/\.(docx|pdf)$/i, ''), lang, file });
       setName('');
       await reload();
+      // A fresh PDF has no positions yet — jump straight into placing them.
+      if (rec.kind === 'pdf') setPlacing(rec);
     } finally {
       setBusy(false);
     }
+  }
+
+  async function savePlacements(placements) {
+    await updateContract(placing.id, { placements });
+    setPlacing(null);
+    reload();
+  }
+
+  if (placing) {
+    return <PdfPlacementEditor template={placing} onClose={() => setPlacing(null)} onSave={savePlacements} />;
   }
 
   return (
@@ -304,8 +320,8 @@ function ContractsManager({ onClose }) {
           <button className="icon-btn" onClick={onClose} aria-label="close">✕</button>
         </div>
         <p className="muted small">
-          העלה קובץ Word (.docx) של חוזה. במקומות שבהם צריך למלא פרטי עובד, כתוב בקובץ סימון כמו
-          {' '}<code>{'{{nameHe}}'}</code> — בהפקת החוזה זה יוחלף אוטומטית בערך מהשדה, בלי לפגוע בעיצוב.
+          העלה חוזה כ-<b>PDF</b> (תמקם את השדות על הדף — העיצוב נשמר ב-100%) או כ-<b>Word</b> ‏(.docx) עם סימונים
+          כמו <code>{'{{nameHe}}'}</code>. בהפקה הפרטים ימולאו אוטומטית.
         </p>
         <div className="tik-upload" style={{ marginTop: 10 }}>
           <label className="tik-field" style={{ flex: '1 1 160px' }}>
@@ -319,9 +335,9 @@ function ContractsManager({ onClose }) {
             </select>
           </label>
           <button className="btn-primary" disabled={busy} onClick={() => fileRef.current?.click()}>
-            {busy ? 'מעלה…' : '⬆ העלה .docx'}
+            {busy ? 'מעלה…' : '⬆ העלה PDF / Word'}
           </button>
-          <input ref={fileRef} type="file" accept=".docx" hidden onChange={onPick} />
+          <input ref={fileRef} type="file" accept=".docx,.pdf" hidden onChange={onPick} />
         </div>
 
         {items === null && <p className="muted">טוען…</p>}
@@ -331,13 +347,21 @@ function ContractsManager({ onClose }) {
             {items.map((t) => (
               <li key={t.id} className="tik-doc">
                 <div className="tik-doc-main">
-                  <span className="tik-doc-icon">📄</span>
+                  <span className="tik-doc-icon">{t.kind === 'pdf' ? '📕' : '📄'}</span>
                   <div>
                     <div className="tik-doc-name">{t.name}</div>
-                    <div className="tik-doc-meta">{langLabel(t.lang)} · {t.fileName}</div>
+                    <div className="tik-doc-meta">
+                      {langLabel(t.lang)} · {t.kind === 'pdf' ? 'PDF' : 'Word'}
+                      {t.kind === 'pdf' && ` · ${(t.placements || []).length} שדות ממוקמים`}
+                    </div>
                   </div>
                 </div>
                 <div className="tik-doc-actions">
+                  {t.kind === 'pdf' && (
+                    <button className="btn-ghost sm" title="מיקום שדות על הדף" onClick={() => setPlacing(t)}>
+                      🎯 מיקומים
+                    </button>
+                  )}
                   <button
                     className="icon-btn"
                     title="מחיקה"
@@ -372,8 +396,19 @@ function ContractPicker({ worker, onClose, onBuiltin }) {
   async function gen(t) {
     setBusyId(t.id);
     try {
-      const blob = await mergeDocx(t.blob, worker, { companyName: COMPANY_NAME });
-      downloadBlob(blob, `חוזה - ${t.name} - ${worker.nameHe || worker.nameEn || 'עובד'}.docx`);
+      const who = worker.nameHe || worker.nameEn || 'עובד';
+      if (t.kind === 'pdf') {
+        if (!(t.placements || []).length) {
+          alert('לתבנית ה-PDF עדיין לא הוגדרו מיקומי שדות. פתח «🎯 מיקומים» ב«חוזים» ומקם את השדות.');
+          return;
+        }
+        const buf = await t.blob.arrayBuffer();
+        const bytes = await buildOverlayPdf(new Uint8Array(buf.slice(0)), t.placements, worker, { companyName: COMPANY_NAME });
+        downloadBlob(new Blob([bytes], { type: 'application/pdf' }), `חוזה - ${t.name} - ${who}.pdf`);
+      } else {
+        const blob = await mergeDocx(t.blob, worker, { companyName: COMPANY_NAME });
+        downloadBlob(blob, `חוזה - ${t.name} - ${who}.docx`);
+      }
       onClose();
     } catch (e) {
       alert('הפקת החוזה נכשלה: ' + (e?.message || e));
@@ -393,10 +428,10 @@ function ContractPicker({ worker, onClose, onBuiltin }) {
           {items && items.map((t) => (
             <li key={t.id} className="tik-doc">
               <div className="tik-doc-main">
-                <span className="tik-doc-icon">📄</span>
+                <span className="tik-doc-icon">{t.kind === 'pdf' ? '📕' : '📄'}</span>
                 <div>
                   <div className="tik-doc-name">{t.name}</div>
-                  <div className="tik-doc-meta">{langLabel(t.lang)} · Word</div>
+                  <div className="tik-doc-meta">{langLabel(t.lang)} · {t.kind === 'pdf' ? 'PDF' : 'Word'}</div>
                 </div>
               </div>
               <div className="tik-doc-actions">
