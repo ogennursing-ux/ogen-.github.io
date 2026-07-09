@@ -49,10 +49,18 @@ const FIELD_KEYS = [
   'nationality',
   'dob',
   'gender',
+  'placeOfBirth',
+  'fatherName',
+  'motherName',
+  'maritalStatus',
+  'passportIssueDate',
+  'issuePlace',
   'passportExpiry',
   'visaExpiry',
   'permitExpiry',
 ];
+
+const DATE_KEYS = new Set(['dob', 'passportIssueDate', 'passportExpiry', 'visaExpiry', 'permitExpiry']);
 
 const RESPONSE_SCHEMA = {
   type: 'object',
@@ -110,7 +118,7 @@ export function toWorkerPatch(raw) {
   for (const k of FIELD_KEYS) {
     let v = raw && raw[k] != null ? String(raw[k]).trim() : '';
     if (!v) continue;
-    if (k === 'dob' || k === 'passportExpiry' || k === 'visaExpiry' || k === 'permitExpiry') {
+    if (DATE_KEYS.has(k)) {
       v = normalizeDate(v);
     } else if (k === 'gender') {
       v = normalizeGender(v);
@@ -147,13 +155,19 @@ export async function extractDocument(blob, category) {
   const prompt =
     'You are reading a scanned identity/immigration document of a foreign care worker in Israel. ' +
     (CATEGORY_HINT[category] || '') +
-    ' Extract these fields and return them as JSON:\n' +
+    ' Read EVERY field visible on the document (printed data and the MRZ) and return them as JSON:\n' +
     '- nameEn: full name in Latin letters (as printed)\n' +
-    '- nameHe: full name in Hebrew letters if present, else empty\n' +
+    '- nameHe: full name in Hebrew letters. If the document shows Hebrew, use it; otherwise transliterate the Latin name into Hebrew letters.\n' +
     '- passportNo: passport/document number\n' +
     '- nationality: nationality or issuing country, in Hebrew if you know it (e.g. "סרי לנקה", "הפיליפינים", "הודו"), else as printed\n' +
     '- dob: date of birth\n' +
     "- gender: 'ז' for male, 'נ' for female\n" +
+    '- placeOfBirth: place/city of birth, in Hebrew if you know it, else as printed\n' +
+    "- fatherName: father's name if shown, else empty\n" +
+    "- motherName: mother's name if shown, else empty\n" +
+    '- maritalStatus: marital status in Hebrew ("רווק/ה", "נשוי/אה" וכו\'), else empty\n' +
+    '- passportIssueDate: date the passport/document was issued\n' +
+    '- issuePlace: place/authority of issue, in Hebrew if you know it, else as printed\n' +
     '- passportExpiry: passport expiry date (only for a passport)\n' +
     '- visaExpiry: visa expiry date (only for a visa)\n' +
     '- permitExpiry: work-permit expiry date (only for a permit)\n' +

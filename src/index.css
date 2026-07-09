@@ -1854,3 +1854,17 @@ textarea.gov-input { resize: vertical; }
 .tik-doc-actions { align-items: center; flex-wrap: wrap; }
 .tik-settings { max-width: 460px; }
 .tik-settings .tik-field .text-input { width: 100%; max-width: none; }
+
+/* per-field copy button + auto-read flash (tik module) */
+.tik-input-row { display: flex; align-items: stretch; gap: 6px; }
+.tik-input-row .text-input { flex: 1 1 auto; width: 100%; max-width: none; }
+.tik-copy {
+  flex: 0 0 auto; border: 1.5px solid var(--line); background: #fff; border-radius: 8px;
+  min-width: 34px; padding: 0 8px; cursor: pointer; color: var(--muted); font-size: 15px;
+}
+.tik-copy:hover:not(:disabled) { background: #f2f6fc; color: var(--ink); border-color: #c9d6ea; }
+.tik-copy:disabled { opacity: 0.4; cursor: default; }
+.tik-flash {
+  background: #eefaf1; border: 1.5px solid #bfe6cd; color: #176c3a;
+  border-radius: 10px; padding: 9px 12px; font-size: 13px; margin-bottom: 10px;
+}

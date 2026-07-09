@@ -29,6 +29,12 @@ const FIELD_LABELS = {
   nationality: 'אזרחות',
   dob: 'תאריך לידה',
   gender: 'מין',
+  placeOfBirth: 'מקום לידה',
+  fatherName: 'שם האב',
+  motherName: 'שם האם',
+  maritalStatus: 'מצב משפחתי',
+  passportIssueDate: 'תאריך הנפקת דרכון',
+  issuePlace: 'מקום הנפקה',
   passportExpiry: 'תוקף דרכון',
   visaExpiry: 'תוקף אשרה',
   permitExpiry: 'תוקף היתר',
@@ -279,17 +285,45 @@ function WorkerList({ onOpen, onNew, onLogout }) {
 
 // ---------------------------------------------------------------------------
 
+// Small copy-to-clipboard button placed beside every field, so each value can
+// be pasted into the Tik-Tak system with one click.
+function CopyBtn({ value }) {
+  const [ok, setOk] = useState(false);
+  return (
+    <button
+      type="button"
+      className="tik-copy"
+      title="העתקה לתיק-תק"
+      disabled={!value}
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(value == null ? '' : String(value));
+          setOk(true);
+          setTimeout(() => setOk(false), 1200);
+        } catch {
+          /* clipboard blocked */
+        }
+      }}
+    >
+      {ok ? '✓' : '⧉'}
+    </button>
+  );
+}
+
 const F = ({ label, value, onChange, type = 'text', dir, ph }) => (
   <label className="tik-field">
     <span>{label}</span>
-    <input
-      className="text-input"
-      type={type}
-      dir={dir}
-      value={value || ''}
-      placeholder={ph}
-      onChange={(e) => onChange(e.target.value)}
-    />
+    <div className="tik-input-row">
+      <input
+        className="text-input"
+        type={type}
+        dir={dir}
+        value={value || ''}
+        placeholder={ph}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <CopyBtn value={value} />
+    </div>
   </label>
 );
 
@@ -389,6 +423,7 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
   const [makingContract, setMakingContract] = useState(false);
   const [extractingId, setExtractingId] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [flash, setFlash] = useState('');
   const fileInput = useRef(null);
 
   const isNew = workerId == null;
@@ -438,6 +473,29 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
       const saved = await persist();
       for (const f of picked) await addFile(saved.id, { category: uploadCat, file: f });
       await listFiles(saved.id).then(setFiles);
+
+      // Auto-read the first passport/visa/permit image right away (if a key is
+      // set), filling only empty fields so nothing typed is overwritten.
+      const img = picked.find((f) => f.type?.startsWith('image/'));
+      if (img && ['passport', 'visa', 'permit'].includes(uploadCat) && getGeminiKey()) {
+        setFlash('✨ קורא את המסמך…');
+        try {
+          const { patch } = await extractDocument(img, uploadCat);
+          const apply = Object.fromEntries(Object.entries(patch).filter(([k]) => !worker[k]));
+          const applied = Object.keys(apply);
+          if (applied.length) {
+            const merged = { ...saved, ...apply };
+            setWorker(merged);
+            await saveWorker(merged);
+            setFlash('✨ מולאו אוטומטית: ' + applied.map((k) => FIELD_LABELS[k] || k).join(', '));
+          } else {
+            setFlash('✨ הקריאה הסתיימה — לא נמצאו שדות ריקים למילוי.');
+          }
+        } catch (err) {
+          setFlash('הקריאה האוטומטית נכשלה: ' + (err?.message || err));
+        }
+        setTimeout(() => setFlash(''), 7000);
+      }
     } finally {
       setBusyUpload(false);
     }
@@ -542,12 +600,19 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
             <F label="תאריך לידה" type="date" value={worker.dob} onChange={(v) => set({ dob: v })} dir="ltr" />
             <label className="tik-field">
               <span>מין</span>
-              <select className="text-input" value={worker.gender || ''} onChange={(e) => set({ gender: e.target.value })}>
-                <option value="">—</option>
-                <option value="ז">זכר</option>
-                <option value="נ">נקבה</option>
-              </select>
+              <div className="tik-input-row">
+                <select className="text-input" value={worker.gender || ''} onChange={(e) => set({ gender: e.target.value })}>
+                  <option value="">—</option>
+                  <option value="ז">זכר</option>
+                  <option value="נ">נקבה</option>
+                </select>
+                <CopyBtn value={worker.gender === 'ז' ? 'זכר' : worker.gender === 'נ' ? 'נקבה' : ''} />
+              </div>
             </label>
+            <F label="מקום לידה" value={worker.placeOfBirth} onChange={(v) => set({ placeOfBirth: v })} />
+            <F label="שם האב" value={worker.fatherName} onChange={(v) => set({ fatherName: v })} />
+            <F label="שם האם" value={worker.motherName} onChange={(v) => set({ motherName: v })} />
+            <F label="מצב משפחתי" value={worker.maritalStatus} onChange={(v) => set({ maritalStatus: v })} />
             <F label="טלפון נייד" value={worker.phone} onChange={(v) => set({ phone: v })} dir="ltr" />
             <F label="אימייל" value={worker.email} onChange={(v) => set({ email: v })} dir="ltr" />
           </div>
@@ -557,6 +622,8 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
         <section className="card tik-section">
           <h3>תוקף מסמכים</h3>
           <div className="tik-grid">
+            <F label="תאריך הנפקת דרכון" type="date" value={worker.passportIssueDate} onChange={(v) => set({ passportIssueDate: v })} dir="ltr" />
+            <F label="מקום הנפקה" value={worker.issuePlace} onChange={(v) => set({ issuePlace: v })} />
             <F label="תוקף דרכון" type="date" value={worker.passportExpiry} onChange={(v) => set({ passportExpiry: v })} dir="ltr" />
             <F label="תוקף אשרה / ויזה" type="date" value={worker.visaExpiry} onChange={(v) => set({ visaExpiry: v })} dir="ltr" />
             <F label="תוקף היתר העסקה" type="date" value={worker.permitExpiry} onChange={(v) => set({ permitExpiry: v })} dir="ltr" />
@@ -576,12 +643,15 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
           </div>
           <label className="tik-field" style={{ marginTop: 10 }}>
             <span>הערות</span>
-            <textarea
-              className="text-input"
-              rows={3}
-              value={worker.notes || ''}
-              onChange={(e) => set({ notes: e.target.value })}
-            />
+            <div className="tik-input-row">
+              <textarea
+                className="text-input"
+                rows={3}
+                value={worker.notes || ''}
+                onChange={(e) => set({ notes: e.target.value })}
+              />
+              <CopyBtn value={worker.notes} />
+            </div>
           </label>
         </section>
 
@@ -610,8 +680,9 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
             />
           </div>
           <p className="muted small" style={{ marginBottom: 10 }}>
-            ✨ אחרי העלאת תמונת דרכון/אשרה/היתר, לחץ/י «קרא ומלא» כדי שהמערכת תזהה את הפרטים ותמלא את השדות אוטומטית (דורש מפתח Gemini ב-⚙ הגדרות).
+            ✨ עם מפתח Gemini (ב-⚙ הגדרות), תמונת דרכון/אשרה/היתר נקראת אוטומטית מיד עם ההעלאה וממלאת את כל השדות. אפשר גם ללחוץ «קרא ומלא» ידנית בכל עת.
           </p>
+          {flash && <div className="tik-flash">{flash}</div>}
           {files.length === 0 ? (
             <p className="muted" style={{ marginTop: 8 }}>עדיין לא הועלו מסמכים. בחר סוג והעלה דרכון, אשרה, היתר וכו'.</p>
           ) : (
