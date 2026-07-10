@@ -179,6 +179,46 @@ async function callGemini(blob, prompt, schema) {
   }
 }
 
+// Text-only Gemini call (no image) — used to parse a free-text message.
+async function callGeminiText(prompt, schema) {
+  const key = getGeminiKey();
+  if (!key) throw new Error('לא הוגדר מפתח Gemini.');
+  const model = getGeminiModel();
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
+  const body = {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: schema },
+  };
+  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!res.ok) throw new Error('שגיאת Gemini (' + res.status + ')');
+  const data = await res.json();
+  const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join('') || '';
+  try { return JSON.parse(text); } catch { return {}; }
+}
+
+// Parse a free-text message (e.g. a Telegram message from the agent) into
+// worker or family fields. Returns {} on any failure, so the caller can fall
+// back to keeping the raw text.
+export async function extractFromText(text, target = 'worker') {
+  if (!getGeminiKey() || !text) return {};
+  if (target === 'family') {
+    const raw = await callGeminiText(
+      'Extract patient/family details from this Hebrew free text into JSON ' +
+      '(keys: fullName, idNumber, dob, gender, city, street, phone, contactName, contactMobile; ' +
+      'dates as YYYY-MM-DD; empty string if missing). Text: """' + text + '"""',
+      FAMILY_SCHEMA,
+    ).catch(() => ({}));
+    return toFamilyPatch(raw);
+  }
+  const raw = await callGeminiText(
+    'Extract foreign-worker details from this Hebrew free text into JSON ' +
+    '(keys: nameHe, nameEn, passportNo, nationality, dob, gender, phone, email, visaExpiry, permitExpiry; ' +
+    'dates as YYYY-MM-DD; empty string if missing). Text: """' + text + '"""',
+    RESPONSE_SCHEMA,
+  ).catch(() => ({}));
+  return toWorkerPatch(raw);
+}
+
 export async function extractDocument(blob, category) {
   const prompt =
     'You are reading a scanned identity/immigration document of a foreign care worker in Israel. ' +

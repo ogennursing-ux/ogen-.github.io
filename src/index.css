@@ -1917,3 +1917,5 @@ textarea.gov-input { resize: vertical; }
 .tik-sub { display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: #fbfcfe; }
 .tik-sub-main { min-width: 0; }
 .tik-sub-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; flex-wrap: wrap; }
+.tik-tg-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.tik-tg-head strong { font-size: 15px; }
