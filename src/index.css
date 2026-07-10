@@ -1908,3 +1908,12 @@ textarea.gov-input { resize: vertical; }
 .tik-rawtext { margin-top: 12px; }
 .tik-rawtext-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: var(--ink); }
 .tik-rawtext textarea { width: 100%; max-width: none; font-family: inherit; }
+
+/* agent inbox (tik) */
+.tik-conn { background: #f7f9fc; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-top: 8px; }
+.tik-conn code { display: inline-block; background: #eef2f8; padding: 2px 6px; border-radius: 5px; direction: ltr; font-size: 12px; word-break: break-all; }
+.tik-conn-row { display: flex; align-items: center; gap: 8px; justify-content: space-between; margin-bottom: 6px; }
+.tik-conn-body { display: block; white-space: pre-wrap; margin-top: 4px; }
+.tik-sub { display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: #fbfcfe; }
+.tik-sub-main { min-width: 0; }
+.tik-sub-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; flex-wrap: wrap; }

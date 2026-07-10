@@ -28,6 +28,7 @@ import { uid } from './workerFilesApi.js';
 import { mergeDocx, PLACEHOLDER_KEYS } from './contractMerge.js';
 import { buildOverlayPdf } from './contractOverlay.js';
 import { createSigningRequest, getSigningUrl, setSigningUrl } from './signingBridge.js';
+import { listNewSubmissions, countNewSubmissions, setSubmissionStatus, AGENT_ENDPOINT, AGENT_ANON_KEY } from './agentInbox.js';
 import PdfPlacementEditor from './PdfPlacementEditor.jsx';
 import {
   extractDocument,
@@ -546,11 +547,104 @@ function ContractPicker({ worker, family, onClose, onBuiltin, onSigned }) {
   );
 }
 
+// Turn an agent submission's flexible data into a worker/family record,
+// mapping matching field keys and preserving anything else in the notes.
+function recordFromSubmission(data, type) {
+  const rec = type === 'family' ? emptyFamily() : emptyWorker();
+  const known = new Set(Object.keys(rec));
+  for (const k of known) if (data[k] != null && data[k] !== '') rec[k] = data[k];
+  const extra = Object.entries(data || {}).filter(([k, v]) => !known.has(k) && v != null && v !== '');
+  if (extra.length) rec.notes = [rec.notes, ...extra.map(([k, v]) => `${k}: ${v}`)].filter(Boolean).join('\n');
+  return rec;
+}
+
+// Submissions sent in by the external agent (Base44), for review + import.
+function AgentInbox({ onClose, onImported }) {
+  const [items, setItems] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+  const [err, setErr] = useState('');
+  const [showConn, setShowConn] = useState(false);
+
+  const reload = () => listNewSubmissions().then((r) => { setItems(r); setErr(''); }).catch((e) => { setItems([]); setErr(e?.message || String(e)); });
+  useEffect(() => { reload(); }, []);
+
+  async function importOne(sub, type) {
+    setBusyId(sub.id);
+    try {
+      const rec = recordFromSubmission(sub.data || {}, type);
+      if (type === 'family') await saveFamily(rec); else await saveWorker(rec);
+      await setSubmissionStatus(sub.id, 'imported');
+      await reload();
+      onImported && onImported();
+    } catch (e) { alert('הייבוא נכשל: ' + (e?.message || e)); }
+    finally { setBusyId(null); }
+  }
+  async function dismiss(sub) {
+    setBusyId(sub.id);
+    try { await setSubmissionStatus(sub.id, 'dismissed'); await reload(); }
+    catch (e) { alert(e?.message || String(e)); }
+    finally { setBusyId(null); }
+  }
+  const copy = (t) => navigator.clipboard?.writeText(t).catch(() => {});
+  const summary = (d) => [d.nameHe, d.fullName, d.nameEn, d.passportNo && 'דרכון ' + d.passportNo, d.idNumber && 'ת.ז ' + d.idNumber].filter(Boolean).join(' · ') || 'הגשה';
+
+  return (
+    <div className="modal-backdrop" onPointerDown={onClose}>
+      <div className="drawer tik-settings" onPointerDown={(e) => e.stopPropagation()}>
+        <div className="drawer-head">
+          <strong>📥 הגשות מהסוכן</strong>
+          <button className="icon-btn" onClick={onClose} aria-label="close">✕</button>
+        </div>
+
+        <button className="btn-ghost sm" onClick={() => setShowConn((v) => !v)}>
+          {showConn ? 'הסתר' : '⚙ פרטי החיבור לסוכן (Base44)'}
+        </button>
+        {showConn && (
+          <div className="tik-conn">
+            <p className="muted small">הגדר/י ב-Base44 קריאת HTTP מסוג POST לכתובת הבאה, עם הכותרות והגוף:</p>
+            <label className="field-label">כתובת (POST)</label>
+            <div className="tik-conn-row"><code>{AGENT_ENDPOINT}</code><button className="btn-ghost sm" onClick={() => copy(AGENT_ENDPOINT)}>העתק</button></div>
+            <label className="field-label">כותרות</label>
+            <div className="tik-conn-row"><code>apikey / Authorization: Bearer</code><button className="btn-ghost sm" onClick={() => copy(AGENT_ANON_KEY)}>העתק מפתח</button></div>
+            <label className="field-label">גוף (JSON)</label>
+            <code className="tik-conn-body">{'{ "kind": "worker", "data": { "nameHe": "...", "passportNo": "..." } }'}</code>
+          </div>
+        )}
+
+        <hr className="tik-hr" />
+        {err && <p className="login-error">{err} — ודא/י שהרצת את טבלת agent_submissions ב-Supabase.</p>}
+        {items === null && !err && <p className="muted">טוען…</p>}
+        {items && !items.length && !err && <p className="muted">אין הגשות חדשות.</p>}
+        {items && items.length > 0 && (
+          <ul className="tik-doc-list">
+            {items.map((s) => (
+              <li key={s.id} className="tik-sub">
+                <div className="tik-sub-main">
+                  <div className="tik-doc-name">{summary(s.data || {})}</div>
+                  <div className="tik-doc-meta">{s.kind === 'family' ? 'משפחה' : 'עובד'} · {fmt(s.created_at)}</div>
+                </div>
+                <div className="tik-sub-actions">
+                  <button className="btn-primary sm" disabled={busyId === s.id} onClick={() => importOne(s, 'worker')}>ייבא כעובד</button>
+                  <button className="btn-ghost sm" disabled={busyId === s.id} onClick={() => importOne(s, 'family')}>ייבא כמשפחה</button>
+                  <button className="icon-btn" title="התעלם" disabled={busyId === s.id} onClick={() => dismiss(s)}>🗑</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function WorkerList({ mode, onMode, onOpen, onNew, onLogout }) {
   const [workers, setWorkers] = useState(null);
   const [q, setQ] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [showContracts, setShowContracts] = useState(false);
+  const [showInbox, setShowInbox] = useState(false);
+  const [inboxCount, setInboxCount] = useState(0);
+  useEffect(() => { countNewSubmissions().then(setInboxCount).catch(() => {}); }, [showInbox]);
 
   const reload = () => listWorkers().then(setWorkers);
   useEffect(() => {
@@ -577,11 +671,15 @@ function WorkerList({ mode, onMode, onOpen, onNew, onLogout }) {
       />
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showContracts && <ContractsManager onClose={() => setShowContracts(false)} />}
+      {showInbox && <AgentInbox onClose={() => setShowInbox(false)} onImported={() => listWorkers().then(setWorkers)} />}
       <div className="tik-list">
         <ModeTabs mode={mode} onMode={onMode} />
         <div className="tik-list-head">
           <h2 style={{ margin: 0 }}>תיקי עובדים</h2>
           <div className="tik-head-actions">
+            <button className="btn-ghost" onClick={() => setShowInbox(true)}>
+              📥 הגשות{inboxCount ? ` (${inboxCount})` : ''}
+            </button>
             <button className="btn-ghost" onClick={() => setShowContracts(true)}>📄 חוזים</button>
             <button className="btn-primary" onClick={onNew}>➕ עובד חדש</button>
           </div>
@@ -1171,8 +1269,12 @@ function FamilyList({ mode, onMode, onOpen, onNew, onLogout }) {
   const [items, setItems] = useState(null);
   const [q, setQ] = useState('');
   const [showSettings, setShowSettings] = useState(false);
+  const [showInbox, setShowInbox] = useState(false);
+  const [inboxCount, setInboxCount] = useState(0);
 
-  useEffect(() => { listFamilies().then(setItems); }, []);
+  const reloadFamilies = () => listFamilies().then(setItems);
+  useEffect(() => { reloadFamilies(); }, []);
+  useEffect(() => { countNewSubmissions().then(setInboxCount).catch(() => {}); }, [showInbox]);
 
   const filtered = useMemo(() => {
     if (!items) return [];
@@ -1188,11 +1290,15 @@ function FamilyList({ mode, onMode, onOpen, onNew, onLogout }) {
     <div className="app">
       <Header onLogout={onLogout} onSettings={() => setShowSettings(true)} />
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showInbox && <AgentInbox onClose={() => setShowInbox(false)} onImported={reloadFamilies} />}
       <div className="tik-list">
         <ModeTabs mode={mode} onMode={onMode} />
         <div className="tik-list-head">
           <h2 style={{ margin: 0 }}>תיקי משפחות</h2>
-          <button className="btn-primary" onClick={onNew}>➕ משפחה חדשה</button>
+          <div className="tik-head-actions">
+            <button className="btn-ghost" onClick={() => setShowInbox(true)}>📥 הגשות{inboxCount ? ` (${inboxCount})` : ''}</button>
+            <button className="btn-primary" onClick={onNew}>➕ משפחה חדשה</button>
+          </div>
         </div>
         <input
           className="text-input"
