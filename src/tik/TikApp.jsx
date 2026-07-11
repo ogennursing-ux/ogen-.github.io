@@ -33,7 +33,6 @@ import PdfPlacementEditor from './PdfPlacementEditor.jsx';
 import {
   extractDocument,
   extractFamilyDocument,
-  extractFromText,
   hasAI,
   getGeminiKey,
   setGeminiKey,
@@ -46,14 +45,6 @@ import {
   getGroqVisionModel,
   setGroqVisionModel,
 } from './gemini.js';
-import {
-  pollTelegram,
-  listTelegram,
-  countTelegram,
-  setTelegramStatus,
-  getTelegramToken,
-  setTelegramToken,
-} from './telegram.js';
 
 // Hebrew labels for the fields Gemini fills, used in the "filled X, Y" summary.
 const FIELD_LABELS = {
@@ -175,7 +166,6 @@ function SettingsModal({ onClose }) {
   const [groqText, setGroqTextS] = useState(getGroqTextModel());
   const [groqVision, setGroqVisionS] = useState(getGroqVisionModel());
   const [signUrl, setSignUrl] = useState(getSigningUrl());
-  const [tgToken, setTgToken] = useState(getTelegramToken());
   const [busy, setBusy] = useState('');
   const importRef = useRef(null);
 
@@ -186,7 +176,6 @@ function SettingsModal({ onClose }) {
     setGroqTextModel(groqText.trim());
     setGroqVisionModel(groqVision.trim());
     setSigningUrl(signUrl.trim());
-    setTelegramToken(tgToken.trim());
     onClose();
   }
 
@@ -270,17 +259,6 @@ function SettingsModal({ onClose }) {
             onChange={(e) => setModel(e.target.value)}
           />
         </label>
-        <hr className="tik-hr" />
-        <h3 style={{ margin: '4px 0 6px', fontSize: 15 }}>קבלת פרטים מהסוכן — טלגרם</h3>
-        <p className="muted small">
-          הדרך הקלה: פותחים בוט חינמי בטלגרם דרך <b>@BotFather</b> (הפקודה <code>/newbot</code>), מקבלים «טוקן»,
-          ומדביקים אותו כאן. הסוכן ישלח לבוט הודעה עם הפרטים — והיא תופיע ב«📥 הגשות».
-        </p>
-        <label className="tik-field" style={{ marginTop: 10 }}>
-          <span>טוקן בוט טלגרם</span>
-          <input className="text-input" dir="ltr" type="password" value={tgToken} placeholder="123456:ABC..." onChange={(e) => setTgToken(e.target.value)} />
-        </label>
-
         <hr className="tik-hr" />
         <h3 style={{ margin: '4px 0 6px', fontSize: 15 }}>חתימה דיגיטלית</h3>
         <p className="muted small">
@@ -615,32 +593,9 @@ function AgentInbox({ onClose, onImported }) {
   const [busyId, setBusyId] = useState(null);
   const [err, setErr] = useState('');
   const [showConn, setShowConn] = useState(false);
-  const [tgItems, setTgItems] = useState(getTelegramToken() ? null : []);
-  const [tgErr, setTgErr] = useState('');
-  const [tgBusy, setTgBusy] = useState(false);
 
   const reload = () => listNewSubmissions().then((r) => { setItems(r); setErr(''); }).catch((e) => { setItems([]); setErr(e?.message || String(e)); });
-  const refreshTg = () => {
-    if (!getTelegramToken()) { setTgItems([]); return; }
-    setTgBusy(true);
-    pollTelegram().then((r) => { setTgItems(r); setTgErr(''); }).catch((e) => { setTgItems(listTelegram()); setTgErr(e?.message || String(e)); }).finally(() => setTgBusy(false));
-  };
-  useEffect(() => { reload(); refreshTg(); }, []);
-
-  async function importTelegram(item, type) {
-    setBusyId('tg' + item.id);
-    try {
-      let patch = {};
-      try { patch = await extractFromText(item.text, type); } catch { /* keep raw */ }
-      const rec = recordFromSubmission({ ...patch, notes: item.text }, type);
-      if (type === 'family') await saveFamily(rec); else await saveWorker(rec);
-      setTelegramStatus(item.id, 'imported');
-      setTgItems(listTelegram());
-      onImported && onImported();
-    } catch (e) { alert('הייבוא נכשל: ' + (e?.message || e)); }
-    finally { setBusyId(null); }
-  }
-  function dismissTg(item) { setTelegramStatus(item.id, 'dismissed'); setTgItems(listTelegram()); }
+  useEffect(() => { reload(); }, []);
 
   async function importOne(sub, type) {
     setBusyId(sub.id);
@@ -670,32 +625,7 @@ function AgentInbox({ onClose, onImported }) {
           <button className="icon-btn" onClick={onClose} aria-label="close">✕</button>
         </div>
 
-        {/* Telegram — the easy channel */}
-        <div className="tik-tg-head">
-          <strong>✈️ טלגרם</strong>
-          <button className="btn-ghost sm" disabled={tgBusy} onClick={refreshTg}>{tgBusy ? 'בודק…' : '🔄 בדוק הודעות'}</button>
-        </div>
-        {!getTelegramToken() && <p className="muted small">להפעלה: הגדר/י טוקן בוט טלגרם ב-⚙ הגדרות.</p>}
-        {tgErr && <p className="login-error">{tgErr}</p>}
-        {getTelegramToken() && tgItems && !tgItems.length && !tgErr && <p className="muted small">אין הודעות חדשות בטלגרם.</p>}
-        {tgItems && tgItems.length > 0 && (
-          <ul className="tik-doc-list" style={{ marginBottom: 12 }}>
-            {tgItems.map((t) => (
-              <li key={t.id} className="tik-sub">
-                <div className="tik-sub-main">
-                  <div className="tik-doc-name">{t.from}{t.hasPhoto ? ' 🖼️' : ''}</div>
-                  <div className="tik-doc-meta" style={{ whiteSpace: 'pre-wrap' }}>{(t.text || '(תמונה)').slice(0, 160)}</div>
-                </div>
-                <div className="tik-sub-actions">
-                  <button className="btn-primary sm" disabled={busyId === 'tg' + t.id} onClick={() => importTelegram(t, 'worker')}>ייבא כעובד</button>
-                  <button className="btn-ghost sm" disabled={busyId === 'tg' + t.id} onClick={() => importTelegram(t, 'family')}>כמשפחה</button>
-                  <button className="icon-btn" title="התעלם" onClick={() => dismissTg(t)}>🗑</button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-        <hr className="tik-hr" />
+        <p className="muted small">הודעות מהסוכן (טלגרם/Base44) מגיעות לכאן דרך השרת. שלח/י לבוט הודעה או תמונה — והיא תופיע כאן לייבוא.</p>
 
         <button className="btn-ghost sm" onClick={() => setShowConn((v) => !v)}>
           {showConn ? 'הסתר' : '⚙ פרטי החיבור לסוכן (Base44 / API)'}
@@ -745,11 +675,7 @@ function WorkerList({ mode, onMode, onOpen, onNew, onLogout }) {
   const [showContracts, setShowContracts] = useState(false);
   const [showInbox, setShowInbox] = useState(false);
   const [inboxCount, setInboxCount] = useState(0);
-  useEffect(() => {
-    const tg = countTelegram();
-    setInboxCount(tg);
-    countNewSubmissions().then((n) => setInboxCount(tg + n)).catch(() => {});
-  }, [showInbox]);
+  useEffect(() => { countNewSubmissions().then(setInboxCount).catch(() => {}); }, [showInbox]);
 
   const reload = () => listWorkers().then(setWorkers);
   useEffect(() => {
@@ -1379,11 +1305,7 @@ function FamilyList({ mode, onMode, onOpen, onNew, onLogout }) {
 
   const reloadFamilies = () => listFamilies().then(setItems);
   useEffect(() => { reloadFamilies(); }, []);
-  useEffect(() => {
-    const tg = countTelegram();
-    setInboxCount(tg);
-    countNewSubmissions().then((n) => setInboxCount(tg + n)).catch(() => {});
-  }, [showInbox]);
+  useEffect(() => { countNewSubmissions().then(setInboxCount).catch(() => {}); }, [showInbox]);
 
   const filtered = useMemo(() => {
     if (!items) return [];
