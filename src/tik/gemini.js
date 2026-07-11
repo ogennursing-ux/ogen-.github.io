@@ -41,6 +41,64 @@ export function setGeminiModel(v) {
   }
 }
 
+// ---- Groq provider (OpenAI-compatible; keys start with gsk_) ----
+const GROQ_KEY = 'tik_groq_key';
+const GROQ_TEXT = 'tik_groq_model';
+const GROQ_VISION = 'tik_groq_vision';
+const DEFAULT_GROQ_TEXT = 'llama-3.3-70b-versatile';
+const DEFAULT_GROQ_VISION = 'meta-llama/llama-4-scout-17b-16e-instruct';
+
+const ls = (k, d = '') => { try { return localStorage.getItem(k) || d; } catch { return d; } };
+const lsSet = (k, v, d) => { try { if (v && v !== d) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch { /* ignore */ } };
+
+export const getGroqKey = () => ls(GROQ_KEY);
+export const setGroqKey = (v) => lsSet(GROQ_KEY, v);
+export const getGroqTextModel = () => ls(GROQ_TEXT, DEFAULT_GROQ_TEXT);
+export const setGroqTextModel = (v) => lsSet(GROQ_TEXT, v, DEFAULT_GROQ_TEXT);
+export const getGroqVisionModel = () => ls(GROQ_VISION, DEFAULT_GROQ_VISION);
+export const setGroqVisionModel = (v) => lsSet(GROQ_VISION, v, DEFAULT_GROQ_VISION);
+
+// True if any AI provider is configured. Groq takes priority when both are set.
+export const hasAI = () => !!getGroqKey() || !!getGeminiKey();
+const useGroq = () => !!getGroqKey();
+
+// Call Groq's chat completions and parse the JSON object it returns.
+async function callGroq(messages, model) {
+  let res;
+  try {
+    res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + getGroqKey() },
+      body: JSON.stringify({ model, messages, temperature: 0, response_format: { type: 'json_object' } }),
+    });
+  } catch (e) {
+    throw new Error('החיבור ל-Groq נכשל (ייתכן חסימת דפדפן/רשת): ' + (e?.message || e));
+  }
+  if (!res.ok) {
+    let detail = '';
+    try { detail = (await res.json())?.error?.message || ''; } catch { /* ignore */ }
+    if (res.status === 401) throw new Error('מפתח ה-Groq אינו תקין. בדוק/י אותו בהגדרות.');
+    if (res.status === 429) throw new Error('חרגת ממכסת השימוש ב-Groq. נסה/י שוב מאוחר יותר.');
+    if (res.status === 404 || /model/i.test(detail)) throw new Error('דגם ה-Groq אינו זמין. עדכן/י את שם הדגם בהגדרות. ' + detail);
+    throw new Error('שגיאת Groq (' + res.status + ')' + (detail ? ': ' + detail : ''));
+  }
+  const data = await res.json();
+  const text = data?.choices?.[0]?.message?.content || '';
+  try { return JSON.parse(text); } catch { return {}; }
+}
+
+// Groq image extraction: send the image + a prompt that lists the wanted keys.
+async function groqVision(blob, promptText, keys) {
+  const b64 = await blobToBase64(blob);
+  const prompt = promptText + '\nReturn ONLY a JSON object with these keys: ' + keys.join(', ') + '. Empty string if a field is missing. Dates as YYYY-MM-DD.';
+  const messages = [{ role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: `data:${blob.type};base64,${b64}` } }] }];
+  return callGroq(messages, getGroqVisionModel());
+}
+async function groqText(promptText, keys) {
+  const prompt = promptText + '\nReturn ONLY a JSON object with these keys: ' + keys.join(', ') + '. Empty string if a field is missing. Dates as YYYY-MM-DD.';
+  return callGroq([{ role: 'user', content: prompt }], getGroqTextModel());
+}
+
 // The fields Gemini is asked to return. Keys match the worker record.
 const FIELD_KEYS = [
   'nameEn',
@@ -200,14 +258,11 @@ async function callGeminiText(prompt, schema) {
 // worker or family fields. Returns {} on any failure, so the caller can fall
 // back to keeping the raw text.
 export async function extractFromText(text, target = 'worker') {
-  if (!getGeminiKey() || !text) return {};
+  if (!hasAI() || !text) return {};
   if (target === 'family') {
-    const raw = await callGeminiText(
-      'Extract patient/family details from this Hebrew free text into JSON ' +
-      '(keys: fullName, idNumber, dob, gender, city, street, phone, contactName, contactMobile; ' +
-      'dates as YYYY-MM-DD; empty string if missing). Text: """' + text + '"""',
-      FAMILY_SCHEMA,
-    ).catch(() => ({}));
+    const p = 'Extract patient/family details from this Hebrew free text. Text: """' + text + '"""';
+    const keys = ['fullName', 'idNumber', 'dob', 'gender', 'city', 'street', 'phone', 'contactName', 'contactMobile'];
+    const raw = await (useGroq() ? groqText(p, keys) : callGeminiText(p + ' (keys: ' + keys.join(', ') + '; dates YYYY-MM-DD; empty if missing)', FAMILY_SCHEMA)).catch(() => ({}));
     return toFamilyPatch(raw);
   }
   const raw = await callGeminiText(
@@ -240,7 +295,9 @@ export async function extractDocument(blob, category) {
     '- visaExpiry: visa expiry date (only for a visa)\n' +
     '- permitExpiry: work-permit expiry date (only for a permit)\n' +
     'Return every date as YYYY-MM-DD. If a field is not visible, return an empty string. Do not guess.';
-  const raw = await callGemini(blob, prompt, RESPONSE_SCHEMA);
+  if (!hasAI()) throw new Error('לא הוגדר מפתח AI. פתח/י ⚙ הגדרות והזן/י מפתח Groq או Gemini.');
+  if (!blob || !blob.type?.startsWith('image/')) throw new Error('הקריאה האוטומטית עובדת על תמונות (JPG/PNG). ל-PDF, צלם/י או ייצא/י כתמונה.');
+  const raw = useGroq() ? await groqVision(blob, prompt, FIELD_KEYS) : await callGemini(blob, prompt, RESPONSE_SCHEMA);
   return { patch: toWorkerPatch(raw), raw };
 }
 
@@ -296,6 +353,8 @@ export async function extractFamilyDocument(blob, category) {
     '- insuranceExpiry: insurance validity date if present\n' +
     '- rawText: ALL text you can read on the document, exactly as written (including handwriting), line by line\n' +
     'Return every date as YYYY-MM-DD. If a field is not visible, return an empty string. Do not guess field values, but DO include everything you see in rawText.';
-  const raw = await callGemini(blob, prompt, FAMILY_SCHEMA);
+  if (!hasAI()) throw new Error('לא הוגדר מפתח AI. פתח/י ⚙ הגדרות והזן/י מפתח Groq או Gemini.');
+  if (!blob || !blob.type?.startsWith('image/')) throw new Error('הקריאה האוטומטית עובדת על תמונות (JPG/PNG).');
+  const raw = useGroq() ? await groqVision(blob, prompt, [...FAMILY_FIELD_KEYS, 'rawText']) : await callGemini(blob, prompt, FAMILY_SCHEMA);
   return { patch: toFamilyPatch(raw), raw, rawText: raw?.rawText ? String(raw.rawText) : '' };
 }

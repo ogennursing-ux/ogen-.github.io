@@ -34,10 +34,17 @@ import {
   extractDocument,
   extractFamilyDocument,
   extractFromText,
+  hasAI,
   getGeminiKey,
   setGeminiKey,
   getGeminiModel,
   setGeminiModel,
+  getGroqKey,
+  setGroqKey,
+  getGroqTextModel,
+  setGroqTextModel,
+  getGroqVisionModel,
+  setGroqVisionModel,
 } from './gemini.js';
 import {
   pollTelegram,
@@ -164,6 +171,9 @@ function Header({ onLogout, onSettings, right }) {
 function SettingsModal({ onClose }) {
   const [key, setKey] = useState(getGeminiKey());
   const [model, setModel] = useState(getGeminiModel());
+  const [groqKey, setGroqKeyS] = useState(getGroqKey());
+  const [groqText, setGroqTextS] = useState(getGroqTextModel());
+  const [groqVision, setGroqVisionS] = useState(getGroqVisionModel());
   const [signUrl, setSignUrl] = useState(getSigningUrl());
   const [tgToken, setTgToken] = useState(getTelegramToken());
   const [busy, setBusy] = useState('');
@@ -172,6 +182,9 @@ function SettingsModal({ onClose }) {
   function save() {
     setGeminiKey(key.trim());
     setGeminiModel(model.trim());
+    setGroqKey(groqKey.trim());
+    setGroqTextModel(groqText.trim());
+    setGroqVisionModel(groqVision.trim());
     setSigningUrl(signUrl.trim());
     setTelegramToken(tgToken.trim());
     onClose();
@@ -215,10 +228,26 @@ function SettingsModal({ onClose }) {
           <strong>⚙ הגדרות</strong>
           <button className="icon-btn" onClick={onClose} aria-label="close">✕</button>
         </div>
-        <h3 style={{ margin: '4px 0 6px', fontSize: 15 }}>קריאה אוטומטית של מסמכים (Gemini)</h3>
+        <h3 style={{ margin: '4px 0 6px', fontSize: 15 }}>בינה מלאכותית — קריאת מסמכים ופענוח</h3>
         <p className="muted small">
-          כדי שהמערכת תקרא דרכון/אשרה ותמלא את השדות אוטומטית, הזן/י מפתח Gemini.
-          מפתח חינמי מתקבל ב-Google AI Studio (aistudio.google.com/apikey). המפתח נשמר במכשיר בלבד.
+          מספיק להזין מפתח אחד (Groq או Gemini) כדי שהמערכת תקרא דרכון/ת.ז ותמלא שדות. אם הוזנו שניהם — Groq בשימוש. המפתח נשמר במכשיר בלבד.
+        </p>
+        <label className="tik-field" style={{ marginTop: 10 }}>
+          <span>מפתח Groq API (מתחיל ב-gsk_)</span>
+          <input className="text-input" dir="ltr" type="password" value={groqKey} placeholder="gsk_…" onChange={(e) => setGroqKeyS(e.target.value)} />
+        </label>
+        <div className="tik-grid" style={{ marginTop: 8 }}>
+          <label className="tik-field">
+            <span>דגם Groq — טקסט</span>
+            <input className="text-input" dir="ltr" value={groqText} onChange={(e) => setGroqTextS(e.target.value)} />
+          </label>
+          <label className="tik-field">
+            <span>דגם Groq — תמונות</span>
+            <input className="text-input" dir="ltr" value={groqVision} onChange={(e) => setGroqVisionS(e.target.value)} />
+          </label>
+        </div>
+        <p className="muted small" style={{ marginTop: 10 }}>
+          לחלופין — מפתח Gemini (חינמי ב-Google AI Studio, aistudio.google.com/apikey):
         </p>
         <label className="tik-field" style={{ marginTop: 10 }}>
           <span>מפתח Gemini API</span>
@@ -1002,7 +1031,7 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
       // Auto-read the first passport/visa/permit image right away (if a key is
       // set), filling only empty fields so nothing typed is overwritten.
       const img = picked.find((f) => f.type?.startsWith('image/'));
-      if (img && ['passport', 'visa', 'permit'].includes(uploadCat) && getGeminiKey()) {
+      if (img && ['passport', 'visa', 'permit'].includes(uploadCat) && hasAI()) {
         setFlash('✨ קורא את המסמך…');
         try {
           const { patch } = await extractDocument(img, uploadCat);
@@ -1027,8 +1056,8 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
   }
 
   async function extractFrom(file) {
-    if (!getGeminiKey()) {
-      alert('כדי לקרוא מסמכים אוטומטית צריך מפתח Gemini. פותח את ההגדרות…');
+    if (!hasAI()) {
+      alert('כדי לקרוא מסמכים אוטומטית צריך מפתח AI (Groq או Gemini). פותח את ההגדרות…');
       setShowSettings(true);
       return;
     }
@@ -1472,7 +1501,7 @@ function FamilyEditor({ familyId, onBack, onDeleted }) {
 
       // Auto-read the first ID/permit/insurance image (fills only empty fields).
       const img = picked.find((f) => f.type?.startsWith('image/'));
-      if (img && ['id', 'permit', 'insurance'].includes(uploadCat) && getGeminiKey()) {
+      if (img && ['id', 'permit', 'insurance'].includes(uploadCat) && hasAI()) {
         setFlash('✨ קורא את המסמך…');
         try {
           const { patch, rawText: rt } = await extractFamilyDocument(img, uploadCat);
@@ -1496,7 +1525,7 @@ function FamilyEditor({ familyId, onBack, onDeleted }) {
   }
 
   async function extractFromFamily(file) {
-    if (!getGeminiKey()) { alert('כדי לקרוא מסמכים אוטומטית צריך מפתח Gemini (⚙ הגדרות).'); return; }
+    if (!hasAI()) { alert('כדי לקרוא מסמכים אוטומטית צריך מפתח AI — Groq או Gemini (⚙ הגדרות).'); return; }
     setExtractingId(file.id);
     try {
       const { patch, rawText: rt } = await extractFamilyDocument(file.blob, file.category);
