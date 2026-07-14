@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import SignFlow from './SignFlow.jsx';
 import LangToggle from './LangToggle.jsx';
 import { api } from '../lib/api.js';
-import { notify, bytesToBase64, getIp } from '../lib/notify.js';
+import { notify, getIp } from '../lib/notify.js';
+import { signedPublicUrl } from '../lib/config.js';
 import { renderPdfPages, buildSignedPdf } from '../lib/pdfUtils.js';
 import { normalizeSigners } from '../lib/fields.js';
 import { useT } from '../lib/i18n.js';
@@ -71,7 +72,7 @@ export default function FormSignerView({ id, brandIcon = '✒️', brandLabel, o
       const list = (base.list && base.list.length ? base.list : SIGNERS).map((s, i) =>
         i === 0 ? { ...s, signed: true, signedAt: new Date().toISOString(), ip, signedName: signerName || '' } : s,
       );
-      await api.submitForm(template, { fields: filled, signedPdfBytes: bytes, signers: { ...base, list } });
+      const { id: submissionId } = await api.submitForm(template, { fields: filled, signedPdfBytes: bytes, signers: { ...base, list } });
       setSignedBytes(bytes);
       setStatus('done');
       if (template.webhook_url && template.owner_email) {
@@ -79,12 +80,11 @@ export default function FormSignerView({ id, brandIcon = '✒️', brandLabel, o
           type: 'completed',
           to: template.owner_email,
           title,
-          link: location.href,
           signerName: signerName || '',
           fileName: `${title}-signed.pdf`,
-          fileBase64: bytesToBase64(bytes),
+          fileUrl: signedPublicUrl(submissionId),
           subject: `מסמך נחתם: ${title}`,
-          message: `המסמך "${title}" נחתם על ידי ${signerName || 'החותם'}. הקובץ החתום מצורף למייל זה.`,
+          message: `המסמך "${title}" נחתם על ידי ${signerName || 'החותם'}. קישור להורדת הקובץ החתום:`,
         });
       }
     } catch (e) {

@@ -14,18 +14,21 @@ export function saveSettings(s) {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
 }
 
-// POST a JSON payload to the configured Make webhook. Best-effort: never throws,
-// so a missing/broken webhook can't block the signing flow.
+// Send the notification as a GET with the data in the query string.
+// Why GET and not POST: Google Apps Script web apps 302-redirect requests, and
+// browsers downgrade a redirected POST to GET and DROP the body — so a browser
+// POST never reaches doPost. A GET survives the redirect and reliably reaches
+// doGet. The signed PDF is passed as a public download link (fileUrl) instead of
+// a base64 attachment (which is too large for a URL). Best-effort: never throws.
 export async function notify(webhook, payload) {
   if (!webhook) return false;
   try {
-    await fetch(webhook, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      // Make webhooks are cross-origin; we don't need to read the response.
-      mode: 'no-cors',
+    const params = new URLSearchParams({ notify: '1' });
+    ['type', 'to', 'title', 'subject', 'message', 'link', 'signerName', 'fileUrl', 'fileName'].forEach((k) => {
+      if (payload[k] != null && payload[k] !== '') params.set(k, String(payload[k]));
     });
+    const sep = webhook.includes('?') ? '&' : '?';
+    await fetch(webhook + sep + params.toString(), { method: 'GET', mode: 'no-cors' });
     return true;
   } catch (e) {
     console.warn('notify failed', e);

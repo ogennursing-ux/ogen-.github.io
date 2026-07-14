@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import SignFlow from './SignFlow.jsx';
 import LangToggle from './LangToggle.jsx';
 import { api } from '../lib/api.js';
-import { notify, bytesToBase64, getIp } from '../lib/notify.js';
+import { notify, getIp } from '../lib/notify.js';
+import { signedPublicUrl } from '../lib/config.js';
 import { renderPdfPages, buildSignedPdf } from '../lib/pdfUtils.js';
 import { useT } from '../lib/i18n.js';
 
@@ -93,12 +94,11 @@ export default function SignerView({ id }) {
             type: 'completed',
             to: req.owner_email,
             title,
-            link: location.href,
             signerName: names,
             fileName: `${title}-signed.pdf`,
-            fileBase64: bytesToBase64(bytes),
+            fileUrl: signedPublicUrl(id),
             subject: `מסמך נחתם: ${title}`,
-            message: `המסמך "${title}" נחתם על ידי ${names || 'החותם'}. הקובץ החתום מצורף למייל זה.`,
+            message: `המסמך "${title}" נחתם על ידי ${names || 'החותם'}. קישור להורדת הקובץ החתום:`,
           });
         }
       } else {

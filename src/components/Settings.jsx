@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getSettings, saveSettings, notify, bytesToBase64 } from '../lib/notify.js';
+import { getSettings, saveSettings, notify } from '../lib/notify.js';
 import { useT } from '../lib/i18n.js';
 
 export default function Settings({ onClose }) {
@@ -25,18 +25,12 @@ export default function Settings({ onClose }) {
     setTesting(true);
     setTestMsg(t('שולח…'));
     try {
-      const { PDFDocument } = await import('pdf-lib');
-      const doc = await PDFDocument.create();
-      doc.addPage([320, 200]);
-      const bytes = await doc.save();
       await notify(webhook.trim(), {
         type: 'test',
         to: ownerEmail.trim(),
         title: 'בדיקה',
         subject: 'בדיקת מייל מהאפליקציה — עוגן',
-        message: 'זהו מייל בדיקה מהאפליקציה. אם הגיע (עם הקובץ המצורף) — כל מסלול השליחה עובד ✅',
-        fileName: 'test.pdf',
-        fileBase64: bytesToBase64(bytes),
+        message: 'זהו מייל בדיקה מהאפליקציה. אם קיבלת אותו — שליחת המיילים מחוברת ועובדת ✅',
       });
       setTestMsg(t('נשלח! בדוק/י את המייל שלך — כולל תיקיית ספאם. לא הגיע? כתוב/י לי.'));
     } catch (e) {
