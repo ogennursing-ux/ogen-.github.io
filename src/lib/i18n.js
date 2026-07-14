@@ -108,6 +108,10 @@ const EN = {
   'כתובת ה-Webhook של Make': 'Make webhook URL',
   'כתובת שירות שליחת המייל (Make / Google Apps Script)':
     'Email sending-service URL (Make / Google Apps Script)',
+  'שלח מייל בדיקה': 'Send test email',
+  'מלא/י קודם מייל וכתובת שירות.': 'Fill in email and service URL first.',
+  'נשלח! בדוק/י את המייל שלך — כולל תיקיית ספאם. לא הגיע? כתוב/י לי.':
+    'Sent! Check your email — including the spam folder. Not there? Tell me.',
   שמור: 'Save',
 
   // signature pad
