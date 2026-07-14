@@ -102,8 +102,12 @@ const EN = {
   הגדרות: 'Settings',
   'להפעלת שליחה אוטומטית במייל (קישור לחותם + המסמך החתום אליך) — חבר webhook של Make.':
     'To enable automatic emails (link to the signer + the signed document to you) — connect a Make webhook.',
+  'בכל חתימה יישלח אליך מייל עם המסמך החתום המצורף (וכשיש שני חותמים — גם התראה אחרי החתימה הראשונה). כדי להפעיל: הזן את המייל שלך וכתובת שירות השליחה (Make או Google Apps Script).':
+    'On every signature you get an email with the signed document attached (and with two signers — also an alert after the first signature). To enable: enter your email and a sending-service URL (Make or Google Apps Script).',
   'המייל שלך (לקבלת מסמכים חתומים)': 'Your email (to receive signed documents)',
   'כתובת ה-Webhook של Make': 'Make webhook URL',
+  'כתובת שירות שליחת המייל (Make / Google Apps Script)':
+    'Email sending-service URL (Make / Google Apps Script)',
   שמור: 'Save',
 
   // signature pad

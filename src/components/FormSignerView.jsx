@@ -80,8 +80,11 @@ export default function FormSignerView({ id, brandIcon = '✒️', brandLabel, o
           to: template.owner_email,
           title,
           link: location.href,
+          signerName: signerName || '',
           fileName: `${title}-signed.pdf`,
           fileBase64: bytesToBase64(bytes),
+          subject: `מסמך נחתם: ${title}`,
+          message: `המסמך "${title}" נחתם על ידי ${signerName || 'החותם'}. הקובץ החתום מצורף למייל זה.`,
         });
       }
     } catch (e) {

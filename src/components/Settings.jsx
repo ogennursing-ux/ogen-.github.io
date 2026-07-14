@@ -21,7 +21,7 @@ export default function Settings({ onClose }) {
           <button className="icon-btn" onClick={onClose} aria-label="close">✕</button>
         </div>
         <p className="sign-hint">
-          {t('להפעלת שליחה אוטומטית במייל (קישור לחותם + המסמך החתום אליך) — חבר webhook של Make.')}
+          {t('בכל חתימה יישלח אליך מייל עם המסמך החתום המצורף (וכשיש שני חותמים — גם התראה אחרי החתימה הראשונה). כדי להפעיל: הזן את המייל שלך וכתובת שירות השליחה (Make או Google Apps Script).')}
         </p>
         <label className="field-label">{t('המייל שלך (לקבלת מסמכים חתומים)')}</label>
         <input
@@ -32,12 +32,12 @@ export default function Settings({ onClose }) {
           value={ownerEmail}
           onChange={(e) => setOwnerEmail(e.target.value)}
         />
-        <label className="field-label" style={{ marginTop: 10 }}>{t('כתובת ה-Webhook של Make')}</label>
+        <label className="field-label" style={{ marginTop: 10 }}>{t('כתובת שירות שליחת המייל (Make / Google Apps Script)')}</label>
         <input
           className="text-input"
           type="url"
           dir="ltr"
-          placeholder="https://hook.eu2.make.com/..."
+          placeholder="https://script.google.com/macros/s/.../exec"
           value={webhook}
           onChange={(e) => setWebhook(e.target.value)}
         />

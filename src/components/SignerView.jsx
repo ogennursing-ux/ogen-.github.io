@@ -88,13 +88,17 @@ export default function SignerView({ id }) {
         setSignedBytes(bytes);
         setDoneKind('final');
         if (req.webhook_url && req.owner_email) {
+          const names = newList.map((s) => s.signedName || s.name).filter(Boolean).join(', ');
           notify(req.webhook_url, {
             type: 'completed',
             to: req.owner_email,
             title,
             link: location.href,
+            signerName: names,
             fileName: `${title}-signed.pdf`,
             fileBase64: bytesToBase64(bytes),
+            subject: `מסמך נחתם: ${title}`,
+            message: `המסמך "${title}" נחתם על ידי ${names || 'החותם'}. הקובץ החתום מצורף למייל זה.`,
           });
         }
       } else {
@@ -103,6 +107,21 @@ export default function SignerView({ id }) {
         const next = newList[current + 1];
         if (req.webhook_url && next?.email) {
           notify(req.webhook_url, { type: 'invite', to: next.email, title, link: location.href });
+        }
+        // Tell the owner the first signature is in (no attachment yet — the file
+        // is emailed with the attachment once the last signer completes).
+        if (req.webhook_url && req.owner_email) {
+          notify(req.webhook_url, {
+            type: 'partial',
+            to: req.owner_email,
+            title,
+            link: location.href,
+            signerName: signerName || newList[current]?.name || '',
+            signerIndex: current + 1,
+            totalSigners: newList.length,
+            subject: `חתימה ${current + 1}/${newList.length} בוצעה — ${title}`,
+            message: `חתימה ראשונה בוצעה בהצלחה על המסמך "${title}". ממתין לחתימת החותם הבא. המסמך החתום המלא יישלח אליך בסיום.`,
+          });
         }
       }
       setStatus('done');
