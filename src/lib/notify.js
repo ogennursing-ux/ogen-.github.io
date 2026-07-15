@@ -1,13 +1,30 @@
 // Owner settings (stored on the owner's device) + best-effort email
-// notifications sent through a Make.com webhook (Webhook -> Gmail).
+// notifications sent through a Google Apps Script (or Make) relay.
 const SETTINGS_KEY = 'owner_settings';
 
+// Built-in defaults so email notifications work out of the box on every device,
+// with no per-device setup. The owner can still override these in ⚙ Settings.
+const DEFAULT_OWNER_EMAIL = 'ogen.manpower@gmail.com';
+const DEFAULT_WEBHOOK =
+  'https://script.google.com/macros/s/AKfycbx80U_EeedQZRNhQ-RWv_rrgdiL3ZKs6bqysupMmqCMNRAwF4sVG-oEpeuU-C6DQNZYcQ/exec';
+
+// In local test mode (?mock=1) we do NOT apply the real defaults, so the E2E
+// suite never fires real emails to the production relay.
+const isMock =
+  typeof location !== 'undefined' && new URLSearchParams(location.search).has('mock');
+
 export function getSettings() {
+  let s = {};
   try {
-    return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
   } catch {
-    return {};
+    s = {};
   }
+  if (!isMock) {
+    if (!s.ownerEmail) s.ownerEmail = DEFAULT_OWNER_EMAIL;
+    if (!s.webhook) s.webhook = DEFAULT_WEBHOOK;
+  }
+  return s;
 }
 
 export function saveSettings(s) {
