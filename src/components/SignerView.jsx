@@ -98,7 +98,7 @@ export default function SignerView({ id }) {
             fileName: `${title}-signed.pdf`,
             fileUrl: signedPublicUrl(id),
             subject: `מסמך נחתם: ${title}`,
-            message: `המסמך "${title}" נחתם על ידי ${names || 'החותם'}. קישור להורדת הקובץ החתום:`,
+            message: `המסמך "${title}" נחתם על ידי ${names || 'החותם'}. הקובץ החתום מצורף למייל זה.`,
           });
         }
       } else {

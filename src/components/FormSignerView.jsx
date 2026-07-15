@@ -84,7 +84,7 @@ export default function FormSignerView({ id, brandIcon = '✒️', brandLabel, o
           fileName: `${title}-signed.pdf`,
           fileUrl: signedPublicUrl(submissionId),
           subject: `מסמך נחתם: ${title}`,
-          message: `המסמך "${title}" נחתם על ידי ${signerName || 'החותם'}. קישור להורדת הקובץ החתום:`,
+          message: `המסמך "${title}" נחתם על ידי ${signerName || 'החותם'}. הקובץ החתום מצורף למייל זה.`,
         });
       }
     } catch (e) {
