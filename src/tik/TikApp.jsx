@@ -33,6 +33,7 @@ import PdfPlacementEditor from './PdfPlacementEditor.jsx';
 import {
   extractDocument,
   extractFamilyDocument,
+  smartImport,
   hasAI,
   getGeminiKey,
   setGeminiKey,
@@ -668,12 +669,13 @@ function AgentInbox({ onClose, onImported }) {
   );
 }
 
-function WorkerList({ mode, onMode, onOpen, onNew, onLogout }) {
+function WorkerList({ mode, onMode, onOpen, onNew, onLogout, onOpenWorker, onOpenFamily }) {
   const [workers, setWorkers] = useState(null);
   const [q, setQ] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [showContracts, setShowContracts] = useState(false);
   const [showInbox, setShowInbox] = useState(false);
+  const [showSmart, setShowSmart] = useState(false);
   const [inboxCount, setInboxCount] = useState(0);
   useEffect(() => { countNewSubmissions().then(setInboxCount).catch(() => {}); }, [showInbox]);
 
@@ -703,11 +705,20 @@ function WorkerList({ mode, onMode, onOpen, onNew, onLogout }) {
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showContracts && <ContractsManager onClose={() => setShowContracts(false)} />}
       {showInbox && <AgentInbox onClose={() => setShowInbox(false)} onImported={() => listWorkers().then(setWorkers)} />}
+      {showSmart && (
+        <SmartImportModal
+          onClose={() => setShowSmart(false)}
+          onOpenWorker={onOpenWorker}
+          onOpenFamily={onOpenFamily}
+          onReload={reload}
+        />
+      )}
       <div className="tik-list">
         <ModeTabs mode={mode} onMode={onMode} />
         <div className="tik-list-head">
           <h2 style={{ margin: 0 }}>תיקי עובדים</h2>
           <div className="tik-head-actions">
+            <button className="btn-ghost" onClick={() => setShowSmart(true)}>🤖 ייבוא חכם</button>
             <button className="btn-ghost" onClick={() => setShowInbox(true)}>
               📥 הגשות{inboxCount ? ` (${inboxCount})` : ''}
             </button>
@@ -1296,11 +1307,209 @@ const FAMILY_SECTIONS = [
   ] },
 ];
 
-function FamilyList({ mode, onMode, onOpen, onNew, onLogout }) {
+// Flat label maps for the smart-import review screen.
+const WORKER_LABELS = { ...FIELD_LABELS, phone: 'טלפון', email: 'אימייל', insuranceExpiry: 'תוקף ביטוח' };
+const FAMILY_LABELS = FAMILY_SECTIONS.reduce((a, s) => {
+  s.fields.forEach(([k, l]) => { a[k] = l; });
+  return a;
+}, {});
+
+// One editable row on the smart-import review screen: label, value, copy button.
+function SmartRow({ label, value, onChange }) {
+  return (
+    <label className="tik-field" style={{ marginBottom: 8 }}>
+      <span>{label}</span>
+      <div className="tik-input-row">
+        <input className="text-input" value={value || ''} onChange={(e) => onChange(e.target.value)} />
+        <CopyBtn value={value} />
+      </div>
+    </label>
+  );
+}
+
+// Smart import: paste text OR upload a photo/screenshot; the AI decides what the
+// document is and splits the details between the worker (מטפל) and the
+// employer/patient (מעסיק). The user reviews, then creates linked files.
+function SmartImportModal({ onClose, onOpenWorker, onOpenFamily, onReload }) {
+  const [text, setText] = useState('');
+  const [image, setImage] = useState(null); // { file, url }
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [result, setResult] = useState(null); // { docType, rawText }
+  const [wFields, setWFields] = useState({});
+  const [pFields, setPFields] = useState({});
+  const [created, setCreated] = useState(null); // { workerId, familyId }
+  const fileRef = useRef(null);
+
+  function pickImage(file) {
+    if (!file) return;
+    setImage((prev) => { if (prev?.url) URL.revokeObjectURL(prev.url); return { file, url: URL.createObjectURL(file) }; });
+    setText('');
+  }
+  useEffect(() => () => { if (image?.url) URL.revokeObjectURL(image.url); }, [image]);
+
+  async function analyze() {
+    setErr('');
+    if (!hasAI()) { setErr('צריך מפתח AI (⚙ הגדרות) — Groq או Gemini.'); return; }
+    if (!image && !text.trim()) { setErr('הדבק טקסט או בחר תמונה קודם.'); return; }
+    setBusy(true);
+    try {
+      const r = await smartImport(image ? { blob: image.file } : { text });
+      setResult({ docType: r.docType, rawText: r.rawText });
+      setWFields(r.worker || {});
+      setPFields(r.patient || {});
+      if (!Object.keys(r.worker || {}).length && !Object.keys(r.patient || {}).length) {
+        setErr('לא זוהו פרטים. נסה תמונה ברורה יותר או הדבק טקסט מסודר.');
+      }
+    } catch (e) {
+      setErr(e?.message || 'שגיאה בקריאה.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const setW = (k, v) => setWFields((f) => ({ ...f, [k]: v }));
+  const setP = (k, v) => setPFields((f) => ({ ...f, [k]: v }));
+  const wKeys = Object.keys(wFields).filter((k) => wFields[k]);
+  const pKeys = Object.keys(pFields).filter((k) => pFields[k]);
+
+  async function create(which) {
+    setBusy(true); setErr('');
+    try {
+      let workerId = null; let familyId = null;
+      if (which !== 'family' && wKeys.length) {
+        const w = { ...emptyWorker() };
+        wKeys.forEach((k) => { w[k] = wFields[k]; });
+        const saved = await saveWorker(w);
+        workerId = saved.id;
+      }
+      if (which !== 'worker' && pKeys.length) {
+        const f = { ...emptyFamily() };
+        pKeys.forEach((k) => { f[k] = pFields[k]; });
+        if (workerId) f.caregiverWorkerId = workerId; // link the two sides
+        const saved = await saveFamily(f);
+        familyId = saved.id;
+      }
+      if (!workerId && !familyId) { setErr('אין פרטים לשמירה.'); setBusy(false); return; }
+      onReload?.();
+      setCreated({ workerId, familyId });
+    } catch (e) {
+      setErr(e?.message || 'שמירה נכשלה.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal tik-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640 }}>
+        <div className="modal-head">
+          <strong>🤖 ייבוא חכם</strong>
+          <button className="icon-btn" onClick={onClose}>✕</button>
+        </div>
+
+        {!result && (
+          <div>
+            <p className="muted small" style={{ marginTop: 0 }}>
+              העלה תמונה (דרכון / ת.ז / היתר / צילום מסך) או הדבק טקסט עם פרטים — המערכת תזהה מה זה
+              ותשייך לבד מה שייך למטפל ומה למעסיק/מטופל.
+            </p>
+            <div className="card-actions" style={{ marginTop: 6 }}>
+              <button className="btn-ghost" onClick={() => fileRef.current?.click()}>📷 בחר תמונה</button>
+              <input ref={fileRef} type="file" accept="image/*" hidden
+                onChange={(e) => pickImage(e.target.files?.[0])} />
+            </div>
+            {image && (
+              <div style={{ margin: '10px 0' }}>
+                <img src={image.url} alt="" style={{ maxWidth: '100%', maxHeight: 180, borderRadius: 8 }} />
+                <button className="btn-ghost small" onClick={() => setImage(null)} style={{ marginInlineStart: 8 }}>הסר תמונה</button>
+              </div>
+            )}
+            <p className="muted small" style={{ margin: '10px 0 4px' }}>או הדבק טקסט:</p>
+            <textarea
+              className="text-input"
+              rows={5}
+              value={text}
+              placeholder="הדבק כאן פרטים שהעתקת (שם, דרכון, ת.ז, כתובת, טלפונים…)"
+              onChange={(e) => { setText(e.target.value); if (image) setImage(null); }}
+              disabled={!!image}
+              style={{ resize: 'vertical' }}
+            />
+            {err && <p className="tik-error small">{err}</p>}
+            <div className="card-actions" style={{ marginTop: 12 }}>
+              <button className="btn-primary" onClick={analyze} disabled={busy}>{busy ? 'קורא…' : '✨ נתח פרטים'}</button>
+              <button className="btn-ghost" onClick={onClose}>ביטול</button>
+            </div>
+          </div>
+        )}
+
+        {result && !created && (
+          <div>
+            <p className="muted small" style={{ marginTop: 0 }}>
+              זוהה: <strong>{result.docType || 'מסמך'}</strong>. בדוק/תקן ואז צור תיקים.
+            </p>
+            <div className="tik-smart-cols">
+              <div className="card" style={{ padding: 12 }}>
+                <h3 style={{ margin: '0 0 8px', fontSize: 15 }}>🧑‍⚕️ מטפל (עובד){wKeys.length ? '' : ' — לא זוהה'}</h3>
+                {wKeys.map((k) => (
+                  <SmartRow key={k} label={WORKER_LABELS[k] || k} value={wFields[k]} onChange={(v) => setW(k, v)} />
+                ))}
+              </div>
+              <div className="card" style={{ padding: 12 }}>
+                <h3 style={{ margin: '0 0 8px', fontSize: 15 }}>🏠 מעסיק / מטופל (משפחה){pKeys.length ? '' : ' — לא זוהה'}</h3>
+                {pKeys.map((k) => (
+                  <SmartRow key={k} label={FAMILY_LABELS[k] || k} value={pFields[k]} onChange={(v) => setP(k, v)} />
+                ))}
+              </div>
+            </div>
+            {result.rawText && (
+              <details style={{ marginTop: 10 }}>
+                <summary className="muted small">כל הטקסט שזוהה (להעתקה ידנית)</summary>
+                <div className="tik-input-row" style={{ marginTop: 6 }}>
+                  <textarea className="text-input" rows={4} readOnly value={result.rawText} style={{ resize: 'vertical' }} />
+                  <CopyBtn value={result.rawText} />
+                </div>
+              </details>
+            )}
+            {err && <p className="tik-error small">{err}</p>}
+            <div className="card-actions" style={{ marginTop: 12, flexWrap: 'wrap' }}>
+              {wKeys.length > 0 && pKeys.length > 0 && (
+                <button className="btn-primary" onClick={() => create('both')} disabled={busy}>
+                  ✅ צור עובד + משפחה מקושרים
+                </button>
+              )}
+              {wKeys.length > 0 && (
+                <button className="btn-ghost" onClick={() => create('worker')} disabled={busy}>צור תיק עובד</button>
+              )}
+              {pKeys.length > 0 && (
+                <button className="btn-ghost" onClick={() => create('family')} disabled={busy}>צור תיק משפחה</button>
+              )}
+              <button className="btn-ghost" onClick={() => { setResult(null); setErr(''); }} disabled={busy}>← חזרה</button>
+            </div>
+          </div>
+        )}
+
+        {created && (
+          <div>
+            <p style={{ marginTop: 0 }}>✅ נוצר בהצלחה{created.workerId && created.familyId ? ' — העובד והמשפחה מקושרים' : ''}.</p>
+            <div className="card-actions" style={{ flexWrap: 'wrap' }}>
+              {created.workerId && <button className="btn-primary" onClick={() => onOpenWorker(created.workerId)}>פתח תיק עובד</button>}
+              {created.familyId && <button className="btn-primary" onClick={() => onOpenFamily(created.familyId)}>פתח תיק משפחה</button>}
+              <button className="btn-ghost" onClick={onClose}>סגור</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FamilyList({ mode, onMode, onOpen, onNew, onLogout, onOpenWorker, onOpenFamily }) {
   const [items, setItems] = useState(null);
   const [q, setQ] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [showInbox, setShowInbox] = useState(false);
+  const [showSmart, setShowSmart] = useState(false);
   const [inboxCount, setInboxCount] = useState(0);
 
   const reloadFamilies = () => listFamilies().then(setItems);
@@ -1322,11 +1531,20 @@ function FamilyList({ mode, onMode, onOpen, onNew, onLogout }) {
       <Header onLogout={onLogout} onSettings={() => setShowSettings(true)} />
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showInbox && <AgentInbox onClose={() => setShowInbox(false)} onImported={reloadFamilies} />}
+      {showSmart && (
+        <SmartImportModal
+          onClose={() => setShowSmart(false)}
+          onOpenWorker={onOpenWorker}
+          onOpenFamily={onOpenFamily}
+          onReload={reloadFamilies}
+        />
+      )}
       <div className="tik-list">
         <ModeTabs mode={mode} onMode={onMode} />
         <div className="tik-list-head">
           <h2 style={{ margin: 0 }}>תיקי משפחות</h2>
           <div className="tik-head-actions">
+            <button className="btn-ghost" onClick={() => setShowSmart(true)}>🤖 ייבוא חכם</button>
             <button className="btn-ghost" onClick={() => setShowInbox(true)}>📥 הגשות{inboxCount ? ` (${inboxCount})` : ''}</button>
             <button className="btn-primary" onClick={onNew}>➕ משפחה חדשה</button>
           </div>
@@ -1651,14 +1869,19 @@ export default function TikApp() {
     );
   }
 
+  const openWorker = (id) => setView({ screen: 'editWorker', id });
+  const openFamily = (id) => setView({ screen: 'editFamily', id });
+
   if (mode === 'families') {
     return (
       <FamilyList
         mode={mode}
         onMode={setMode}
-        onOpen={(id) => setView({ screen: 'editFamily', id })}
+        onOpen={openFamily}
         onNew={() => setView({ screen: 'editFamily', id: null })}
         onLogout={logout}
+        onOpenWorker={openWorker}
+        onOpenFamily={openFamily}
       />
     );
   }
@@ -1667,9 +1890,11 @@ export default function TikApp() {
     <WorkerList
       mode={mode}
       onMode={setMode}
-      onOpen={(id) => setView({ screen: 'editWorker', id })}
+      onOpen={openWorker}
       onNew={() => setView({ screen: 'editWorker', id: null })}
       onLogout={logout}
+      onOpenWorker={openWorker}
+      onOpenFamily={openFamily}
     />
   );
 }

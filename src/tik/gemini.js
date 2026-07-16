@@ -358,3 +358,98 @@ export async function extractFamilyDocument(blob, category) {
   const raw = useGroq() ? await groqVision(blob, prompt, [...FAMILY_FIELD_KEYS, 'rawText']) : await callGemini(blob, prompt, FAMILY_SCHEMA);
   return { patch: toFamilyPatch(raw), raw, rawText: raw?.rawText ? String(raw.rawText) : '' };
 }
+
+// ---- smart import: one input (photo / screenshot / free text), AI decides ----
+// what it is AND which details belong to the WORKER (foreign caregiver / מטפל)
+// and which to the EMPLOYER/PATIENT (Israeli family / מעסיק), filling both.
+
+const SMART_WORKER_KEYS = [
+  'nameHe', 'nameEn', 'passportNo', 'nationality', 'dob', 'gender', 'placeOfBirth',
+  'fatherName', 'motherName', 'maritalStatus', 'phone', 'email',
+  'passportIssueDate', 'issuePlace', 'passportExpiry', 'visaExpiry', 'permitExpiry', 'insuranceExpiry',
+];
+const SMART_PATIENT_KEYS = [
+  'fullName', 'idNumber', 'dob', 'gender', 'maritalStatus', 'city', 'street', 'zip',
+  'phone', 'mobile', 'email', 'contactName', 'contactRelation', 'contactMobile', 'contactId',
+  'permitExpiry', 'insuranceExpiry',
+];
+const SMART_DATE_KEYS = new Set([
+  'dob', 'passportIssueDate', 'passportExpiry', 'visaExpiry', 'permitExpiry', 'insuranceExpiry',
+]);
+
+function smartPatch(obj, keys) {
+  const patch = {};
+  for (const k of keys) {
+    let v = obj && obj[k] != null ? String(obj[k]).trim() : '';
+    if (!v) continue;
+    if (SMART_DATE_KEYS.has(k)) v = normalizeDate(v);
+    else if (k === 'gender') v = normalizeGender(v);
+    if (v) patch[k] = v;
+  }
+  return patch;
+}
+
+const objProps = (keys) => keys.reduce((a, k) => { a[k] = { type: 'string' }; return a; }, {});
+const SMART_SCHEMA = {
+  type: 'object',
+  properties: {
+    docType: { type: 'string' },
+    worker: { type: 'object', properties: objProps(SMART_WORKER_KEYS) },
+    patient: { type: 'object', properties: objProps(SMART_PATIENT_KEYS) },
+    rawText: { type: 'string' },
+  },
+};
+
+const SMART_INSTRUCTION =
+  'You are importing details for an Israeli home-care placement. The input may be a PHOTO ' +
+  '(passport, Israeli ID / תעודת זהות, work permit / היתר העסקה, insurance) OR a SCREENSHOT of a form ' +
+  'OR free TEXT the user copied — and it may be printed or HANDWRITTEN. There are TWO people and you must ' +
+  'decide, for EACH detail, which one it belongs to:\n' +
+  '- "worker" = the FOREIGN CARE WORKER (מטפל/ת). Cues: a Latin/foreign name, passport number, ' +
+  'foreign nationality (Philippines, India, Nepal, Sri Lanka, Moldova, …), visa, work permit.\n' +
+  '- "patient" = the ISRAELI EMPLOYER / care recipient & family (מעסיק / מטופל). Cues: Israeli ID number ' +
+  '(ת.ז, ~9 digits), a Hebrew name, an Israeli address/city, a contact person.\n' +
+  'Return ONLY a JSON object of this exact shape:\n' +
+  '{ "docType": "<short Hebrew label of the input, e.g. דרכון / תעודת זהות / היתר העסקה / ביטוח / צילום מסך / טקסט>",\n' +
+  '  "worker": { ' + SMART_WORKER_KEYS.join(', ') + ' },\n' +
+  '  "patient": { ' + SMART_PATIENT_KEYS.join(', ') + ' },\n' +
+  '  "rawText": "every line of text you can read, exactly as written" }\n' +
+  "Dates as YYYY-MM-DD. gender is 'ז' (male) or 'נ' (female). Use an empty string for any field you cannot see. " +
+  'Do NOT invent values. If a detail is ambiguous, place it on the side it best fits, and always fill rawText.';
+
+async function groqVisionRaw(blob, prompt) {
+  const b64 = await blobToBase64(blob);
+  const messages = [{ role: 'user', content: [
+    { type: 'text', text: prompt },
+    { type: 'image_url', image_url: { url: `data:${blob.type};base64,${b64}` } },
+  ] }];
+  return callGroq(messages, getGroqVisionModel());
+}
+const groqTextRaw = (prompt) => callGroq([{ role: 'user', content: prompt }], getGroqTextModel());
+
+/**
+ * Smart import from a photo/screenshot OR pasted text.
+ * @param {{blob?: Blob, text?: string}} input
+ * @returns {Promise<{docType:string, worker:object, patient:object, rawText:string}>}
+ */
+export async function smartImport({ blob, text } = {}) {
+  if (!hasAI()) throw new Error('לא הוגדר מפתח AI. פתח/י ⚙ הגדרות והזן/י מפתח Groq או Gemini.');
+  let raw;
+  if (blob) {
+    if (!blob.type?.startsWith('image/')) {
+      throw new Error('קריאת תמונה עובדת על JPG/PNG. ל-PDF צלם/י או ייצא/י כתמונה, או הדבק/י טקסט.');
+    }
+    raw = useGroq() ? await groqVisionRaw(blob, SMART_INSTRUCTION) : await callGemini(blob, SMART_INSTRUCTION, SMART_SCHEMA);
+  } else {
+    const t = String(text || '').trim();
+    if (!t) throw new Error('אין קלט — הדבק/י טקסט או בחר/י תמונה.');
+    const prompt = SMART_INSTRUCTION + '\n\nINPUT TEXT:\n"""' + t + '"""';
+    raw = useGroq() ? await groqTextRaw(prompt) : await callGeminiText(prompt, SMART_SCHEMA);
+  }
+  return {
+    docType: raw?.docType ? String(raw.docType).trim() : '',
+    worker: smartPatch(raw?.worker, SMART_WORKER_KEYS),
+    patient: smartPatch(raw?.patient, SMART_PATIENT_KEYS),
+    rawText: raw?.rawText ? String(raw.rawText) : '',
+  };
+}

@@ -1869,6 +1869,10 @@ textarea.gov-input { resize: vertical; }
   border-radius: 10px; padding: 9px 12px; font-size: 13px; margin-bottom: 10px;
 }
 .tik-hr { border: none; border-top: 1px solid var(--line); margin: 16px 0 4px; }
+.tik-error { color: #b42318; font-size: 13px; margin: 8px 0 0; }
+.tik-smart-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+@media (max-width: 560px) { .tik-smart-cols { grid-template-columns: 1fr; } }
+.btn-ghost.small { padding: 4px 10px; font-size: 12px; }
 
 /* contract templates (tik module) */
 .tik-head-actions { display: flex; gap: 8px; align-items: center; }
