@@ -59,6 +59,11 @@ export const supabaseApi = {
   async deleteRequest(id) {
     try {
       await sb.storage.from(BUCKET).remove([`originals/${id}.pdf`, `signed/${id}.pdf`]);
+      // Also remove any uploaded split parts (signed/<id>-part<n>.pdf).
+      const { data: parts } = await sb.storage.from(BUCKET).list('signed', { search: `${id}-part` });
+      if (parts?.length) {
+        await sb.storage.from(BUCKET).remove(parts.map((f) => `signed/${f.name}`));
+      }
     } catch {
       /* ignore */
     }
@@ -69,6 +74,12 @@ export const supabaseApi = {
   async advance(id, { fields, signers }) {
     const { error } = await sb.from('sign_requests').update({ fields, signers }).eq('id', id);
     if (error) throw new Error('שמירת החתימה נכשלה: ' + error.message);
+  },
+
+  // Upload one split part of a signed document (1-based index), so the email
+  // relay can fetch and attach each part separately.
+  async uploadSignedPart(id, index, bytes) {
+    await uploadPdf(`signed/${id}-part${index}.pdf`, bytes);
   },
 
   async submitSigned(id, { fields, signers, signedPdfBytes }) {
