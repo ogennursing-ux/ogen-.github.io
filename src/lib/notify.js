@@ -58,7 +58,7 @@ export async function notify(webhook, payload) {
   if (!webhook) return false;
   try {
     const params = new URLSearchParams({ notify: '1' });
-    ['type', 'to', 'title', 'subject', 'message', 'link', 'signerName', 'fileUrl', 'fileName'].forEach((k) => {
+    ['type', 'to', 'title', 'subject', 'message', 'link', 'signerName', 'fileUrl', 'fileName', 'fileUrls', 'fileNames'].forEach((k) => {
       if (payload[k] != null && payload[k] !== '') params.set(k, String(payload[k]));
     });
     const sep = webhook.includes('?') ? '&' : '?';

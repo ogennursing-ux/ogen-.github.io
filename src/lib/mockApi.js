@@ -81,6 +81,9 @@ export const mockApi = {
     save(REQ_KEY, all);
   },
 
+  // Mock storage keeps no files — split-part uploads are a no-op.
+  async uploadSignedPart() {},
+
   async submitSigned(id, { fields, signers, signedPdfBytes }) {
     const all = load(REQ_KEY);
     if (!all[id]) throw new Error('הבקשה לא נמצאה');

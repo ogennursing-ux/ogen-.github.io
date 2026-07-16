@@ -76,25 +76,31 @@ export function parseGroups(str) {
     .filter(Boolean);
 }
 
-// Split a signed PDF into one file per group and download each separately.
-// Returns the number of files produced (0 if no valid group matched).
-export async function downloadByGroups(bytes, name, groups) {
+// Split a PDF into one part per page-range group. Returns [{label, bytes}]
+// (groups with no valid pages are skipped).
+export async function splitByGroups(bytes, groups) {
   const { PDFDocument } = await import('pdf-lib');
   const src = await PDFDocument.load(bytes);
   const total = src.getPageCount();
-  const base = (name || 'document').replace(/\.pdf$/i, '');
-  let made = 0;
+  const parts = [];
   for (const g of groups) {
     const indices = parseRanges(g, total);
     if (!indices.length) continue;
     const out = await PDFDocument.create();
     const copied = await out.copyPages(src, indices);
     copied.forEach((p) => out.addPage(p));
-    const label = g.replace(/\s+/g, '');
-    downloadBlob(await out.save(), 'application/pdf', `${base}-${label}.pdf`);
-    made += 1;
+    parts.push({ label: g.replace(/\s+/g, ''), bytes: await out.save() });
   }
-  return made;
+  return parts;
+}
+
+// Split a signed PDF into one file per group and download each separately.
+// Returns the number of files produced (0 if no valid group matched).
+export async function downloadByGroups(bytes, name, groups) {
+  const base = (name || 'document').replace(/\.pdf$/i, '');
+  const parts = await splitByGroups(bytes, groups);
+  for (const p of parts) downloadBlob(p.bytes, 'application/pdf', `${base}-${p.label}.pdf`);
+  return parts.length;
 }
 
 // Build a UTF-8 CSV (with BOM so Hebrew opens correctly in Excel).

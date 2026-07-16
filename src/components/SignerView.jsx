@@ -3,7 +3,8 @@ import SignFlow from './SignFlow.jsx';
 import LangToggle from './LangToggle.jsx';
 import { api } from '../lib/api.js';
 import { notify, getIp } from '../lib/notify.js';
-import { signedPublicUrl } from '../lib/config.js';
+import { signedPublicUrl, signedPartPublicUrl } from '../lib/config.js';
+import { parseGroups, splitByGroups } from '../lib/exporters.js';
 import { renderPdfPages, buildSignedPdf } from '../lib/pdfUtils.js';
 import { useT } from '../lib/i18n.js';
 
@@ -90,15 +91,38 @@ export default function SignerView({ id }) {
         setDoneKind('final');
         if (req.webhook_url && req.owner_email) {
           const names = newList.map((s) => s.signedName || s.name).filter(Boolean).join(', ');
+          // If the document was set up with a download-split preset, the email
+          // mirrors the download: upload each page-range part and have the
+          // relay attach the parts instead of the single full file. Any
+          // failure falls back to the full file — the email must always go out.
+          let files = null;
+          const groups = parseGroups(base.downloadGroups);
+          if (groups.length) {
+            try {
+              const parts = await splitByGroups(bytes.slice(0), groups);
+              if (parts.length) {
+                await Promise.all(parts.map((p, i) => api.uploadSignedPart(id, i + 1, p.bytes)));
+                files = {
+                  fileUrls: parts.map((p, i) => signedPartPublicUrl(id, i + 1)).join('|'),
+                  fileNames: parts
+                    .map((p) => `${title}-${p.label}.pdf`.replace(/\|/g, '-'))
+                    .join('|'),
+                };
+              }
+            } catch (e) {
+              console.warn('split for email failed, sending full file', e);
+            }
+          }
           notify(req.webhook_url, {
             type: 'completed',
             to: req.owner_email,
             title,
             signerName: names,
-            fileName: `${title}-signed.pdf`,
-            fileUrl: signedPublicUrl(id),
+            ...(files || { fileName: `${title}-signed.pdf`, fileUrl: signedPublicUrl(id) }),
             subject: `מסמך נחתם: ${title}`,
-            message: `המסמך "${title}" נחתם על ידי ${names || 'החותם'}. הקובץ החתום מצורף למייל זה.`,
+            message: files
+              ? `המסמך "${title}" נחתם על ידי ${names || 'החותם'}. הקבצים החתומים (מפוצלים לפי דפים) מצורפים למייל זה.`
+              : `המסמך "${title}" נחתם על ידי ${names || 'החותם'}. הקובץ החתום מצורף למייל זה.`,
           });
         }
       } else {

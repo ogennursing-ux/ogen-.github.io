@@ -14,3 +14,8 @@ export const isConfigured = !!SUPABASE_URL && !!SUPABASE_ANON_KEY;
 export function signedPublicUrl(id) {
   return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/signed/${id}.pdf`;
 }
+
+// Public URL of one split part of a signed document (1-based index).
+export function signedPartPublicUrl(id, index) {
+  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/signed/${id}-part${index}.pdf`;
+}
