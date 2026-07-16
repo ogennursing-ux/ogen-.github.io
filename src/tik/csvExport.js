@@ -2,7 +2,7 @@
 // A UTF-8 BOM is prepended so Excel detects the encoding and shows Hebrew
 // correctly instead of gibberish.
 
-const WORKER_COLS = [
+export const WORKER_COLS = [
   ['nameHe', 'שם בעברית'], ['nameEn', 'שם באנגלית'], ['passportNo', 'מספר דרכון'],
   ['nationality', 'אזרחות'], ['dob', 'תאריך לידה'], ['gender', 'מין'],
   ['phone', 'טלפון'], ['email', 'אימייל'], ['passportExpiry', 'תוקף דרכון'],
@@ -11,7 +11,7 @@ const WORKER_COLS = [
   ['startDate', 'תחילת העסקה'], ['salary', 'שכר'], ['notes', 'הערות'],
 ];
 
-const FAMILY_COLS = [
+export const FAMILY_COLS = [
   ['fullName', 'שם מלא'], ['idNumber', 'ת.זהות'], ['dob', 'תאריך לידה'], ['gender', 'מין'],
   ['city', 'יישוב'], ['street', 'רחוב'], ['phone', 'טלפון'], ['mobile', 'נייד'], ['email', 'אימייל'],
   ['contactName', 'איש קשר'], ['contactMobile', 'נייד איש קשר'], ['contactRelation', 'קרבה'],

@@ -31,6 +31,10 @@ import { createSigningRequest, getSigningUrl, setSigningUrl } from './signingBri
 import { listNewSubmissions, countNewSubmissions, setSubmissionStatus, AGENT_ENDPOINT, AGENT_ANON_KEY } from './agentInbox.js';
 import { collectRecords, recordsSignature, backupNow, restoreFromCloud, getLastSync } from './cloudBackup.js';
 import { exportWorkersCsv, exportFamiliesCsv } from './csvExport.js';
+import {
+  workerToText, familyToText, WORKER_COLS, FAMILY_COLS,
+  findWorkerDuplicate, findFamilyDuplicate, whatsappLink, printSummary,
+} from './intakeUtils.js';
 import PdfPlacementEditor from './PdfPlacementEditor.jsx';
 import {
   extractDocument,
@@ -117,22 +121,6 @@ function DocChecklist({ files, required }) {
   );
 }
 
-// Days until an ISO date (Infinity when empty/invalid).
-function daysUntil(iso) {
-  if (!iso) return Infinity;
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return Infinity;
-  return Math.ceil((t - Date.now()) / 86400000);
-}
-const EXPIRY_FIELDS = ['passportExpiry', 'visaExpiry', 'permitExpiry', 'insuranceExpiry'];
-function soonCount(list) {
-  let n = 0;
-  for (const r of list || []) {
-    const min = Math.min(...EXPIRY_FIELDS.map((k) => daysUntil(r[k])));
-    if (min <= 60) n += 1;
-  }
-  return n;
-}
 function fmtSync(iso) {
   if (!iso) return 'עדיין לא גובה';
   try { return new Date(iso).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); }
@@ -149,7 +137,6 @@ function DashboardCard({ onDataChanged }) {
   const [msg, setMsg] = useState('');
   const load = () => { listWorkers().then(setWorkers); listFamilies().then(setFamilies); };
   useEffect(() => { load(); }, []);
-  const soon = soonCount(workers) + soonCount(families);
 
   async function doBackup() {
     setBusy('backup'); setMsg('');
@@ -173,7 +160,6 @@ function DashboardCard({ onDataChanged }) {
       <div className="tik-dash-stats">
         <div className="tik-stat"><b>{workers.length}</b><span>עובדים</span></div>
         <div className="tik-stat"><b>{families.length}</b><span>משפחות</span></div>
-        <div className={`tik-stat${soon ? ' warn' : ''}`}><b>{soon}</b><span>לחידוש ≤60 יום</span></div>
       </div>
       <div className="tik-dash-actions">
         <button className="btn-ghost small" onClick={doBackup} disabled={busy === 'backup'}>
@@ -1000,7 +986,7 @@ function DocRow({ file, onView, onChanged, onExtract, extracting, extractCats })
   );
 }
 
-function WorkerEditor({ workerId, onBack, onDeleted }) {
+function WorkerEditor({ workerId, onBack, onDeleted, onOpenFamily }) {
   const [worker, setWorker] = useState(null);
   const [files, setFiles] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -1030,6 +1016,12 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
     }
   }, [workerId, isNew]);
 
+  // Load the family this worker is placed with (if any), for the placement card.
+  useEffect(() => {
+    if (!worker?.id) return;
+    listFamilies().then((fams) => setLinkedFamily(fams.find((f) => f.caregiverWorkerId === worker.id) || null));
+  }, [worker?.id]);
+
   if (!worker) {
     return (
       <div className="app">
@@ -1053,6 +1045,27 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
     } finally {
       setSaving(false);
     }
+  }
+
+  // Manual save — warns first if another file already uses this passport.
+  async function saveManual() {
+    if (worker.passportNo) {
+      const dup = await findWorkerDuplicate(worker.passportNo, worker.id);
+      if (dup && !confirm(`כבר קיים תיק עם דרכון ${worker.passportNo} (${dup.nameHe || dup.nameEn || 'ללא שם'}). לשמור בכל זאת?`)) return;
+    }
+    await persist();
+  }
+
+  const flashMsg = (m) => { setFlash(m); setTimeout(() => setFlash(''), 3000); };
+  async function copyAll() {
+    try { await navigator.clipboard.writeText(workerToText(worker)); flashMsg('📋 כל הפרטים הועתקו — אפשר להדביק בטיק-טק'); }
+    catch { flashMsg('ההעתקה נחסמה בדפדפן'); }
+  }
+  function shareWhatsapp() {
+    window.open(whatsappLink(worker.phone, workerToText(worker)), '_blank');
+  }
+  function printPage() {
+    printSummary('תיק עובד — ' + (worker.nameHe || worker.nameEn || ''), worker, WORKER_COLS);
   }
 
   async function onPickFiles(e) {
@@ -1180,6 +1193,32 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
         right={<button className="header-settings" onClick={onBack}>‹ חזרה לרשימה</button>}
       />
       <div className="tik-editor">
+        {/* quick actions: copy everything to Tik-Tak, share, print */}
+        <div className="tik-actionsbar">
+          <button className="btn-ghost small" onClick={copyAll}>📋 העתק הכול לטיק-טק</button>
+          <button className="btn-ghost small" onClick={shareWhatsapp}>💬 וואטסאפ</button>
+          <button className="btn-ghost small" onClick={printPage}>🖨️ דף סיכום</button>
+        </div>
+
+        {/* linked placement (worker ↔ family) */}
+        {linkedFamily && (
+          <div className="card tik-placement">
+            <div className="tik-placement-head">
+              <strong>👥 השמה מקושרת — מטופל/משפחה</strong>
+              <button className="btn-ghost small" onClick={() => onOpenFamily?.(linkedFamily.id)}>פתח תיק משפחה ›</button>
+            </div>
+            <div className="tik-placement-body muted small">
+              {[linkedFamily.fullName, linkedFamily.idNumber && 'ת.ז ' + linkedFamily.idNumber,
+                linkedFamily.city, linkedFamily.phone || linkedFamily.mobile,
+                linkedFamily.contactName && 'איש קשר: ' + linkedFamily.contactName]
+                .filter(Boolean).join('  ·  ')}
+            </div>
+            <button className="btn-primary small" onClick={openContractPicker} disabled={makingContract} style={{ marginTop: 8 }}>
+              {makingContract ? 'מפיק…' : '📄 הפק חוזה משותף (עובד + משפחה)'}
+            </button>
+          </div>
+        )}
+
         {/* renewal banner */}
         <div className={`tik-renewal ${r.eligible ? 'due' : ''}`}>
           <div>
@@ -1323,7 +1362,7 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
           <button className="btn-danger" onClick={remove}>🗑 מחק תיק</button>
           <div className="tik-foot-right">
             {savedTick && <span className="tik-saved">✓ נשמר</span>}
-            <button className="btn-primary" onClick={persist} disabled={saving}>
+            <button className="btn-primary" onClick={saveManual} disabled={saving}>
               {saving ? 'שומר…' : '💾 שמור תיק'}
             </button>
           </div>
@@ -1445,7 +1484,7 @@ function SmartRow({ label, value, onChange }) {
 // employer/patient (מעסיק). The user reviews, then creates linked files.
 function SmartImportModal({ onClose, onOpenWorker, onOpenFamily, onReload }) {
   const [text, setText] = useState('');
-  const [image, setImage] = useState(null); // { file, url }
+  const [images, setImages] = useState([]); // [{ file, url }]
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [result, setResult] = useState(null); // { docType, rawText }
@@ -1454,24 +1493,39 @@ function SmartImportModal({ onClose, onOpenWorker, onOpenFamily, onReload }) {
   const [created, setCreated] = useState(null); // { workerId, familyId }
   const fileRef = useRef(null);
 
-  function pickImage(file) {
-    if (!file) return;
-    setImage((prev) => { if (prev?.url) URL.revokeObjectURL(prev.url); return { file, url: URL.createObjectURL(file) }; });
+  function addImages(fileList) {
+    const picked = Array.from(fileList || []).filter((f) => f.type?.startsWith('image/'));
+    if (!picked.length) return;
+    setImages((prev) => [...prev, ...picked.map((f) => ({ file: f, url: URL.createObjectURL(f) }))]);
     setText('');
   }
-  useEffect(() => () => { if (image?.url) URL.revokeObjectURL(image.url); }, [image]);
+  function removeImage(i) {
+    setImages((prev) => { const u = prev[i]?.url; if (u) URL.revokeObjectURL(u); return prev.filter((_, j) => j !== i); });
+  }
+  useEffect(() => () => { images.forEach((im) => im.url && URL.revokeObjectURL(im.url)); }, [images]);
 
   async function analyze() {
     setErr('');
     if (!hasAI()) { setErr('צריך מפתח AI (⚙ הגדרות) — Groq או Gemini.'); return; }
-    if (!image && !text.trim()) { setErr('הדבק טקסט או בחר תמונה קודם.'); return; }
+    if (!images.length && !text.trim()) { setErr('הדבק טקסט או בחר תמונה קודם.'); return; }
     setBusy(true);
     try {
-      const r = await smartImport(image ? { blob: image.file } : { text });
-      setResult({ docType: r.docType, rawText: r.rawText });
-      setWFields(r.worker || {});
-      setPFields(r.patient || {});
-      if (!Object.keys(r.worker || {}).length && !Object.keys(r.patient || {}).length) {
+      // Read every image (and/or the text) and merge — first non-empty value per
+      // field wins, so a passport + an ID together fill both sides at once.
+      const parts = [];
+      for (const im of images) parts.push(await smartImport({ blob: im.file }));
+      if (!images.length && text.trim()) parts.push(await smartImport({ text }));
+      const worker = {}; const patient = {}; const docTypes = []; const raw = [];
+      for (const r of parts) {
+        for (const [k, v] of Object.entries(r.worker || {})) if (v && !worker[k]) worker[k] = v;
+        for (const [k, v] of Object.entries(r.patient || {})) if (v && !patient[k]) patient[k] = v;
+        if (r.docType) docTypes.push(r.docType);
+        if (r.rawText) raw.push(r.rawText);
+      }
+      setResult({ docType: [...new Set(docTypes)].join(' + '), rawText: raw.join('\n\n') });
+      setWFields(worker);
+      setPFields(patient);
+      if (!Object.keys(worker).length && !Object.keys(patient).length) {
         setErr('לא זוהו פרטים. נסה תמונה ברורה יותר או הדבק טקסט מסודר.');
       }
     } catch (e) {
@@ -1489,6 +1543,15 @@ function SmartImportModal({ onClose, onOpenWorker, onOpenFamily, onReload }) {
   async function create(which) {
     setBusy(true); setErr('');
     try {
+      // Warn about duplicates before creating new files.
+      if (which !== 'family' && wFields.passportNo) {
+        const dup = await findWorkerDuplicate(wFields.passportNo);
+        if (dup && !confirm(`כבר קיים תיק עובד עם דרכון ${wFields.passportNo} (${dup.nameHe || dup.nameEn || 'ללא שם'}). ליצור בכל זאת?`)) { setBusy(false); return; }
+      }
+      if (which !== 'worker' && pFields.idNumber) {
+        const dup = await findFamilyDuplicate(pFields.idNumber);
+        if (dup && !confirm(`כבר קיים תיק משפחה עם ת.ז ${pFields.idNumber} (${dup.fullName || 'ללא שם'}). ליצור בכל זאת?`)) { setBusy(false); return; }
+      }
       let workerId = null; let familyId = null;
       if (which !== 'family' && wKeys.length) {
         const w = { ...emptyWorker() };
@@ -1524,18 +1587,22 @@ function SmartImportModal({ onClose, onOpenWorker, onOpenFamily, onReload }) {
         {!result && (
           <div>
             <p className="muted small" style={{ marginTop: 0 }}>
-              העלה תמונה (דרכון / ת.ז / היתר / צילום מסך) או הדבק טקסט עם פרטים — המערכת תזהה מה זה
-              ותשייך לבד מה שייך למטפל ומה למעסיק/מטופל.
+              העלה תמונה אחת או <strong>כמה יחד</strong> (למשל דרכון + ת.ז), או צילום מסך, או הדבק טקסט —
+              המערכת תזהה מה זה ותשייך לבד מה שייך למטפל ומה למעסיק/מטופל.
             </p>
             <div className="card-actions" style={{ marginTop: 6 }}>
-              <button className="btn-ghost" onClick={() => fileRef.current?.click()}>📷 בחר תמונה</button>
-              <input ref={fileRef} type="file" accept="image/*" hidden
-                onChange={(e) => pickImage(e.target.files?.[0])} />
+              <button className="btn-ghost" onClick={() => fileRef.current?.click()}>📷 בחר תמונות</button>
+              <input ref={fileRef} type="file" accept="image/*" multiple hidden
+                onChange={(e) => { addImages(e.target.files); e.target.value = ''; }} />
             </div>
-            {image && (
-              <div style={{ margin: '10px 0' }}>
-                <img src={image.url} alt="" style={{ maxWidth: '100%', maxHeight: 180, borderRadius: 8 }} />
-                <button className="btn-ghost small" onClick={() => setImage(null)} style={{ marginInlineStart: 8 }}>הסר תמונה</button>
+            {images.length > 0 && (
+              <div className="tik-thumbs">
+                {images.map((im, i) => (
+                  <div key={i} className="tik-thumb">
+                    <img src={im.url} alt="" />
+                    <button className="tik-thumb-x" onClick={() => removeImage(i)} title="הסר">✕</button>
+                  </div>
+                ))}
               </div>
             )}
             <p className="muted small" style={{ margin: '10px 0 4px' }}>או הדבק טקסט:</p>
@@ -1544,8 +1611,8 @@ function SmartImportModal({ onClose, onOpenWorker, onOpenFamily, onReload }) {
               rows={5}
               value={text}
               placeholder="הדבק כאן פרטים שהעתקת (שם, דרכון, ת.ז, כתובת, טלפונים…)"
-              onChange={(e) => { setText(e.target.value); if (image) setImage(null); }}
-              disabled={!!image}
+              onChange={(e) => { setText(e.target.value); }}
+              disabled={images.length > 0}
               style={{ resize: 'vertical' }}
             />
             {err && <p className="tik-error small">{err}</p>}
@@ -1695,7 +1762,7 @@ function FamilyList({ mode, onMode, onOpen, onNew, onLogout, onOpenWorker, onOpe
   );
 }
 
-function FamilyEditor({ familyId, onBack, onDeleted }) {
+function FamilyEditor({ familyId, onBack, onDeleted, onOpenWorker }) {
   const [family, setFamily] = useState(null);
   const [files, setFiles] = useState([]);
   const [workers, setWorkers] = useState([]);
@@ -1726,6 +1793,12 @@ function FamilyEditor({ familyId, onBack, onDeleted }) {
     listWorkers().then(setWorkers);
   }, [familyId, isNew]);
 
+  // Keep the linked worker (current placement) loaded for the placement card.
+  useEffect(() => {
+    if (!family?.caregiverWorkerId) { setLinkedWorker(null); return; }
+    getWorker(family.caregiverWorkerId).then((w) => setLinkedWorker(w || null));
+  }, [family?.caregiverWorkerId]);
+
   if (!family) {
     return <div className="app"><Header /><p className="muted" style={{ padding: 24 }}>טוען…</p></div>;
   }
@@ -1743,6 +1816,22 @@ function FamilyEditor({ familyId, onBack, onDeleted }) {
       return saved;
     } finally { setSaving(false); }
   }
+
+  async function saveManual() {
+    if (family.idNumber) {
+      const dup = await findFamilyDuplicate(family.idNumber, family.id);
+      if (dup && !confirm(`כבר קיים תיק עם ת.ז ${family.idNumber} (${dup.fullName || 'ללא שם'}). לשמור בכל זאת?`)) return;
+    }
+    await persist();
+  }
+
+  const flashMsg = (m) => { setFlash(m); setTimeout(() => setFlash(''), 3000); };
+  async function copyAll() {
+    try { await navigator.clipboard.writeText(familyToText(family)); flashMsg('📋 כל הפרטים הועתקו — אפשר להדביק בטיק-טק'); }
+    catch { flashMsg('ההעתקה נחסמה בדפדפן'); }
+  }
+  const shareWhatsapp = () => window.open(whatsappLink(family.phone || family.mobile, familyToText(family)), '_blank');
+  const printPage = () => printSummary('תיק משפחה — ' + (family.fullName || ''), family, FAMILY_COLS);
 
   async function onPickFiles(e) {
     const picked = Array.from(e.target.files || []);
@@ -1831,6 +1920,26 @@ function FamilyEditor({ familyId, onBack, onDeleted }) {
     <div className="app">
       <Header onLogout={null} right={<button className="header-settings" onClick={onBack}>‹ חזרה לרשימה</button>} />
       <div className="tik-editor">
+        <div className="tik-actionsbar">
+          <button className="btn-ghost small" onClick={copyAll}>📋 העתק הכול לטיק-טק</button>
+          <button className="btn-ghost small" onClick={shareWhatsapp}>💬 וואטסאפ</button>
+          <button className="btn-ghost small" onClick={printPage}>🖨️ דף סיכום</button>
+        </div>
+
+        {linkedWorker && (
+          <div className="card tik-placement">
+            <div className="tik-placement-head">
+              <strong>👥 השמה מקושרת — מטפל/עובד</strong>
+              <button className="btn-ghost small" onClick={() => onOpenWorker?.(linkedWorker.id)}>פתח תיק עובד ›</button>
+            </div>
+            <div className="tik-placement-body muted small">
+              {[linkedWorker.nameHe || linkedWorker.nameEn, linkedWorker.passportNo && 'דרכון ' + linkedWorker.passportNo,
+                linkedWorker.nationality, linkedWorker.phone]
+                .filter(Boolean).join('  ·  ')}
+            </div>
+          </div>
+        )}
+
         <div className="tik-renewal">
           <div>
             <strong>📄 הפקת חוזה</strong>
@@ -1927,7 +2036,7 @@ function FamilyEditor({ familyId, onBack, onDeleted }) {
           <button className="btn-danger" onClick={remove}>🗑 מחק תיק</button>
           <div className="tik-foot-right">
             {savedTick && <span className="tik-saved">✓ נשמר</span>}
-            <button className="btn-primary" onClick={persist} disabled={saving}>{saving ? 'שומר…' : '💾 שמור תיק'}</button>
+            <button className="btn-primary" onClick={saveManual} disabled={saving}>{saving ? 'שומר…' : '💾 שמור תיק'}</button>
           </div>
         </div>
       </div>
@@ -2000,6 +2109,7 @@ export default function TikApp() {
         workerId={view.id}
         onBack={() => setView({ screen: 'list' })}
         onDeleted={() => setView({ screen: 'list' })}
+        onOpenFamily={(id) => setView({ screen: 'editFamily', id })}
       />
     );
   }
@@ -2009,6 +2119,7 @@ export default function TikApp() {
         familyId={view.id}
         onBack={() => setView({ screen: 'list' })}
         onDeleted={() => setView({ screen: 'list' })}
+        onOpenWorker={(id) => setView({ screen: 'editWorker', id })}
       />
     );
   }

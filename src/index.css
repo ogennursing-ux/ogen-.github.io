@@ -1892,6 +1892,21 @@ textarea.gov-input { resize: vertical; }
 .tik-dash-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .tik-dash-foot { margin-top: 8px; }
 
+/* editor quick-actions toolbar */
+.tik-actionsbar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+
+/* linked placement card */
+.tik-placement { padding: 12px 14px; margin-bottom: 12px; border-inline-start: 4px solid #7aa7e6; }
+.tik-placement-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tik-placement-body { margin-top: 4px; }
+
+/* smart-import thumbnails */
+.tik-thumbs { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.tik-thumb { position: relative; }
+.tik-thumb img { width: 84px; height: 84px; object-fit: cover; border-radius: 8px; border: 1.5px solid var(--line); }
+.tik-thumb-x { position: absolute; top: -6px; inset-inline-end: -6px; width: 22px; height: 22px; border-radius: 50%;
+  border: none; background: #b42318; color: #fff; cursor: pointer; font-size: 12px; line-height: 1; }
+
 /* contract templates (tik module) */
 .tik-head-actions { display: flex; gap: 8px; align-items: center; }
 .tik-ph summary { cursor: pointer; font-weight: 600; font-size: 13px; color: var(--ink); }
