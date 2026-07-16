@@ -195,6 +195,11 @@ const EN = {
   'הוחלה התבנית: {name}': 'Applied template: {name}',
   'המשך לעריכה (השדות כבר ממוקמים)': 'Continue to editor (fields already placed)',
   'פיצול הורדה (לא חובה)': 'Split download (optional)',
+  'לחץ בין הדפים כדי לחתוך לקבצים נפרדים (לא חובה)':
+    'Click between pages to cut into separate files (optional)',
+  'יפוצל ל-{n} קבצים: {parts}': 'Will split into {n} files: {parts}',
+  'לחץ כדי לחתוך כאן לקובץ נפרד': 'Click to cut here into a separate file',
+  'נקה פיצול': 'Clear split',
   'למשל: 1 ; 12-20': 'e.g. 1 ; 12-20',
 
   // all signatures + notifications
