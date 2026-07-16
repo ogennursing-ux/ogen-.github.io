@@ -520,6 +520,76 @@ button {
   font-weight: 600;
   color: var(--muted);
 }
+/* Download-split picker: numbered page chips with clickable cut gaps. */
+.split-bar {
+  flex-wrap: wrap;
+}
+.split-picker-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.split-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+}
+.sp-page {
+  min-width: 30px;
+  padding: 5px 4px;
+  text-align: center;
+  border: 1.5px solid var(--line);
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  background: #fff;
+}
+.sp-page.sp-odd {
+  background: #eef4ff;
+  border-color: #b9cdf3;
+}
+.sp-cut {
+  min-width: 22px;
+  padding: 5px 2px;
+  border: none;
+  background: none;
+  border-radius: 7px;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+}
+.sp-cut:hover {
+  background: #e8eefc;
+}
+.sp-cut.active {
+  background: #fde8e8;
+}
+.sp-summary {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.split-picker-custom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+.btn-link {
+  border: none;
+  background: none;
+  color: #2563eb;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
 .doc-name-input {
   flex: 1;
   max-width: 360px;
