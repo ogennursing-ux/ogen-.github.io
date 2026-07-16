@@ -29,6 +29,8 @@ import { mergeDocx, PLACEHOLDER_KEYS } from './contractMerge.js';
 import { buildOverlayPdf } from './contractOverlay.js';
 import { createSigningRequest, getSigningUrl, setSigningUrl } from './signingBridge.js';
 import { listNewSubmissions, countNewSubmissions, setSubmissionStatus, AGENT_ENDPOINT, AGENT_ANON_KEY } from './agentInbox.js';
+import { collectRecords, recordsSignature, backupNow, restoreFromCloud, getLastSync } from './cloudBackup.js';
+import { exportWorkersCsv, exportFamiliesCsv } from './csvExport.js';
 import PdfPlacementEditor from './PdfPlacementEditor.jsx';
 import {
   extractDocument,
@@ -92,6 +94,103 @@ const FAMILY_CATEGORIES = [
 const ALL_CATEGORIES = [...CATEGORIES, ...FAMILY_CATEGORIES];
 const catLabel = (k) => ALL_CATEGORIES.find((c) => c.key === k)?.label || 'מסמך';
 const catIcon = (k) => ALL_CATEGORIES.find((c) => c.key === k)?.icon || '📎';
+
+// Which document categories a complete file should have.
+const WORKER_REQUIRED = ['passport', 'visa', 'permit', 'insurance'];
+const FAMILY_REQUIRED = ['id', 'bituach'];
+
+// A row of ✓/✗ chips showing which required scans are present in the file.
+function DocChecklist({ files, required }) {
+  const have = new Set((files || []).map((f) => f.category));
+  const missing = required.filter((k) => !have.has(k)).length;
+  return (
+    <div className="tik-checklist" role="list">
+      <span className={`tik-chk ${missing ? 'miss-sum' : 'ok'}`}>
+        {missing ? `חסרים ${missing}` : '✓ תיק שלם'}
+      </span>
+      {required.map((k) => (
+        <span key={k} role="listitem" className={`tik-chk ${have.has(k) ? 'ok' : 'miss'}`}>
+          {have.has(k) ? '✓' : '✗'} {catIcon(k)} {catLabel(k)}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// Days until an ISO date (Infinity when empty/invalid).
+function daysUntil(iso) {
+  if (!iso) return Infinity;
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return Infinity;
+  return Math.ceil((t - Date.now()) / 86400000);
+}
+const EXPIRY_FIELDS = ['passportExpiry', 'visaExpiry', 'permitExpiry', 'insuranceExpiry'];
+function soonCount(list) {
+  let n = 0;
+  for (const r of list || []) {
+    const min = Math.min(...EXPIRY_FIELDS.map((k) => daysUntil(r[k])));
+    if (min <= 60) n += 1;
+  }
+  return n;
+}
+function fmtSync(iso) {
+  if (!iso) return 'עדיין לא גובה';
+  try { return new Date(iso).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); }
+  catch { return iso; }
+}
+
+// Compact home dashboard: counts, upcoming renewals, cloud backup status and
+// controls, and one-click Excel (CSV) export. Shown at the top of the lists.
+function DashboardCard({ onDataChanged }) {
+  const [workers, setWorkers] = useState([]);
+  const [families, setFamilies] = useState([]);
+  const [busy, setBusy] = useState('');
+  const [sync, setSync] = useState(getLastSync());
+  const [msg, setMsg] = useState('');
+  const load = () => { listWorkers().then(setWorkers); listFamilies().then(setFamilies); };
+  useEffect(() => { load(); }, []);
+  const soon = soonCount(workers) + soonCount(families);
+
+  async function doBackup() {
+    setBusy('backup'); setMsg('');
+    try { const p = await backupNow(); setSync(p.savedAt); setMsg('✓ גובה לענן'); }
+    catch (e) { setMsg(e?.message || 'הגיבוי נכשל'); }
+    finally { setBusy(''); }
+  }
+  async function doRestore() {
+    if (!confirm('לשחזר את הפרטים מהענן? רשומות קיימות עם אותו מזהה יתעדכנו.')) return;
+    setBusy('restore'); setMsg('');
+    try {
+      const r = await restoreFromCloud();
+      setMsg(r.empty ? 'אין עדיין גיבוי בענן' : `שוחזרו ${r.workers} עובדים ו-${r.families} משפחות`);
+      load(); setSync(getLastSync()); onDataChanged?.();
+    } catch (e) { setMsg(e?.message || 'השחזור נכשל'); }
+    finally { setBusy(''); }
+  }
+
+  return (
+    <div className="card tik-dash">
+      <div className="tik-dash-stats">
+        <div className="tik-stat"><b>{workers.length}</b><span>עובדים</span></div>
+        <div className="tik-stat"><b>{families.length}</b><span>משפחות</span></div>
+        <div className={`tik-stat${soon ? ' warn' : ''}`}><b>{soon}</b><span>לחידוש ≤60 יום</span></div>
+      </div>
+      <div className="tik-dash-actions">
+        <button className="btn-ghost small" onClick={doBackup} disabled={busy === 'backup'}>
+          {busy === 'backup' ? 'מגבה…' : '☁️ גבה עכשיו'}
+        </button>
+        <button className="btn-ghost small" onClick={doRestore} disabled={busy === 'restore'}>
+          {busy === 'restore' ? 'משחזר…' : '⬇️ שחזר מהענן'}
+        </button>
+        <button className="btn-ghost small" onClick={() => exportWorkersCsv(workers)} disabled={!workers.length}>📊 ייצוא עובדים</button>
+        <button className="btn-ghost small" onClick={() => exportFamiliesCsv(families)} disabled={!families.length}>📊 ייצוא משפחות</button>
+      </div>
+      <div className="tik-dash-foot muted small">
+        ☁️ גיבוי אוטומטי לענן · עדכון אחרון: {fmtSync(sync)}{msg ? ' · ' + msg : ''}
+      </div>
+    </div>
+  );
+}
 
 function fmt(iso) {
   if (!iso) return '';
@@ -715,6 +814,7 @@ function WorkerList({ mode, onMode, onOpen, onNew, onLogout, onOpenWorker, onOpe
       )}
       <div className="tik-list">
         <ModeTabs mode={mode} onMode={onMode} />
+        <DashboardCard onDataChanged={reload} />
         <div className="tik-list-head">
           <h2 style={{ margin: 0 }}>תיקי עובדים</h2>
           <div className="tik-head-actions">
@@ -916,6 +1016,7 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
   const [signLink, setSignLink] = useState(null);
   const [flash, setFlash] = useState('');
   const fileInput = useRef(null);
+  const camInput = useRef(null);
 
   const isNew = workerId == null;
 
@@ -1172,6 +1273,9 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
                 ))}
               </select>
             </label>
+            <button className="btn-ghost" disabled={busyUpload} onClick={() => camInput.current?.click()}>
+              📷 צלם
+            </button>
             <button className="btn-ghost" disabled={busyUpload} onClick={() => fileInput.current?.click()}>
               {busyUpload ? 'מעלה…' : '⬆ העלאת קובץ (תמונה / PDF)'}
             </button>
@@ -1183,7 +1287,16 @@ function WorkerEditor({ workerId, onBack, onDeleted }) {
               hidden
               onChange={onPickFiles}
             />
+            <input
+              ref={camInput}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              hidden
+              onChange={onPickFiles}
+            />
           </div>
+          <DocChecklist files={files} required={WORKER_REQUIRED} />
           <p className="muted small" style={{ marginBottom: 10 }}>
             ✨ עם מפתח Gemini (ב-⚙ הגדרות), תמונת דרכון/אשרה/היתר נקראת אוטומטית מיד עם ההעלאה וממלאת את כל השדות. אפשר גם ללחוץ «קרא ומלא» ידנית בכל עת.
           </p>
@@ -1541,6 +1654,7 @@ function FamilyList({ mode, onMode, onOpen, onNew, onLogout, onOpenWorker, onOpe
       )}
       <div className="tik-list">
         <ModeTabs mode={mode} onMode={onMode} />
+        <DashboardCard onDataChanged={reloadFamilies} />
         <div className="tik-list-head">
           <h2 style={{ margin: 0 }}>תיקי משפחות</h2>
           <div className="tik-head-actions">
@@ -1598,6 +1712,7 @@ function FamilyEditor({ familyId, onBack, onDeleted }) {
   const [flash, setFlash] = useState('');
   const [rawText, setRawText] = useState('');
   const fileInput = useRef(null);
+  const camInput = useRef(null);
   const isNew = familyId == null;
   const FAM_LABELS = {
     fullName: 'שם מלא', idNumber: 'ת.ז', dob: 'ת.לידה', gender: 'מין', city: 'יישוב',
@@ -1766,11 +1881,16 @@ function FamilyEditor({ familyId, onBack, onDeleted }) {
                 {FAMILY_CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.icon} {c.label}</option>)}
               </select>
             </label>
+            <button className="btn-ghost" disabled={busyUpload} onClick={() => camInput.current?.click()}>
+              📷 צלם
+            </button>
             <button className="btn-ghost" disabled={busyUpload} onClick={() => fileInput.current?.click()}>
               {busyUpload ? 'מעלה…' : '⬆ העלאת קובץ (תמונה / PDF)'}
             </button>
             <input ref={fileInput} type="file" accept="image/*,application/pdf" multiple hidden onChange={onPickFiles} />
+            <input ref={camInput} type="file" accept="image/*" capture="environment" hidden onChange={onPickFiles} />
           </div>
+          <DocChecklist files={files} required={FAMILY_REQUIRED} />
           <p className="muted small" style={{ marginBottom: 10 }}>
             ✨ עם מפתח Gemini, תמונת ת.ז / היתר / ביטוח נקראת אוטומטית (גם בכתב יד). הטקסט המזוהה יוצג למטה כדי שתוכל להעתיק מילים ולמקם ידנית.
           </p>
@@ -1838,6 +1958,30 @@ export default function TikApp() {
   });
   const [mode, setMode] = useState('workers'); // workers | families
   const [view, setView] = useState({ screen: 'list' }); // list | editWorker | editFamily
+
+  // Auto cloud backup: every 45s (and when the tab is hidden), if the records
+  // changed since the last upload, mirror them to Supabase so nothing is lost.
+  const lastSigRef = useRef('');
+  useEffect(() => {
+    if (!authed) return undefined;
+    let alive = true;
+    const tick = async () => {
+      try {
+        const rec = await collectRecords();
+        if (!alive) return;
+        if (!rec.workers.length && !rec.families.length) return;
+        const sig = recordsSignature(rec);
+        if (sig === lastSigRef.current) return;
+        await backupNow(rec);
+        lastSigRef.current = sig;
+      } catch { /* offline / not configured — ignore, retry next tick */ }
+    };
+    const t = setInterval(tick, 45000);
+    const onHide = () => { if (document.visibilityState === 'hidden') tick(); };
+    document.addEventListener('visibilitychange', onHide);
+    const first = setTimeout(tick, 4000);
+    return () => { alive = false; clearInterval(t); clearTimeout(first); document.removeEventListener('visibilitychange', onHide); };
+  }, [authed]);
 
   function logout() {
     try {
