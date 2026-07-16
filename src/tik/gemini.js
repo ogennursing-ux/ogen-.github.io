@@ -8,7 +8,7 @@
 
 const KEY_STORAGE = 'tik_gemini_key';
 const MODEL_STORAGE = 'tik_gemini_model';
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+const DEFAULT_MODEL = 'gemini-flash-latest';
 
 export function getGeminiKey() {
   try {

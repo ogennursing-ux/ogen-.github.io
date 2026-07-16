@@ -250,12 +250,12 @@ function SettingsModal({ onClose }) {
           />
         </label>
         <label className="tik-field" style={{ marginTop: 10 }}>
-          <span>דגם (ברירת מחדל: gemini-2.5-flash)</span>
+          <span>דגם (ברירת מחדל: gemini-flash-latest)</span>
           <input
             className="text-input"
             dir="ltr"
             value={model}
-            placeholder="gemini-2.5-flash"
+            placeholder="gemini-flash-latest"
             onChange={(e) => setModel(e.target.value)}
           />
         </label>
