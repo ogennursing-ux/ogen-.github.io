@@ -20,7 +20,10 @@ export const WORKER_COLS = [
   ['overseasAgency', 'שם חברת כוח האדם בחו"ל'],
   ['visaExpiry', 'תוקף אשרה', 'date'], ['permitExpiry', 'תוקף היתר', 'date'],
   ['insuranceExpiry', 'תוקף ביטוח', 'date'],
-  ['employer', 'מעסיק'], ['patientName', 'שם מטופל'], ['salary', 'שכר'], ['notes', 'הערות'],
+  ['employer', 'מעסיק'], ['patientName', 'שם מטופל'], ['salary', 'שכר חודשי'],
+  ['daysPerWeek', 'ימים בשבוע'], ['hoursPerDay', 'שעות ביום'],
+  ['weeklyDayOff', 'יום חופש שבועי'], ['weeklyAdvance', 'מקדמה שבועית'],
+  ['notes', 'הערות'],
 ];
 
 // Order and labels follow the client's family extraction spec.
@@ -33,6 +36,7 @@ export const FAMILY_COLS = [
   // additional useful details
   ['phone', 'טלפון'], ['mobile', 'נייד'], ['email', 'אימייל'],
   ['contactName', 'איש קשר'], ['contactMobile', 'נייד איש קשר'], ['contactRelation', 'קרבה'],
+  ['permitNumber', 'מספר היתר'],
   ['visaExpiry', 'תוקף אשרה', 'date'], ['insuranceExpiry', 'תוקף ביטוח', 'date'],
   ['status', 'סטטוס'], ['coordinator', 'רכז/ת'], ['notes', 'הערות'],
 ];

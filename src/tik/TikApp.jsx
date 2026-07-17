@@ -1339,6 +1339,10 @@ function WorkerEditor({ workerId, onBack, onDeleted, onOpenFamily }) {
             <F label="כתובת מקום העבודה" value={worker.address} onChange={(v) => set({ address: v })} />
             <F label="תאריך תחילת העסקה" type="date" value={worker.startDate} onChange={(v) => set({ startDate: v })} dir="ltr" />
             <F label="שכר חודשי (₪)" value={worker.salary} onChange={(v) => set({ salary: v })} dir="ltr" />
+            <F label="ימי עבודה בשבוע" value={worker.daysPerWeek} onChange={(v) => set({ daysPerWeek: v })} dir="ltr" />
+            <F label="שעות עבודה ביום" value={worker.hoursPerDay} onChange={(v) => set({ hoursPerDay: v })} dir="ltr" />
+            <F label="יום חופש שבועי" value={worker.weeklyDayOff} onChange={(v) => set({ weeklyDayOff: v })} />
+            <F label="מקדמה שבועית (₪)" value={worker.weeklyAdvance} onChange={(v) => set({ weeklyAdvance: v })} dir="ltr" />
           </div>
           <label className="tik-field" style={{ marginTop: 10 }}>
             <span>הערות</span>
@@ -1500,6 +1504,7 @@ const FAMILY_SECTIONS = [
   ] },
   { title: 'תוקף אשרה / ביטוח / היתר', fields: [
     ['visaExpiry', 'תוקף אשרה', 'date', 'ltr'], ['insuranceExpiry', 'תוקף ביטוח', 'date', 'ltr'],
+    ['permitNumber', 'מספר היתר', 'text', 'ltr'],
     ['permitIssueDate', 'ת. הוצאת היתר', 'date', 'ltr'], ['permitExpiry', 'ת. סיום היתר', 'date', 'ltr'],
   ] },
   { title: 'זכאות לסיעוד', fields: [

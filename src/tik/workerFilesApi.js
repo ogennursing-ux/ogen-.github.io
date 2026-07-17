@@ -116,6 +116,10 @@ export function emptyWorker() {
     address: '',
     startDate: '',
     salary: '',
+    daysPerWeek: '',
+    hoursPerDay: '',
+    weeklyDayOff: '',
+    weeklyAdvance: '',
     notes: '',
     signature: '', // PNG data URL of the worker's drawn signature
     createdAt: Date.now(),
@@ -193,6 +197,7 @@ export function emptyFamily() {
     // validity
     visaExpiry: '',
     insuranceExpiry: '',
+    permitNumber: '',
     permitExpiry: '',
     // care eligibility
     eligibilityLevel: '',
