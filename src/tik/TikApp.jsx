@@ -435,6 +435,7 @@ function Gate({ onEnter }) {
           <button className="btn-primary full" type="submit" style={{ marginTop: 14 }}>התחבר</button>
         </form>
       </div>
+      <div style={{ padding: '0 16px 16px' }}><BrandFooter /></div>
     </div>
   );
 }
@@ -1420,6 +1421,7 @@ function WorkerEditor({ workerId, onBack, onDeleted, onOpenFamily }) {
             </button>
           </div>
         </div>
+        <BrandFooter />
       </div>
       {viewing && <Lightbox file={viewing} onClose={() => setViewing(null)} />}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
@@ -2096,6 +2098,7 @@ function FamilyEditor({ familyId, onBack, onDeleted, onOpenWorker }) {
             <button className="btn-primary" onClick={saveManual} disabled={saving}>{saving ? 'שומר…' : '💾 שמור תיק'}</button>
           </div>
         </div>
+        <BrandFooter />
       </div>
       {viewing && <Lightbox file={viewing} onClose={() => setViewing(null)} />}
       {showContractPicker && (

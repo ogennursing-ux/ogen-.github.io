@@ -2086,7 +2086,7 @@ body {
 .tik-doc { border-radius: 12px; border: 1px solid #e9edf4; background: #fbfdff; transition: border-color 0.15s, box-shadow 0.15s; }
 .tik-doc:hover { border-color: #bfe0f7; box-shadow: var(--shadow-sm); }
 
-/* powered-by credit (דביר מערכות) — small, on the side */
-.tik-credit { display: flex; align-items: center; gap: 8px; margin: 22px 2px 4px; opacity: 0.72; }
+/* powered-by credit (דביר מערכות) — small, bottom-left */
+.tik-credit { display: flex; align-items: center; gap: 8px; margin: 22px 2px 4px; opacity: 0.72; justify-content: flex-end; }
 .tik-credit span { font-size: 11px; color: var(--muted); font-weight: 600; }
 .tik-credit img { height: 46px; width: auto; border-radius: 6px; }
