@@ -56,7 +56,8 @@ export const mockApi = {
     return req;
   },
 
-  async getOriginalBytes(req) {
+  async getOriginalBytes(req, onProgress) {
+    onProgress?.(1);
     // template-based form rows reference the template's pdf
     if (!req.pdf_b64 && req.template_id) {
       const t = load(TMPL_KEY)[req.template_id];

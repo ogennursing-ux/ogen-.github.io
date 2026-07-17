@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import FormSignerView from './FormSignerView.jsx';
 import StructuredFormView from './StructuredFormView.jsx';
 import LangToggle from './LangToggle.jsx';
+import DocLoader from './DocLoader.jsx';
 import { api } from '../lib/api.js';
 import { isStructuredForm } from '../lib/formSchema.js';
 import { isBuiltinId, prebuiltTemplateById } from '../lib/prebuiltForms.js';
@@ -46,7 +47,7 @@ export default function WorkerFormRouter({ id, brandIcon = '📋', brandLabel = 
         </header>
         <div className="centered-screen">
           {state.status === 'loading' ? (
-            <p className="muted">{t('טוען מסמך…')}</p>
+            <DocLoader progress={null} />
           ) : (
             <div className="card"><h2>{t('לא ניתן לפתוח את המסמך')}</h2><p className="muted">{state.error}</p></div>
           )}

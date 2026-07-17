@@ -520,6 +520,102 @@ button {
   font-weight: 600;
   color: var(--muted);
 }
+/* Document loading screen: pen signing animation + real progress. */
+.doc-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 34px 26px;
+  background: var(--panel);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  min-width: 270px;
+  max-width: 340px;
+}
+.dl-stage {
+  position: relative;
+  width: 226px;
+  height: 70px;
+}
+.dl-svg {
+  width: 100%;
+  height: 100%;
+}
+.dl-sig-track,
+.dl-sig {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.dl-sig-track {
+  stroke: var(--line);
+}
+.dl-sig {
+  stroke: var(--primary);
+  stroke-dasharray: 340;
+  stroke-dashoffset: 340;
+  animation: dl-draw 2.6s ease-in-out infinite;
+}
+@keyframes dl-draw {
+  0% { stroke-dashoffset: 340; opacity: 1; }
+  62% { stroke-dashoffset: 0; opacity: 1; }
+  82% { stroke-dashoffset: 0; opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+.dl-pen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-size: 22px;
+  transform: translate(-8px, -14px) scaleX(-1);
+  offset-path: path('M14,52 C30,16 42,16 47,40 C51,58 60,58 67,40 C74,24 82,24 88,40 C93,55 101,55 108,38 C118,12 130,12 138,38 C144,55 152,57 163,46 C174,35 188,33 212,40');
+  offset-rotate: 0deg;
+  animation: dl-pen-move 2.6s ease-in-out infinite;
+}
+@keyframes dl-pen-move {
+  0% { offset-distance: 0%; opacity: 1; }
+  62% { offset-distance: 100%; opacity: 1; }
+  82% { offset-distance: 100%; opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+.dl-bar {
+  width: 100%;
+  height: 10px;
+  border-radius: 99px;
+  background: var(--line);
+  overflow: hidden;
+}
+.dl-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+  transition: width 0.25s ease;
+}
+.dl-fill.indeterminate {
+  width: 35%;
+  animation: dl-slide 1.2s ease-in-out infinite;
+}
+@keyframes dl-slide {
+  0% { margin-inline-start: -35%; }
+  100% { margin-inline-start: 100%; }
+}
+.dl-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+.dl-pct {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Download-split picker: numbered page chips with clickable cut gaps. */
 .split-bar {
   flex-wrap: wrap;

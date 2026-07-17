@@ -47,7 +47,7 @@ export async function getPdfJs() {
 // original bytes — so this cap costs nothing in output quality.
 const MAX_PAGE_PX = 2200;
 
-export async function renderPdfPages(data, { baseScale = 1.5 } = {}) {
+export async function renderPdfPages(data, { baseScale = 1.5, onProgress } = {}) {
   const pdfjs = await getPdfJs();
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const scale = baseScale * dpr;
@@ -59,6 +59,7 @@ export async function renderPdfPages(data, { baseScale = 1.5 } = {}) {
   const pages = [];
   try {
     for (let i = 1; i <= pdf.numPages; i++) {
+      onProgress?.((i - 1) / pdf.numPages, i, pdf.numPages);
       const page = await pdf.getPage(i);
       const base = page.getViewport({ scale });
       // Shrink the scale so neither side exceeds MAX_PAGE_PX.

@@ -195,6 +195,9 @@ const EN = {
   'הוחלה התבנית: {name}': 'Applied template: {name}',
   'המשך לעריכה (השדות כבר ממוקמים)': 'Continue to editor (fields already placed)',
   'פיצול הורדה (לא חובה)': 'Split download (optional)',
+  'מוריד את המסמך…': 'Downloading the document…',
+  'מכין עמוד {i} מתוך {n}…': 'Preparing page {i} of {n}…',
+  'עוד רגע והמסמך מוכן…': 'Almost there…',
   'לחץ בין הדפים כדי לחתוך לקבצים נפרדים (לא חובה)':
     'Click between pages to cut into separate files (optional)',
   'יפוצל ל-{n} קבצים: {parts}': 'Will split into {n} files: {parts}',
