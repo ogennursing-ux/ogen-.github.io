@@ -89,7 +89,11 @@ export default function SignerView({ id }) {
         await api.submitSigned(id, { fields: filled, signers: { ...base, current, list: newList }, signedPdfBytes: bytes });
         setSignedBytes(bytes);
         setDoneKind('final');
-        if (req.webhook_url && req.owner_email) {
+        // Always notify on completion. Requests created by older app versions
+        // were saved with a null webhook_url / owner_email and the old guard
+        // here silently skipped their notification forever; notify() fills in
+        // the built-in relay and the relay falls back to the owner's address.
+        {
           const names = newList.map((s) => s.signedName || s.name).filter(Boolean).join(', ');
           // If the document was set up with a download-split preset, the email
           // mirrors the download: upload each page-range part and have the
@@ -129,12 +133,12 @@ export default function SignerView({ id }) {
         await api.advance(id, { fields: filled, signers: { ...base, current: current + 1, list: newList } });
         setDoneKind('intermediate');
         const next = newList[current + 1];
-        if (req.webhook_url && next?.email) {
+        if (next?.email) {
           notify(req.webhook_url, { type: 'invite', to: next.email, title, link: location.href });
         }
         // Tell the owner the first signature is in (no attachment yet — the file
         // is emailed with the attachment once the last signer completes).
-        if (req.webhook_url && req.owner_email) {
+        {
           notify(req.webhook_url, {
             type: 'partial',
             to: req.owner_email,
