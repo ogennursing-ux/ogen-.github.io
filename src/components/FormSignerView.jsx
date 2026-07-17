@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import SignFlow from './SignFlow.jsx';
 import LangToggle from './LangToggle.jsx';
+import BrandName from './BrandName.jsx';
 import DocLoader from './DocLoader.jsx';
 import { api } from '../lib/api.js';
 import { notify, getIp } from '../lib/notify.js';
@@ -104,7 +105,7 @@ export default function FormSignerView({ id, brandIcon = '✒️', brandLabel, o
     <header className="app-header">
       <div className="brand">
         <span className="brand-mark">{brandIcon}</span>
-        <span className="brand-name">{t(brandLabel || 'חתימה דיגיטלית')}</span>
+        {brandLabel ? <span className="brand-name">{t(brandLabel)}</span> : <BrandName />}
       </div>
       <div className="header-actions">
         <LangToggle />

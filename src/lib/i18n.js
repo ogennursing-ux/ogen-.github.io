@@ -6,6 +6,7 @@ import { createContext, useContext } from 'react';
 const EN = {
   // brand / header
   'חתימה דיגיטלית': 'Digital Signature',
+  'קליק חתימה': 'Click Signature',
   '⚙ הגדרות': '⚙ Settings',
 
   // dropzone / home

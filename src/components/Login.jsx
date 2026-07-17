@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import LangToggle from './LangToggle.jsx';
+import BrandName from './BrandName.jsx';
 import { COMPANY_NAME } from '../lib/workerPortal.js';
 import { useT } from '../lib/i18n.js';
 
@@ -7,7 +8,7 @@ import { useT } from '../lib/i18n.js';
 // strong security — the check runs in the browser. Either the short name or the
 // full company name is accepted as the username, so the login keeps working
 // after the rebrand.
-const USERS = ['עוגן סיעוד', COMPANY_NAME];
+const USERS = ['עוגן סיעוד', COMPANY_NAME, 'קליק חתימה'];
 const PASS = '12345';
 
 export default function Login({ onLogin }) {
@@ -35,7 +36,7 @@ export default function Login({ onLogin }) {
       <header className="app-header">
         <div className="brand">
           <span className="brand-mark">✒️</span>
-          <span className="brand-name">{t('חתימה דיגיטלית')}</span>
+          <BrandName />
         </div>
         <LangToggle />
       </header>
