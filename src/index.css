@@ -17,10 +17,15 @@
   box-sizing: border-box;
 }
 
-html,
+html {
+  height: 100%;
+}
+/* Let the whole document scroll naturally. Giving <body> a fixed height:100%
+   turns it into the scroll container, which some mobile in-app browsers fail to
+   scroll by touch — so use min-height and let the viewport (html) scroll. */
 body,
 #root {
-  height: 100%;
+  min-height: 100%;
 }
 
 body {
@@ -29,7 +34,6 @@ body {
   color: var(--ink);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
-  overscroll-behavior: none;
   /* Never let a stray wide element (long file name, header row) push the whole
      page sideways on a phone — the layout should only ever scroll vertically. */
   overflow-x: hidden;
