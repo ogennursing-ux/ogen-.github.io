@@ -1966,3 +1966,122 @@ textarea.gov-input { resize: vertical; }
 .tik-sub-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; flex-wrap: wrap; }
 .tik-tg-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .tik-tg-head strong { font-size: 15px; }
+
+/* =======================================================================
+   VISUAL REFRESH — modern, warm, inviting look (appended last so it wins)
+   ======================================================================= */
+:root {
+  --bg: #eaf0f8;
+  --ink: #14233b;
+  --muted: #5f6b7d;
+  --line: #e6ebf3;
+  --primary: #0d9488;
+  --primary-dark: #0b7d73;
+  --accent: #6366f1;
+  --warm: #f59e0b;
+  --danger: #e11d48;
+  --shadow: 0 14px 38px rgba(17, 40, 70, 0.10);
+  --shadow-sm: 0 3px 12px rgba(17, 40, 70, 0.07);
+}
+
+body {
+  background:
+    radial-gradient(1100px 560px at 100% -8%, rgba(99, 102, 241, 0.10), transparent 60%),
+    radial-gradient(950px 480px at -8% 2%, rgba(13, 148, 136, 0.12), transparent 55%),
+    linear-gradient(180deg, #eef3fb 0%, #e7edf7 100%);
+  background-attachment: fixed;
+}
+
+/* header — frosted, with a gradient brand mark */
+.app-header {
+  background: rgba(255, 255, 255, 0.82);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(226, 232, 242, 0.9);
+  box-shadow: 0 2px 14px rgba(17, 40, 70, 0.04);
+}
+.brand-mark {
+  background: linear-gradient(135deg, #14b8a6, #0b8f86);
+  color: #fff;
+  box-shadow: 0 6px 15px rgba(13, 148, 136, 0.32);
+}
+.brand-name { color: var(--ink); }
+
+/* buttons — gradient primary with a gentle lift, cleaner ghost */
+.btn-primary {
+  background: linear-gradient(135deg, #14b8a6, #0b8f86);
+  border-radius: 12px;
+  box-shadow: 0 8px 18px rgba(13, 148, 136, 0.26);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(13, 148, 136, 0.32);
+}
+.btn-primary:active:not(:disabled) { transform: translateY(0); box-shadow: 0 6px 14px rgba(13, 148, 136, 0.26); }
+.btn-ghost {
+  border-radius: 12px;
+  border: 1.5px solid #e4e9f1;
+  transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.15s;
+}
+.btn-ghost:hover:not(:disabled) { border-color: var(--primary); color: var(--primary-dark); background: #f2fbfa; transform: translateY(-1px); }
+.btn-danger { border-radius: 12px; }
+.icon-btn { border-radius: 10px; }
+
+/* inputs — rounded with a soft focus ring */
+.text-input {
+  border-radius: 12px;
+  border: 1.5px solid #e4e9f1;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.text-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.16); }
+
+/* cards — softer depth */
+.card { border: 1px solid rgba(226, 232, 242, 0.9); box-shadow: var(--shadow); border-radius: 18px; }
+
+/* mode switch — active pill in the brand gradient */
+.tik-modetabs { background: #e7edf6; border-radius: 14px; padding: 5px; }
+.tik-modetab { border-radius: 10px; transition: color 0.15s, background 0.15s, box-shadow 0.15s; }
+.tik-modetab.active { background: linear-gradient(135deg, #14b8a6, #0b8f86); color: #fff; box-shadow: 0 6px 14px rgba(13, 148, 136, 0.28); }
+
+/* dashboard — brighter stat tiles */
+.tik-dash { border-radius: 18px; }
+.tik-stat { background: linear-gradient(160deg, #f1fbfa, #eaf3fb); border: 1px solid #dcecef; border-radius: 14px; padding: 12px 6px; }
+.tik-stat b { font-size: 26px; color: var(--primary-dark); font-weight: 800; }
+.tik-stat span { font-size: 12px; color: var(--muted); font-weight: 600; }
+
+/* list rows — card-like with hover lift */
+.tik-list-head h2 { font-size: 22px; font-weight: 800; color: var(--ink); }
+.req-item { border-radius: 14px; border: 1px solid #e9edf4; box-shadow: var(--shadow-sm);
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s; cursor: pointer; }
+.req-item:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(17, 40, 70, 0.12); border-color: #cbe8e4; }
+.req-title { color: var(--ink); }
+.tik-chevron { color: var(--primary); }
+
+/* section headings get a small gradient accent bar (RTL-aware) */
+.tik-section { text-align: right; }
+.tik-section h3 { font-weight: 800; display: flex; align-items: center; gap: 9px; }
+.tik-section h3::before { content: ''; flex: 0 0 auto; width: 7px; height: 18px; border-radius: 4px;
+  background: linear-gradient(#14b8a6, #0b8f86); }
+.tik-field > span { text-align: right; }
+
+/* banners / cards refinements */
+.tik-renewal { border-radius: 16px; background: linear-gradient(135deg, #eef7ff, #f1f0ff); border: 1px solid #dbe6fb; }
+.tik-renewal.due { border-radius: 16px; background: linear-gradient(135deg, #fff6ec, #fff1f0); border-color: #f4d3ad; }
+.tik-placement { border-radius: 16px; border: 1px solid #e9edf4; border-inline-start: 4px solid #14b8a6; box-shadow: var(--shadow-sm); }
+.tik-flash { border-radius: 12px; background: linear-gradient(135deg, #e9fbf1, #eafaf4); border: 1px solid #b9e8cd; color: #0f7a43; }
+.tik-empty { border-radius: 18px; }
+
+/* badges & chips */
+.badge.ok { background: #d7f5e4; color: #15803d; }
+.badge.wait { background: #fef2c9; color: #92600b; }
+.badge.muted { background: #eef1f6; color: var(--muted); }
+
+/* per-field copy button */
+.tik-copy { border-radius: 10px; border: 1.5px solid #e4e9f1; transition: background 0.15s, color 0.15s, border-color 0.15s; }
+.tik-copy:hover:not(:disabled) { background: #eefaf8; color: var(--primary-dark); border-color: #bfe6e1; }
+
+/* uploaded document rows */
+.tik-doc { border-radius: 12px; border: 1px solid #e9edf4; background: #fbfdff; transition: border-color 0.15s, box-shadow 0.15s; }
+.tik-doc:hover { border-color: #cbe8e4; box-shadow: var(--shadow-sm); }
