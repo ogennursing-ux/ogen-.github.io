@@ -103,6 +103,10 @@ async function groqText(promptText, keys) {
 const FIELD_KEYS = [
   'nameEn',
   'nameHe',
+  'firstNameHe',
+  'firstNameEn',
+  'lastNameHe',
+  'lastNameEn',
   'passportNo',
   'nationality',
   'dob',
@@ -111,6 +115,14 @@ const FIELD_KEYS = [
   'fatherName',
   'motherName',
   'maritalStatus',
+  'spouseName',
+  'languages',
+  'addrStreet',
+  'addrCity',
+  'addrRegion',
+  'addrPostal',
+  'addrCountry',
+  'overseasAgency',
   'passportIssueDate',
   'issuePlace',
   'passportExpiry',
@@ -281,6 +293,10 @@ export async function extractDocument(blob, category) {
     ' The document may be printed OR handwritten. Read EVERY field visible (printed data and the MRZ) and return them as JSON:\n' +
     '- nameEn: full name in Latin letters (as printed)\n' +
     '- nameHe: full name in Hebrew letters. If the document shows Hebrew, use it; otherwise transliterate the Latin name into Hebrew letters.\n' +
+    '- firstNameEn: given/first name in Latin letters only\n' +
+    '- firstNameHe: given/first name in Hebrew (transliterate if needed)\n' +
+    '- lastNameEn: surname/family name in Latin letters only\n' +
+    '- lastNameHe: surname/family name in Hebrew (transliterate if needed)\n' +
     '- passportNo: passport/document number\n' +
     '- nationality: nationality or issuing country, in Hebrew if you know it, else as printed\n' +
     '- dob: date of birth\n' +
@@ -288,7 +304,15 @@ export async function extractDocument(blob, category) {
     '- placeOfBirth: place/city of birth, in Hebrew if you know it, else as printed\n' +
     "- fatherName: father's name if shown, else empty\n" +
     "- motherName: mother's name if shown, else empty\n" +
-    '- maritalStatus: marital status in Hebrew, else empty\n' +
+    '- maritalStatus: marital status in Hebrew (נשוי/רווק/גרוש/אלמן), else empty\n' +
+    "- spouseName: spouse's name if shown and married, else empty\n" +
+    '- languages: languages the person speaks, if shown, comma-separated, else empty\n' +
+    '- addrStreet: street and house number of the residential address\n' +
+    '- addrCity: city / town of the residential address\n' +
+    '- addrRegion: state / region / province of the residential address\n' +
+    '- addrPostal: postal / ZIP code of the residential address\n' +
+    '- addrCountry: country of the residential address\n' +
+    '- overseasAgency: name of the overseas manpower / recruitment company, if shown, else empty\n' +
     '- passportIssueDate: date the passport/document was issued\n' +
     '- issuePlace: place/authority of issue, in Hebrew if you know it, else as printed\n' +
     '- passportExpiry: passport expiry date (only for a passport)\n' +
@@ -364,8 +388,11 @@ export async function extractFamilyDocument(blob, category) {
 // and which to the EMPLOYER/PATIENT (Israeli family / מעסיק), filling both.
 
 const SMART_WORKER_KEYS = [
-  'nameHe', 'nameEn', 'passportNo', 'nationality', 'dob', 'gender', 'placeOfBirth',
-  'fatherName', 'motherName', 'maritalStatus', 'phone', 'email',
+  'nameHe', 'nameEn', 'firstNameHe', 'firstNameEn', 'lastNameHe', 'lastNameEn',
+  'passportNo', 'nationality', 'dob', 'gender', 'placeOfBirth',
+  'fatherName', 'motherName', 'maritalStatus', 'spouseName', 'languages',
+  'addrStreet', 'addrCity', 'addrRegion', 'addrPostal', 'addrCountry', 'overseasAgency',
+  'phone', 'email',
   'passportIssueDate', 'issuePlace', 'passportExpiry', 'visaExpiry', 'permitExpiry', 'insuranceExpiry',
 ];
 const SMART_PATIENT_KEYS = [

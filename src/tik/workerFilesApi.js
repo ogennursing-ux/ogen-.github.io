@@ -80,6 +80,10 @@ export function emptyWorker() {
     // personal
     nameHe: '',
     nameEn: '',
+    firstNameHe: '',
+    firstNameEn: '',
+    lastNameHe: '',
+    lastNameEn: '',
     passportNo: '',
     nationality: '',
     dob: '',
@@ -88,8 +92,17 @@ export function emptyWorker() {
     fatherName: '',
     motherName: '',
     maritalStatus: '',
+    spouseName: '',
+    languages: '',
     phone: '',
     email: '',
+    // residential address (components)
+    addrStreet: '',
+    addrCity: '',
+    addrRegion: '',
+    addrPostal: '',
+    addrCountry: '',
+    overseasAgency: '',
     // document validity
     passportIssueDate: '',
     issuePlace: '',

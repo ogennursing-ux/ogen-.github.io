@@ -57,6 +57,18 @@ import {
 const FIELD_LABELS = {
   nameEn: 'שם באנגלית',
   nameHe: 'שם בעברית',
+  firstNameHe: 'שם פרטי (עברית)',
+  firstNameEn: 'שם פרטי (אנגלית)',
+  lastNameHe: 'שם משפחה (עברית)',
+  lastNameEn: 'שם משפחה (אנגלית)',
+  spouseName: 'שם בן/בת הזוג',
+  languages: 'שפות',
+  addrStreet: 'רחוב',
+  addrCity: 'עיר',
+  addrRegion: 'מחוז/אזור',
+  addrPostal: 'מיקוד',
+  addrCountry: 'מדינה',
+  overseasAgency: 'חברת כ"א בחו"ל',
   passportNo: 'מספר דרכון',
   nationality: 'אזרחות',
   dob: 'תאריך לידה',
@@ -71,6 +83,13 @@ const FIELD_LABELS = {
   visaExpiry: 'תוקף אשרה',
   permitExpiry: 'תוקף היתר',
 };
+
+// Best display name for a worker, falling back to first+last when the full
+// name field is empty (new split-name extraction).
+const workerName = (w) =>
+  w?.nameHe || w?.nameEn ||
+  [w?.firstNameHe, w?.lastNameHe].filter(Boolean).join(' ') ||
+  [w?.firstNameEn, w?.lastNameEn].filter(Boolean).join(' ') || '';
 
 const AUTH_KEY = 'tik_auth';
 const PASS = '12345';
@@ -774,7 +793,7 @@ function WorkerList({ mode, onMode, onOpen, onNew, onLogout, onOpenWorker, onOpe
     const s = q.trim().toLowerCase();
     if (!s) return workers;
     return workers.filter((w) =>
-      [w.nameHe, w.nameEn, w.passportNo, w.nationality, w.patientName]
+      [w.nameHe, w.nameEn, w.firstNameHe, w.lastNameHe, w.firstNameEn, w.lastNameEn, w.passportNo, w.nationality, w.patientName]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(s)),
     );
@@ -832,7 +851,7 @@ function WorkerList({ mode, onMode, onOpen, onNew, onLogout, onOpenWorker, onOpe
               return (
                 <li key={w.id} className="req-item" onClick={() => onOpen(w.id)}>
                   <div className="req-main">
-                    <span className="req-title">{w.nameHe || w.nameEn || 'ללא שם'}</span>
+                    <span className="req-title">{workerName(w) || 'ללא שם'}</span>
                     <span className="req-sub">
                       {[w.passportNo && 'דרכון ' + w.passportNo, w.nationality, w.patientName && 'מטופל: ' + w.patientName]
                         .filter(Boolean)
@@ -1065,7 +1084,7 @@ function WorkerEditor({ workerId, onBack, onDeleted, onOpenFamily }) {
     window.open(whatsappLink(worker.phone, workerToText(worker)), '_blank');
   }
   function printPage() {
-    printSummary('תיק עובד — ' + (worker.nameHe || worker.nameEn || ''), worker, WORKER_COLS);
+    printSummary('תיק עובד — ' + workerName(worker), worker, WORKER_COLS);
   }
 
   async function onPickFiles(e) {
@@ -1238,8 +1257,12 @@ function WorkerEditor({ workerId, onBack, onDeleted, onOpenFamily }) {
         <section className="card tik-section">
           <h3>פרטים אישיים</h3>
           <div className="tik-grid">
-            <F label="שם בעברית" value={worker.nameHe} onChange={(v) => set({ nameHe: v })} />
-            <F label="שם באנגלית" value={worker.nameEn} onChange={(v) => set({ nameEn: v })} dir="ltr" />
+            <F label="שם פרטי (עברית)" value={worker.firstNameHe} onChange={(v) => set({ firstNameHe: v })} />
+            <F label="שם פרטי (אנגלית)" value={worker.firstNameEn} onChange={(v) => set({ firstNameEn: v })} dir="ltr" />
+            <F label="שם משפחה (עברית)" value={worker.lastNameHe} onChange={(v) => set({ lastNameHe: v })} />
+            <F label="שם משפחה (אנגלית)" value={worker.lastNameEn} onChange={(v) => set({ lastNameEn: v })} dir="ltr" />
+            <F label="שם מלא (עברית)" value={worker.nameHe} onChange={(v) => set({ nameHe: v })} />
+            <F label="שם מלא (אנגלית)" value={worker.nameEn} onChange={(v) => set({ nameEn: v })} dir="ltr" />
             <F label="מספר דרכון" value={worker.passportNo} onChange={(v) => set({ passportNo: v })} dir="ltr" />
             <F label="אזרחות" value={worker.nationality} onChange={(v) => set({ nationality: v })} />
             <F label="תאריך לידה" type="date" value={worker.dob} onChange={(v) => set({ dob: v })} dir="ltr" />
@@ -1258,8 +1281,23 @@ function WorkerEditor({ workerId, onBack, onDeleted, onOpenFamily }) {
             <F label="שם האב" value={worker.fatherName} onChange={(v) => set({ fatherName: v })} />
             <F label="שם האם" value={worker.motherName} onChange={(v) => set({ motherName: v })} />
             <F label="מצב משפחתי" value={worker.maritalStatus} onChange={(v) => set({ maritalStatus: v })} />
+            <F label="שם בן/בת הזוג" value={worker.spouseName} onChange={(v) => set({ spouseName: v })} />
+            <F label="שפות" value={worker.languages} onChange={(v) => set({ languages: v })} />
             <F label="טלפון נייד" value={worker.phone} onChange={(v) => set({ phone: v })} dir="ltr" />
             <F label="אימייל" value={worker.email} onChange={(v) => set({ email: v })} dir="ltr" />
+            <F label='שם חברת כ"א בחו"ל' value={worker.overseasAgency} onChange={(v) => set({ overseasAgency: v })} />
+          </div>
+        </section>
+
+        {/* residential address */}
+        <section className="card tik-section">
+          <h3>כתובת מגורים</h3>
+          <div className="tik-grid">
+            <F label="רחוב (Street)" value={worker.addrStreet} onChange={(v) => set({ addrStreet: v })} />
+            <F label="עיר (City)" value={worker.addrCity} onChange={(v) => set({ addrCity: v })} />
+            <F label="מחוז/אזור (State/Region)" value={worker.addrRegion} onChange={(v) => set({ addrRegion: v })} />
+            <F label="מיקוד (Postal Code)" value={worker.addrPostal} onChange={(v) => set({ addrPostal: v })} dir="ltr" />
+            <F label="מדינה (Country)" value={worker.addrCountry} onChange={(v) => set({ addrCountry: v })} />
           </div>
         </section>
 
@@ -1933,7 +1971,7 @@ function FamilyEditor({ familyId, onBack, onDeleted, onOpenWorker }) {
               <button className="btn-ghost small" onClick={() => onOpenWorker?.(linkedWorker.id)}>פתח תיק עובד ›</button>
             </div>
             <div className="tik-placement-body muted small">
-              {[linkedWorker.nameHe || linkedWorker.nameEn, linkedWorker.passportNo && 'דרכון ' + linkedWorker.passportNo,
+              {[workerName(linkedWorker), linkedWorker.passportNo && 'דרכון ' + linkedWorker.passportNo,
                 linkedWorker.nationality, linkedWorker.phone]
                 .filter(Boolean).join('  ·  ')}
             </div>

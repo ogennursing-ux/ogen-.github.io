@@ -1,25 +1,27 @@
 // Helpers for the intake workflow: copy-all-to-clipboard, duplicate detection,
 // WhatsApp share, and a printable one-page summary (which the browser can also
 // "Save as PDF"). Kept separate so TikApp stays focused on rendering.
-import { WORKER_COLS, FAMILY_COLS } from './csvExport.js';
+import { WORKER_COLS, FAMILY_COLS, fmtCell } from './csvExport.js';
 import { listWorkers, listFamilies } from './workerFilesApi.js';
 
 export { WORKER_COLS, FAMILY_COLS };
 
-const gLabel = (g) => (g === 'ז' ? 'זכר' : g === 'נ' ? 'נקבה' : g || '');
-const fmtVal = (k, v) => (k === 'gender' ? gLabel(v) : v);
+// The agency name that must appear on every extracted worker record.
+export const AGENCY_NAME = 'עוגן סיעוד ועובדים זרים בע"מ';
 
 function filledRows(rec, cols) {
   return cols
-    .map(([k, label]) => [label, fmtVal(k, rec[k])])
+    .map((col) => [col[1], fmtCell(col, rec)])
     .filter(([, v]) => v != null && String(v).trim() !== '');
 }
 
 // "label: value" lines of every non-empty field — for pasting into Tik-Tak.
-export function recordToText(rec, cols) {
-  return filledRows(rec, cols).map(([label, v]) => `${label}: ${v}`).join('\n');
+// Dates come out DD/MM/YYYY; the worker block is headed by the agency name.
+export function recordToText(rec, cols, headLines = []) {
+  const body = filledRows(rec, cols).map(([label, v]) => `${label}: ${v}`);
+  return [...headLines, ...body].join('\n');
 }
-export const workerToText = (w) => recordToText(w, WORKER_COLS);
+export const workerToText = (w) => recordToText(w, WORKER_COLS, [`שם הסוכנות: ${AGENCY_NAME}`]);
 export const familyToText = (f) => recordToText(f, FAMILY_COLS);
 
 // ---- duplicate detection ----
@@ -49,7 +51,9 @@ export function whatsappLink(phone, text) {
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 export function printSummary(title, rec, cols) {
-  const rows = filledRows(rec, cols)
+  const isWorker = cols === WORKER_COLS;
+  const head = isWorker ? [['שם הסוכנות', AGENCY_NAME]] : [];
+  const rows = [...head, ...filledRows(rec, cols)]
     .map(([label, v]) => `<tr><th>${esc(label)}</th><td>${esc(v)}</td></tr>`)
     .join('');
   const html =

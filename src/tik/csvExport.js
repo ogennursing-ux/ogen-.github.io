@@ -2,22 +2,48 @@
 // A UTF-8 BOM is prepended so Excel detects the encoding and shows Hebrew
 // correctly instead of gibberish.
 
+// Order and labels follow the client's extraction spec. A third element
+// 'date' marks fields that must be formatted DD/MM/YYYY on output.
 export const WORKER_COLS = [
-  ['nameHe', 'שם בעברית'], ['nameEn', 'שם באנגלית'], ['passportNo', 'מספר דרכון'],
-  ['nationality', 'אזרחות'], ['dob', 'תאריך לידה'], ['gender', 'מין'],
-  ['phone', 'טלפון'], ['email', 'אימייל'], ['passportExpiry', 'תוקף דרכון'],
-  ['visaExpiry', 'תוקף אשרה'], ['permitExpiry', 'תוקף היתר'], ['insuranceExpiry', 'תוקף ביטוח'],
-  ['employer', 'מעסיק'], ['patientName', 'שם מטופל'], ['address', 'כתובת'],
-  ['startDate', 'תחילת העסקה'], ['salary', 'שכר'], ['notes', 'הערות'],
+  ['firstNameHe', 'שם פרטי (עברית)'], ['firstNameEn', 'שם פרטי (אנגלית)'],
+  ['lastNameHe', 'שם משפחה (עברית)'], ['lastNameEn', 'שם משפחה (אנגלית)'],
+  ['passportNo', 'מספר דרכון'],
+  ['passportIssueDate', 'תאריך הוצאת דרכון', 'date'],
+  ['passportExpiry', 'תאריך פקיעת דרכון', 'date'],
+  ['dob', 'תאריך לידה', 'date'],
+  ['addrStreet', 'רחוב (Street)'], ['addrCity', 'עיר (City)'],
+  ['addrRegion', 'מחוז/אזור (State/Region)'], ['addrPostal', 'מיקוד (Postal Code)'],
+  ['addrCountry', 'מדינה (Country)'],
+  ['languages', 'שפות'], ['maritalStatus', 'מצב משפחתי'], ['spouseName', 'שם בן/בת הזוג'],
+  ['fatherName', 'שם האב'], ['motherName', 'שם האם'],
+  ['nationality', 'אזרחות'], ['phone', 'מספר טלפון'], ['gender', 'מין'],
+  ['overseasAgency', 'שם חברת כוח האדם בחו"ל'],
+  ['visaExpiry', 'תוקף אשרה', 'date'], ['permitExpiry', 'תוקף היתר', 'date'],
+  ['insuranceExpiry', 'תוקף ביטוח', 'date'],
+  ['employer', 'מעסיק'], ['patientName', 'שם מטופל'], ['salary', 'שכר'], ['notes', 'הערות'],
 ];
 
 export const FAMILY_COLS = [
-  ['fullName', 'שם מלא'], ['idNumber', 'ת.זהות'], ['dob', 'תאריך לידה'], ['gender', 'מין'],
+  ['fullName', 'שם מלא'], ['idNumber', 'ת.זהות'], ['dob', 'תאריך לידה', 'date'], ['gender', 'מין'],
   ['city', 'יישוב'], ['street', 'רחוב'], ['phone', 'טלפון'], ['mobile', 'נייד'], ['email', 'אימייל'],
   ['contactName', 'איש קשר'], ['contactMobile', 'נייד איש קשר'], ['contactRelation', 'קרבה'],
-  ['visaExpiry', 'תוקף אשרה'], ['insuranceExpiry', 'תוקף ביטוח'], ['permitExpiry', 'תוקף היתר'],
+  ['visaExpiry', 'תוקף אשרה', 'date'], ['insuranceExpiry', 'תוקף ביטוח', 'date'], ['permitExpiry', 'תוקף היתר', 'date'],
   ['status', 'סטטוס'], ['coordinator', 'רכז/ת'], ['notes', 'הערות'],
 ];
+
+// YYYY-MM-DD -> DD/MM/YYYY (per the client's spec). Anything else passes through.
+export function toDMY(v) {
+  const s = String(v == null ? '' : v).trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : s;
+}
+export function fmtCell(col, rec) {
+  const [key, , type] = col;
+  const v = rec[key];
+  if (type === 'date') return toDMY(v);
+  if (key === 'gender') return v === 'ז' ? 'זכר' : v === 'נ' ? 'נקבה' : (v || '');
+  return v == null ? '' : String(v);
+}
 
 function esc(v) {
   const s = v == null ? '' : String(v);
@@ -27,7 +53,7 @@ function esc(v) {
 
 function toCsv(cols, rows) {
   const header = cols.map(([, label]) => esc(label)).join(',');
-  const body = rows.map((r) => cols.map(([key]) => esc(r[key])).join(',')).join('\r\n');
+  const body = rows.map((r) => cols.map((col) => esc(fmtCell(col, r))).join(',')).join('\r\n');
   return '﻿' + header + '\r\n' + body; // BOM for Excel
 }
 
