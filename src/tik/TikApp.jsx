@@ -91,6 +91,9 @@ const workerName = (w) =>
   [w?.firstNameHe, w?.lastNameHe].filter(Boolean).join(' ') ||
   [w?.firstNameEn, w?.lastNameEn].filter(Boolean).join(' ') || '';
 
+const familyName = (f) =>
+  f?.fullName || [f?.firstName, f?.lastName].filter(Boolean).join(' ') || '';
+
 const AUTH_KEY = 'tik_auth';
 const PASS = '12345';
 const USERS = ['עוגן סיעוד', COMPANY_NAME];
@@ -1227,7 +1230,7 @@ function WorkerEditor({ workerId, onBack, onDeleted, onOpenFamily }) {
               <button className="btn-ghost small" onClick={() => onOpenFamily?.(linkedFamily.id)}>פתח תיק משפחה ›</button>
             </div>
             <div className="tik-placement-body muted small">
-              {[linkedFamily.fullName, linkedFamily.idNumber && 'ת.ז ' + linkedFamily.idNumber,
+              {[familyName(linkedFamily), linkedFamily.idNumber && 'ת.ז ' + linkedFamily.idNumber,
                 linkedFamily.city, linkedFamily.phone || linkedFamily.mobile,
                 linkedFamily.contactName && 'איש קשר: ' + linkedFamily.contactName]
                 .filter(Boolean).join('  ·  ')}
@@ -1466,8 +1469,10 @@ function ModeTabs({ mode, onMode }) {
 // Field groups for a family/patient file, modelled on the Tik-Tak client card.
 const FAMILY_SECTIONS = [
   { title: 'פרטי מטופל/לקוח', fields: [
-    ['fullName', 'שם מלא'], ['idNumber', 'ת.זהות', 'text', 'ltr'], ['dob', 'ת.לידה', 'date', 'ltr'],
-    ['gender', 'מין'], ['maritalStatus', 'מצב משפחתי'], ['city', 'יישוב'], ['street', 'רחוב'],
+    ['firstName', 'שם פרטי'], ['lastName', 'שם משפחה'], ['fullName', 'שם מלא'],
+    ['idNumber', 'תעודת זהות', 'text', 'ltr'], ['idIssueDate', 'ת. הוצאת ת.ז', 'date', 'ltr'],
+    ['dob', 'ת.לידה', 'date', 'ltr'],
+    ['gender', 'מין'], ['maritalStatus', 'מצב משפחתי'], ['city', 'עיר מגורים'], ['street', 'כתובת'],
     ['zip', 'מיקוד', 'text', 'ltr'], ['phone', 'טלפון', 'text', 'ltr'], ['mobile', 'נייד', 'text', 'ltr'],
     ['email', 'אימייל', 'text', 'ltr'], ['birthCountry', 'ארץ לידה'], ['language', 'שפה'],
   ] },
@@ -1481,7 +1486,7 @@ const FAMILY_SECTIONS = [
   ] },
   { title: 'תוקף אשרה / ביטוח / היתר', fields: [
     ['visaExpiry', 'תוקף אשרה', 'date', 'ltr'], ['insuranceExpiry', 'תוקף ביטוח', 'date', 'ltr'],
-    ['permitExpiry', 'תוקף היתר', 'date', 'ltr'],
+    ['permitIssueDate', 'ת. הוצאת היתר', 'date', 'ltr'], ['permitExpiry', 'ת. סיום היתר', 'date', 'ltr'],
   ] },
   { title: 'זכאות לסיעוד', fields: [
     ['eligibilityLevel', 'רמת זכאות'], ['careLaw', 'חוק סיעוד / ו.הומניטרית'], ['disabilityPct', 'אחוזי נכות', 'text', 'ltr'],
@@ -1739,7 +1744,7 @@ function FamilyList({ mode, onMode, onOpen, onNew, onLogout, onOpenWorker, onOpe
     const s = q.trim().toLowerCase();
     if (!s) return items;
     return items.filter((f) =>
-      [f.fullName, f.idNumber, f.city, f.contactName, f.clientNo]
+      [f.fullName, f.firstName, f.lastName, f.idNumber, f.city, f.contactName, f.clientNo]
         .filter(Boolean).some((v) => String(v).toLowerCase().includes(s)),
     );
   }, [items, q]);
@@ -1784,7 +1789,7 @@ function FamilyList({ mode, onMode, onOpen, onNew, onLogout, onOpenWorker, onOpe
             {filtered.map((f) => (
               <li key={f.id} className="req-item" onClick={() => onOpen(f.id)}>
                 <div className="req-main">
-                  <span className="req-title">{f.fullName || 'ללא שם'}</span>
+                  <span className="req-title">{familyName(f) || 'ללא שם'}</span>
                   <span className="req-sub">
                     {[f.idNumber && 'ת.ז ' + f.idNumber, f.city, f.contactName && 'איש קשר: ' + f.contactName]
                       .filter(Boolean).join('  ·  ')}
@@ -1820,9 +1825,10 @@ function FamilyEditor({ familyId, onBack, onDeleted, onOpenWorker }) {
   const camInput = useRef(null);
   const isNew = familyId == null;
   const FAM_LABELS = {
-    fullName: 'שם מלא', idNumber: 'ת.ז', dob: 'ת.לידה', gender: 'מין', city: 'יישוב',
-    street: 'רחוב', zip: 'מיקוד', phone: 'טלפון', contactName: 'איש קשר',
-    contactMobile: 'נייד א.קשר', permitExpiry: 'תוקף היתר', insuranceExpiry: 'תוקף ביטוח',
+    fullName: 'שם מלא', firstName: 'שם פרטי', lastName: 'שם משפחה',
+    idNumber: 'ת.ז', idIssueDate: 'ת. הוצאת ת.ז', dob: 'ת.לידה', gender: 'מין', city: 'עיר מגורים',
+    street: 'כתובת', zip: 'מיקוד', phone: 'טלפון', contactName: 'איש קשר',
+    contactMobile: 'נייד א.קשר', permitIssueDate: 'ת. הוצאת היתר', permitExpiry: 'ת. סיום היתר', insuranceExpiry: 'תוקף ביטוח',
   };
 
   useEffect(() => {
@@ -1869,7 +1875,7 @@ function FamilyEditor({ familyId, onBack, onDeleted, onOpenWorker }) {
     catch { flashMsg('ההעתקה נחסמה בדפדפן'); }
   }
   const shareWhatsapp = () => window.open(whatsappLink(family.phone || family.mobile, familyToText(family)), '_blank');
-  const printPage = () => printSummary('תיק משפחה — ' + (family.fullName || ''), family, FAMILY_COLS);
+  const printPage = () => printSummary('תיק משפחה — ' + familyName(family), family, FAMILY_COLS);
 
   async function onPickFiles(e) {
     const picked = Array.from(e.target.files || []);

@@ -23,11 +23,17 @@ export const WORKER_COLS = [
   ['employer', 'מעסיק'], ['patientName', 'שם מטופל'], ['salary', 'שכר'], ['notes', 'הערות'],
 ];
 
+// Order and labels follow the client's family extraction spec.
 export const FAMILY_COLS = [
-  ['fullName', 'שם מלא'], ['idNumber', 'ת.זהות'], ['dob', 'תאריך לידה', 'date'], ['gender', 'מין'],
-  ['city', 'יישוב'], ['street', 'רחוב'], ['phone', 'טלפון'], ['mobile', 'נייד'], ['email', 'אימייל'],
+  ['firstName', 'שם פרטי'], ['lastName', 'שם משפחה'],
+  ['idNumber', 'תעודת זהות'], ['dob', 'תאריך לידה', 'date'], ['gender', 'מין'],
+  ['idIssueDate', 'תאריך הוצאת תעודת זהות', 'date'],
+  ['street', 'כתובת'], ['city', 'עיר מגורים'],
+  ['permitIssueDate', 'תאריך הוצאת ההיתר', 'date'], ['permitExpiry', 'תאריך סיום ההיתר', 'date'],
+  // additional useful details
+  ['phone', 'טלפון'], ['mobile', 'נייד'], ['email', 'אימייל'],
   ['contactName', 'איש קשר'], ['contactMobile', 'נייד איש קשר'], ['contactRelation', 'קרבה'],
-  ['visaExpiry', 'תוקף אשרה', 'date'], ['insuranceExpiry', 'תוקף ביטוח', 'date'], ['permitExpiry', 'תוקף היתר', 'date'],
+  ['visaExpiry', 'תוקף אשרה', 'date'], ['insuranceExpiry', 'תוקף ביטוח', 'date'],
   ['status', 'סטטוס'], ['coordinator', 'רכז/ת'], ['notes', 'הערות'],
 ];
 

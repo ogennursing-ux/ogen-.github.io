@@ -328,14 +328,15 @@ export async function extractDocument(blob, category) {
 // ---- family / patient documents (Israeli ID, permit, insurance) ----
 
 const FAMILY_FIELD_KEYS = [
-  'fullName', 'idNumber', 'dob', 'gender', 'city', 'street', 'zip', 'phone',
-  'contactName', 'contactMobile', 'permitExpiry', 'insuranceExpiry',
+  'fullName', 'firstName', 'lastName', 'idNumber', 'idIssueDate', 'dob', 'gender',
+  'city', 'street', 'zip', 'phone', 'contactName', 'contactMobile',
+  'permitIssueDate', 'permitExpiry', 'insuranceExpiry',
 ];
 const FAMILY_SCHEMA = {
   type: 'object',
   properties: [...FAMILY_FIELD_KEYS, 'rawText'].reduce((a, k) => { a[k] = { type: 'string' }; return a; }, {}),
 };
-const FAMILY_DATE_KEYS = new Set(['dob', 'permitExpiry', 'insuranceExpiry']);
+const FAMILY_DATE_KEYS = new Set(['dob', 'idIssueDate', 'permitIssueDate', 'permitExpiry', 'insuranceExpiry']);
 
 export function toFamilyPatch(raw) {
   const patch = {};
@@ -364,7 +365,10 @@ export async function extractFamilyDocument(blob, category) {
     (FAMILY_HINT[category] || '') +
     ' The document may be printed OR HANDWRITTEN. Read carefully, including handwriting, and return JSON:\n' +
     '- fullName: full name of the patient (Hebrew)\n' +
+    '- firstName: given/first name of the patient (Hebrew)\n' +
+    '- lastName: surname/family name of the patient (Hebrew)\n' +
     '- idNumber: Israeli ID number (ת.ז), digits only\n' +
+    '- idIssueDate: date the ID card was issued (תאריך הוצאת תעודת זהות) if present\n' +
     '- dob: date of birth\n' +
     "- gender: 'ז' for male, 'נ' for female\n" +
     '- city: city / town of residence\n' +
@@ -373,7 +377,8 @@ export async function extractFamilyDocument(blob, category) {
     '- phone: any phone number of the patient\n' +
     '- contactName: a contact person name if present\n' +
     '- contactMobile: a contact person phone if present\n' +
-    '- permitExpiry: permit validity date if present\n' +
+    '- permitIssueDate: employment-permit issue date (תאריך הוצאת ההיתר) if present\n' +
+    '- permitExpiry: employment-permit end/expiry date (תאריך סיום ההיתר) if present\n' +
     '- insuranceExpiry: insurance validity date if present\n' +
     '- rawText: ALL text you can read on the document, exactly as written (including handwriting), line by line\n' +
     'Return every date as YYYY-MM-DD. If a field is not visible, return an empty string. Do not guess field values, but DO include everything you see in rawText.';
@@ -396,12 +401,13 @@ const SMART_WORKER_KEYS = [
   'passportIssueDate', 'issuePlace', 'passportExpiry', 'visaExpiry', 'permitExpiry', 'insuranceExpiry',
 ];
 const SMART_PATIENT_KEYS = [
-  'fullName', 'idNumber', 'dob', 'gender', 'maritalStatus', 'city', 'street', 'zip',
-  'phone', 'mobile', 'email', 'contactName', 'contactRelation', 'contactMobile', 'contactId',
-  'permitExpiry', 'insuranceExpiry',
+  'fullName', 'firstName', 'lastName', 'idNumber', 'idIssueDate', 'dob', 'gender', 'maritalStatus',
+  'city', 'street', 'zip', 'phone', 'mobile', 'email', 'contactName', 'contactRelation', 'contactMobile', 'contactId',
+  'permitIssueDate', 'permitExpiry', 'insuranceExpiry',
 ];
 const SMART_DATE_KEYS = new Set([
-  'dob', 'passportIssueDate', 'passportExpiry', 'visaExpiry', 'permitExpiry', 'insuranceExpiry',
+  'dob', 'idIssueDate', 'passportIssueDate', 'passportExpiry', 'visaExpiry',
+  'permitIssueDate', 'permitExpiry', 'insuranceExpiry',
 ]);
 
 function smartPatch(obj, keys) {
