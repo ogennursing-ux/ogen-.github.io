@@ -75,7 +75,7 @@ export default function FormSignerView({ id, brandIcon = '✒️', brandLabel, o
       const { id: submissionId } = await api.submitForm(template, { fields: filled, signedPdfBytes: bytes, signers: { ...base, list } });
       setSignedBytes(bytes);
       setStatus('done');
-      if (template.webhook_url && template.owner_email) {
+      {
         notify(template.webhook_url, {
           type: 'completed',
           to: template.owner_email,
