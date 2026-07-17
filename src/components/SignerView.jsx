@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import SignFlow from './SignFlow.jsx';
 import LangToggle from './LangToggle.jsx';
+import DocLoader from './DocLoader.jsx';
 import { api } from '../lib/api.js';
 import { notify, getIp } from '../lib/notify.js';
 import { signedPublicUrl, signedPartPublicUrl } from '../lib/config.js';
@@ -40,6 +41,7 @@ export default function SignerView({ id }) {
   const [fields, setFields] = useState([]);
   const [busy, setBusy] = useState(false);
   const [signedBytes, setSignedBytes] = useState(null);
+  const [loadProg, setLoadProg] = useState({ p: 0.03 });
 
   const signers = normalizeSigners(req?.signers);
   const current = signers.current;
@@ -54,9 +56,11 @@ export default function SignerView({ id }) {
           setStatus('already');
           return;
         }
-        const bytes = await api.getOriginalBytes(r);
+        const bytes = await api.getOriginalBytes(r, (f) => setLoadProg({ p: 0.05 + f * 0.5 }));
         setOriginalBytes(bytes);
-        const rendered = await renderPdfPages(new Uint8Array(bytes.slice(0)));
+        const rendered = await renderPdfPages(new Uint8Array(bytes.slice(0)), {
+          onProgress: (f, i, n) => setLoadProg({ p: 0.55 + f * 0.45, page: i, pages: n }),
+        });
         setPages(rendered);
         setFields(r.fields || []);
         setStatus('ready');
@@ -185,7 +189,8 @@ export default function SignerView({ id }) {
     <div className="app">{header}<div className="centered-screen">{content}</div></div>
   );
 
-  if (status === 'loading') return centered(<p className="muted">{t('טוען מסמך…')}</p>);
+  if (status === 'loading')
+    return centered(<DocLoader progress={loadProg.p} page={loadProg.page} pages={loadProg.pages} />);
   if (status === 'error')
     return centered(
       <div className="card"><h2>{t('לא ניתן לפתוח את המסמך')}</h2><p className="muted">{error}</p></div>,
