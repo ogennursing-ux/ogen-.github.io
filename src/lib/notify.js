@@ -6,7 +6,7 @@ const SETTINGS_KEY = 'owner_settings';
 // with no per-device setup. The owner can still override these in ⚙ Settings.
 const DEFAULT_OWNER_EMAIL = 'ogen.manpower@gmail.com';
 const DEFAULT_WEBHOOK =
-  'https://script.google.com/macros/s/AKfycbykhbblBeaQEwPAurEACpB7Q4wcGA53zKSD4oGMkY4FsMhqgnXWWV71_FfJCUQ8QhzyNw/exec';
+  'https://script.google.com/macros/s/AKfycbzv7LR28c-AtlickLxA0G1dvLx88P12m6aR4qfkM566dY4N7Jg4P_MvWDJHvjM0E-R6Tg/exec';
 
 // In local test mode (?mock=1) we do NOT apply the real defaults, so the E2E
 // suite never fires real emails to the production relay.
