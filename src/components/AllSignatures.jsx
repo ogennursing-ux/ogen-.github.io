@@ -55,7 +55,7 @@ export default function AllSignatures() {
         const fresh = list.filter((r) => (r.signed_at || '') > seenRef.current).length;
         setNewCount(fresh);
         if (notifyOnNew && fresh > 0 && seenRef.current && 'Notification' in window && Notification.permission === 'granted') {
-          new Notification(tRef.current('חתימה דיגיטלית'), { body: tRef.current('חתימות חדשות: {n}', { n: fresh }) });
+          new Notification(tRef.current('קליק חתימה'), { body: tRef.current('חתימות חדשות: {n}', { n: fresh }) });
         }
       } catch {
         /* ignore */

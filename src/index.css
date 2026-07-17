@@ -520,6 +520,12 @@ button {
   font-weight: 600;
   color: var(--muted);
 }
+/* "קליק חתימה" wordmark: first word in the brand color. */
+.brand-klik b {
+  color: var(--primary);
+  font-weight: 800;
+}
+
 /* Document loading screen: pen signing animation + real progress. */
 .doc-loader {
   display: flex;

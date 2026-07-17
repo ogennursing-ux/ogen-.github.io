@@ -16,6 +16,7 @@ import LinkCreated from './components/LinkCreated.jsx';
 import SignerView from './components/SignerView.jsx';
 import FormSignerView from './components/FormSignerView.jsx';
 import Login from './components/Login.jsx';
+import BrandName from './components/BrandName.jsx';
 import SplitPicker from './components/SplitPicker.jsx';
 import LangToggle from './components/LangToggle.jsx';
 import { renderPdfPages } from './lib/pdfUtils.js';
@@ -432,7 +433,7 @@ function PrepareApp({ onLogout, workerAdmin = false }) {
     <header className="app-header">
       <div className="brand">
         <span className="brand-mark">{workerAdmin ? '📋' : '✒️'}</span>
-        <span className="brand-name">{workerAdmin ? t('טפסים לעובדים סוציאליים') : t('חתימה דיגיטלית')}</span>
+        {workerAdmin ? <span className="brand-name">{t('טפסים לעובדים סוציאליים')}</span> : <BrandName />}
       </div>
       <div className="header-actions">
         {screen === 'editor' && <span className="doc-name">{baseName}.pdf</span>}
