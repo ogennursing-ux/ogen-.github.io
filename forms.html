@@ -15,5 +15,11 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/forms-main.jsx"></script>
+    <!-- Credit badge: "דביר מערכות", shown small on every screen -->
+    <img src="./dvir.png" alt="דביר מערכות" class="dvir-credit" />
+    <style>
+      .dvir-credit { position: fixed; bottom: 8px; left: 10px; height: 30px; width: auto; opacity: 0.85; z-index: 9999; pointer-events: none; }
+      @media (max-width: 640px) { .dvir-credit { height: 24px; bottom: 6px; left: 8px; } }
+    </style>
   </body>
 </html>
