@@ -1975,8 +1975,8 @@ textarea.gov-input { resize: vertical; }
   --ink: #14233b;
   --muted: #5f6b7d;
   --line: #e6ebf3;
-  --primary: #0d9488;
-  --primary-dark: #0b7d73;
+  --primary: #0ea5e9;
+  --primary-dark: #0284c7;
   --accent: #6366f1;
   --warm: #f59e0b;
   --danger: #e11d48;
@@ -1986,8 +1986,8 @@ textarea.gov-input { resize: vertical; }
 
 body {
   background:
-    radial-gradient(1100px 560px at 100% -8%, rgba(99, 102, 241, 0.10), transparent 60%),
-    radial-gradient(950px 480px at -8% 2%, rgba(13, 148, 136, 0.12), transparent 55%),
+    radial-gradient(1100px 560px at 100% -8%, rgba(56, 189, 248, 0.10), transparent 60%),
+    radial-gradient(950px 480px at -8% 2%, rgba(14, 165, 233, 0.12), transparent 55%),
     linear-gradient(180deg, #eef3fb 0%, #e7edf7 100%);
   background-attachment: fixed;
 }
@@ -2001,31 +2001,31 @@ body {
   box-shadow: 0 2px 14px rgba(17, 40, 70, 0.04);
 }
 .brand-mark {
-  background: linear-gradient(135deg, #14b8a6, #0b8f86);
+  background: linear-gradient(135deg, #38bdf8, #0ea5e9);
   color: #fff;
-  box-shadow: 0 6px 15px rgba(13, 148, 136, 0.32);
+  box-shadow: 0 6px 15px rgba(14, 165, 233, 0.32);
 }
 .brand-name { color: var(--ink); }
 
 /* buttons — gradient primary with a gentle lift, cleaner ghost */
 .btn-primary {
-  background: linear-gradient(135deg, #14b8a6, #0b8f86);
+  background: linear-gradient(135deg, #38bdf8, #0ea5e9);
   border-radius: 12px;
-  box-shadow: 0 8px 18px rgba(13, 148, 136, 0.26);
+  box-shadow: 0 8px 18px rgba(14, 165, 233, 0.26);
   transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
 .btn-primary:hover:not(:disabled) {
   filter: brightness(1.06);
   transform: translateY(-1px);
-  box-shadow: 0 12px 24px rgba(13, 148, 136, 0.32);
+  box-shadow: 0 12px 24px rgba(14, 165, 233, 0.32);
 }
-.btn-primary:active:not(:disabled) { transform: translateY(0); box-shadow: 0 6px 14px rgba(13, 148, 136, 0.26); }
+.btn-primary:active:not(:disabled) { transform: translateY(0); box-shadow: 0 6px 14px rgba(14, 165, 233, 0.26); }
 .btn-ghost {
   border-radius: 12px;
   border: 1.5px solid #e4e9f1;
   transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.15s;
 }
-.btn-ghost:hover:not(:disabled) { border-color: var(--primary); color: var(--primary-dark); background: #f2fbfa; transform: translateY(-1px); }
+.btn-ghost:hover:not(:disabled) { border-color: var(--primary); color: var(--primary-dark); background: #eff8fe; transform: translateY(-1px); }
 .btn-danger { border-radius: 12px; }
 .icon-btn { border-radius: 10px; }
 
@@ -2035,7 +2035,7 @@ body {
   border: 1.5px solid #e4e9f1;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
-.text-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.16); }
+.text-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.16); }
 
 /* cards — softer depth */
 .card { border: 1px solid rgba(226, 232, 242, 0.9); box-shadow: var(--shadow); border-radius: 18px; }
@@ -2043,11 +2043,11 @@ body {
 /* mode switch — active pill in the brand gradient */
 .tik-modetabs { background: #e7edf6; border-radius: 14px; padding: 5px; }
 .tik-modetab { border-radius: 10px; transition: color 0.15s, background 0.15s, box-shadow 0.15s; }
-.tik-modetab.active { background: linear-gradient(135deg, #14b8a6, #0b8f86); color: #fff; box-shadow: 0 6px 14px rgba(13, 148, 136, 0.28); }
+.tik-modetab.active { background: linear-gradient(135deg, #38bdf8, #0ea5e9); color: #fff; box-shadow: 0 6px 14px rgba(14, 165, 233, 0.28); }
 
 /* dashboard — brighter stat tiles */
 .tik-dash { border-radius: 18px; }
-.tik-stat { background: linear-gradient(160deg, #f1fbfa, #eaf3fb); border: 1px solid #dcecef; border-radius: 14px; padding: 12px 6px; }
+.tik-stat { background: linear-gradient(160deg, #eef7fe, #e7f2fd); border: 1px solid #d3e8f7; border-radius: 14px; padding: 12px 6px; }
 .tik-stat b { font-size: 26px; color: var(--primary-dark); font-weight: 800; }
 .tik-stat span { font-size: 12px; color: var(--muted); font-weight: 600; }
 
@@ -2055,7 +2055,7 @@ body {
 .tik-list-head h2 { font-size: 22px; font-weight: 800; color: var(--ink); }
 .req-item { border-radius: 14px; border: 1px solid #e9edf4; box-shadow: var(--shadow-sm);
   transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s; cursor: pointer; }
-.req-item:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(17, 40, 70, 0.12); border-color: #cbe8e4; }
+.req-item:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(17, 40, 70, 0.12); border-color: #bfe0f7; }
 .req-title { color: var(--ink); }
 .tik-chevron { color: var(--primary); }
 
@@ -2063,13 +2063,13 @@ body {
 .tik-section { text-align: right; }
 .tik-section h3 { font-weight: 800; display: flex; align-items: center; gap: 9px; }
 .tik-section h3::before { content: ''; flex: 0 0 auto; width: 7px; height: 18px; border-radius: 4px;
-  background: linear-gradient(#14b8a6, #0b8f86); }
+  background: linear-gradient(#38bdf8, #0ea5e9); }
 .tik-field > span { text-align: right; }
 
 /* banners / cards refinements */
 .tik-renewal { border-radius: 16px; background: linear-gradient(135deg, #eef7ff, #f1f0ff); border: 1px solid #dbe6fb; }
 .tik-renewal.due { border-radius: 16px; background: linear-gradient(135deg, #fff6ec, #fff1f0); border-color: #f4d3ad; }
-.tik-placement { border-radius: 16px; border: 1px solid #e9edf4; border-inline-start: 4px solid #14b8a6; box-shadow: var(--shadow-sm); }
+.tik-placement { border-radius: 16px; border: 1px solid #e9edf4; border-inline-start: 4px solid #38bdf8; box-shadow: var(--shadow-sm); }
 .tik-flash { border-radius: 12px; background: linear-gradient(135deg, #e9fbf1, #eafaf4); border: 1px solid #b9e8cd; color: #0f7a43; }
 .tik-empty { border-radius: 18px; }
 
@@ -2080,8 +2080,8 @@ body {
 
 /* per-field copy button */
 .tik-copy { border-radius: 10px; border: 1.5px solid #e4e9f1; transition: background 0.15s, color 0.15s, border-color 0.15s; }
-.tik-copy:hover:not(:disabled) { background: #eefaf8; color: var(--primary-dark); border-color: #bfe6e1; }
+.tik-copy:hover:not(:disabled) { background: #eaf6fe; color: var(--primary-dark); border-color: #bfe0f7; }
 
 /* uploaded document rows */
 .tik-doc { border-radius: 12px; border: 1px solid #e9edf4; background: #fbfdff; transition: border-color 0.15s, box-shadow 0.15s; }
-.tik-doc:hover { border-color: #cbe8e4; box-shadow: var(--shadow-sm); }
+.tik-doc:hover { border-color: #bfe0f7; box-shadow: var(--shadow-sm); }
