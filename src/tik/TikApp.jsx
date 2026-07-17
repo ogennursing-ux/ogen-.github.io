@@ -35,6 +35,7 @@ import {
   workerToText, familyToText, WORKER_COLS, FAMILY_COLS,
   findWorkerDuplicate, findFamilyDuplicate, whatsappLink, printSummary,
 } from './intakeUtils.js';
+import dvirLogo from './dvir-logo.png';
 import PdfPlacementEditor from './PdfPlacementEditor.jsx';
 import {
   extractDocument,
@@ -874,6 +875,7 @@ function WorkerList({ mode, onMode, onOpen, onNew, onLogout, onOpenWorker, onOpe
             })}
           </ul>
         )}
+        <BrandFooter />
       </div>
     </div>
   );
@@ -883,6 +885,16 @@ function WorkerList({ mode, onMode, onOpen, onNew, onLogout, onOpenWorker, onOpe
 
 // Small copy-to-clipboard button placed beside every field, so each value can
 // be pasted into the Tik-Tak system with one click.
+// Small "powered by" credit shown on the side at the bottom of the main lists.
+function BrandFooter() {
+  return (
+    <div className="tik-credit">
+      <span>מופעל על ידי</span>
+      <img src={dvirLogo} alt="דביר מערכות" />
+    </div>
+  );
+}
+
 function CopyBtn({ value }) {
   const [ok, setOk] = useState(false);
   return (
@@ -1800,6 +1812,7 @@ function FamilyList({ mode, onMode, onOpen, onNew, onLogout, onOpenWorker, onOpe
             ))}
           </ul>
         )}
+        <BrandFooter />
       </div>
     </div>
   );
