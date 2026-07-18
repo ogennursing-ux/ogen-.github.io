@@ -30,7 +30,7 @@ export const NO_DISCOUNT_TEXT =
   'לשנה מלאה של ליווי ושירות.';
 
 // Insurance company name (edit here if the spelling differs).
-export const INSURANCE_NAME = 'עלית';
+export const INSURANCE_NAME = 'הילית';
 export const INSURANCE_TEXT =
   'לגבי ביטוח רפואי לעובד/ת: אנחנו עובדים עם חברת ' + INSURANCE_NAME + ', ואנחנו שולחים אליהם את הפרטים ' +
   'שלכם — והם יצרו איתכם קשר להסדרת הביטוח. אין צורך שתעשו כלום בשלב זה.';
