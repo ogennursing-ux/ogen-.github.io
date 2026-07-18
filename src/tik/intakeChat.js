@@ -190,6 +190,21 @@ export async function aiChatReply(historyText, userText, missingLabels) {
   } catch { return null; }
 }
 
+// Metadata saved with each conversation — the customer's public IP (via a free
+// service), plus browser/time info — so the office has a record of who chatted.
+export async function getClientMeta() {
+  const meta = {
+    userAgent: (typeof navigator !== 'undefined' && navigator.userAgent) || '',
+    language: (typeof navigator !== 'undefined' && navigator.language) || '',
+    startedAt: new Date().toISOString(),
+  };
+  try {
+    const r = await withTimeout(fetch('https://api.ipify.org?format=json'), 6000);
+    if (r.ok) { const d = await r.json(); if (d?.ip) meta.ip = d.ip; }
+  } catch { /* IP lookup blocked — keep the rest */ }
+  return meta;
+}
+
 const uid = () => (crypto.randomUUID && crypto.randomUUID()) || Date.now().toString(36) + Math.random().toString(36).slice(2);
 
 function blobToDataUrl(blob) {
@@ -203,7 +218,7 @@ function blobToDataUrl(blob) {
 
 // Persist (upsert) the running conversation to Supabase so the office sees it
 // live and can read the full transcript. One row per chat session.
-export async function saveChat(rowId, { transcript, data, files, status, needsCallback }) {
+export async function saveChat(rowId, { transcript, data, files, status, needsCallback, meta }) {
   const filePayload = [];
   for (const f of files || []) {
     filePayload.push({ category: f.category, name: f.name, dataUrl: await blobToDataUrl(f.blob) });
@@ -212,7 +227,7 @@ export async function saveChat(rowId, { transcript, data, files, status, needsCa
     kind: 'family',
     source: 'chat',
     status: status || 'chat',
-    data: { chat: true, needsCallback: !!needsCallback, transcript, fields: data, files: filePayload, updatedAt: new Date().toISOString() },
+    data: { chat: true, needsCallback: !!needsCallback, meta: meta || {}, transcript, fields: data, files: filePayload, updatedAt: new Date().toISOString() },
   };
   const { error } = await sb()
     .from('agent_submissions')

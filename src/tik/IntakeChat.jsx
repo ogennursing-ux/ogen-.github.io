@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   STEPS, FOLLOWUPS, GREETING, PAYMENT_TEXT, PAYMENT_LINK, NO_DISCOUNT_TEXT, INSURANCE_TEXT,
   faqAnswer, saveChat, newSessionId, applyUrlKey, aiChatReply, withTimeout,
-  loadPublishedKey, wantsHuman, ESCALATE_TEXT, AGENT_NAME,
+  loadPublishedKey, wantsHuman, ESCALATE_TEXT, AGENT_NAME, getClientMeta,
 } from './intakeChat.js';
 import { extractDocument, extractFamilyDocument, hasAI } from './gemini.js';
 
@@ -25,6 +25,7 @@ export default function IntakeChat() {
   const filesRef = useRef([]);        // [{ category, name, blob }]
   const extractedRef = useRef({});    // field values read from the documents
   const callbackRef = useRef(false);  // customer asked to speak with a person
+  const metaRef = useRef({});         // IP + browser metadata for this chat
   const sessionId = useRef(newSessionId());
   const fileInput = useRef(null);
   const camInput = useRef(null);
@@ -56,6 +57,7 @@ export default function IntakeChat() {
     startedRef.current = true;
     applyUrlKey();                       // key from the link (fallback)
     loadPublishedKey().catch(() => {});  // key published by the office — in the background
+    getClientMeta().then((m) => { metaRef.current = m; }).catch(() => {}); // IP + browser info
     (async () => {
       await botSay(GREETING, 900);
       await botSay(STEPS[0].ask, 1200);
@@ -75,6 +77,7 @@ export default function IntakeChat() {
       files: finalFiles || [],
       status: finalFiles ? 'new' : 'chat',
       needsCallback: callbackRef.current,
+      meta: metaRef.current,
     }).catch(() => {});
   };
   // Save shortly after every change (debounced).

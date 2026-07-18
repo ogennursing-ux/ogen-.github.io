@@ -822,6 +822,13 @@ function ChatTranscript({ sub, onClose }) {
           <strong>💬 השיחה המלאה{d.fields?.employerName ? ' — ' + d.fields.employerName : ''}</strong>
           <button className="icon-btn" onClick={onClose}>✕</button>
         </div>
+        {d.meta && (d.meta.ip || d.meta.startedAt) && (
+          <p className="muted small" style={{ margin: '0 0 8px' }} dir="ltr">
+            {d.meta.ip ? 'IP: ' + d.meta.ip : ''}
+            {d.meta.startedAt ? ' · ' + new Date(d.meta.startedAt).toLocaleString('he-IL') : ''}
+            {d.fields?.contactPhone ? ' · ☎ ' + d.fields.contactPhone : ''}
+          </p>
+        )}
         <div className="chat-body" style={{ maxHeight: '52vh', borderRadius: 12 }}>
           {tr.map((m, i) => (
             <div key={i} className={`chat-row ${m.from}`}>
