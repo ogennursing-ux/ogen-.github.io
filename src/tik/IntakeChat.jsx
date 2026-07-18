@@ -130,11 +130,11 @@ export default function IntakeChat() {
       await advanceAfter(col);
       return;
     }
-    // pending is a file step but the user typed
-    if (/^(אין|לא|דלג|אין לי|לא רלוונטי)/.test(text) && step.key === 'permit') {
+    // pending is an optional file step but the user typed "אין" → skip it
+    if (/^(אין|לא|דלג|אין לי|לא רלוונטי)/.test(text) && step.optional) {
       const col = { ...collected, [step.key]: 'אין' };
       setCollected(col);
-      await botSay('אין בעיה, אפשר להשלים אחר כך.', 400);
+      await botSay('אין בעיה, אפשר להשלים אחר כך.', 500);
       await advanceAfter(col);
       return;
     }

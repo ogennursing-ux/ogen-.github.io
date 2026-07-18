@@ -20,6 +20,7 @@ export const WORKER_COLS = [
   ['overseasAgency', 'שם חברת כוח האדם בחו"ל'],
   ['visaExpiry', 'תוקף אשרה', 'date'], ['permitExpiry', 'תוקף היתר', 'date'],
   ['insuranceExpiry', 'תוקף ביטוח', 'date'],
+  ['arrivalDate', 'תאריך הגעה לארץ'], ['lastWorkDate', 'תאריך עבודה אחרון'],
   ['employer', 'מעסיק'], ['patientName', 'שם מטופל'], ['salary', 'שכר חודשי'],
   ['daysPerWeek', 'ימים בשבוע'], ['hoursPerDay', 'שעות ביום'],
   ['weeklyDayOff', 'יום חופש שבועי'], ['weeklyAdvance', 'מקדמה שבועית'],

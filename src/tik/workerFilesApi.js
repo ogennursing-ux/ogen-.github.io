@@ -110,6 +110,8 @@ export function emptyWorker() {
     visaExpiry: '',
     permitExpiry: '',
     insuranceExpiry: '',
+    arrivalDate: '',
+    lastWorkDate: '',
     // employment
     employer: '',
     patientName: '',

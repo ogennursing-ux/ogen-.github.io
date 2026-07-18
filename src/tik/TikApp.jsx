@@ -1396,6 +1396,8 @@ function WorkerEditor({ workerId, onBack, onDeleted, onOpenFamily }) {
             <F label="תוקף אשרה / ויזה" type="date" value={worker.visaExpiry} onChange={(v) => set({ visaExpiry: v })} dir="ltr" />
             <F label="תוקף היתר העסקה" type="date" value={worker.permitExpiry} onChange={(v) => set({ permitExpiry: v })} dir="ltr" />
             <F label="תוקף ביטוח" type="date" value={worker.insuranceExpiry} onChange={(v) => set({ insuranceExpiry: v })} dir="ltr" />
+            <F label="תאריך הגעה לארץ" value={worker.arrivalDate} onChange={(v) => set({ arrivalDate: v })} dir="ltr" />
+            <F label="תאריך עבודה אחרון" value={worker.lastWorkDate} onChange={(v) => set({ lastWorkDate: v })} dir="ltr" />
           </div>
         </section>
 
