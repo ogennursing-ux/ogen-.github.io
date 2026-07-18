@@ -35,13 +35,14 @@ export default function Login({ onLogin }) {
     <div className="app">
       <header className="app-header">
         <div className="brand">
-          <span className="brand-mark">✒️</span>
+          <img className="brand-mark brand-logo" src="./klik-icon.png" alt="" />
           <BrandName />
         </div>
         <LangToggle />
       </header>
       <div className="centered-screen">
         <form className="card login-card" onSubmit={submit}>
+          <img className="login-logo" src="./klik-logo.png" alt="קליק חתימה" />
           <h2>{t('כניסה למערכת')}</h2>
           <label className="field-label">{t('שם משתמש')}</label>
           <input className="text-input" value={user} onChange={(e) => setUser(e.target.value)} autoFocus />

@@ -104,7 +104,7 @@ export default function FormSignerView({ id, brandIcon = '✒️', brandLabel, o
   const header = (
     <header className="app-header">
       <div className="brand">
-        <span className="brand-mark">{brandIcon}</span>
+        {brandIcon === '✒️' ? <img className="brand-mark brand-logo" src="./klik-icon.png" alt="" /> : <span className="brand-mark">{brandIcon}</span>}
         {brandLabel ? <span className="brand-name">{t(brandLabel)}</span> : <BrandName />}
       </div>
       <div className="header-actions">
