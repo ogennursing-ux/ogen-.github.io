@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  STEPS, GREETING, PAYMENT_TEXT, PAYMENT_LINK, NO_DISCOUNT_TEXT, INSURANCE_TEXT,
+  STEPS, FOLLOWUPS, GREETING, PAYMENT_TEXT, PAYMENT_LINK, NO_DISCOUNT_TEXT, INSURANCE_TEXT,
   faqAnswer, saveChat, newSessionId, applyUrlKey, aiChatReply, withTimeout,
   loadPublishedKey, wantsHuman, ESCALATE_TEXT, AGENT_NAME,
 } from './intakeChat.js';
@@ -42,7 +42,14 @@ export default function IntakeChat() {
     setTimeout(() => { setTyping(false); pushBot(text); res(); }, ms);
   });
 
-  const pendingStep = (col) => STEPS.find((s) => !(s.key in col));
+  // Next thing to ask: an unfilled required step, then a follow-up question the
+  // documents didn't already answer (marital status / spouse / parents).
+  const pendingStep = (col) => {
+    const s = STEPS.find((x) => !(x.key in col));
+    if (s) return s;
+    const known = { ...extractedRef.current, ...col };
+    return FOLLOWUPS.find((f) => !(f.key in known) && (!f.when || f.when(known))) || null;
+  };
 
   useEffect(() => {
     if (startedRef.current) return;

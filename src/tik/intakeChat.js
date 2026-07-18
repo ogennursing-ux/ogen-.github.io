@@ -76,7 +76,7 @@ export const STEPS = [
   { key: 'contactPhone', type: 'text', label: 'טלפון ליצירת קשר',
     ask: 'קודם כול — מה **מספר הטלפון** שלכם? ככה נוכל לחזור אליכם אם צריך 🙂' },
   { key: 'passport', type: 'file', category: 'passport', label: 'דרכון של העובד/ת',
-    ask: 'תודה! עכשיו צלמו ושלחו לי תמונה של **הדרכון** של העובד/ת (עמוד הפרטים).' },
+    ask: 'תודה! עכשיו צלמו ושלחו לי את **עמוד הפרטים של הדרכון** של העובד/ת — התמונה עם השם, מספר הדרכון ותאריך הלידה.' },
   { key: 'visa', type: 'file', category: 'visa', optional: true, label: 'ויזה של העובד/ת',
     ask: 'מצוין. שלחו לי בבקשה תמונה של ה**ויזה / אשרה** של העובד/ת (ואם אין ברשותכם — כתבו "אין").' },
   { key: 'patientId', type: 'file', category: 'id', label: 'תעודת זהות של המטופל/מעסיק',
@@ -93,6 +93,18 @@ export const STEPS = [
     ask: 'מתי העובד/ת **הגיע/ה לארץ**? (תאריך — גם משוער עוזר)' },
   { key: 'lastWorkDate', type: 'text', label: 'תאריך עבודה אחרון',
     ask: 'ואחרון — מה ה**תאריך המדויק האחרון** שבו העובד/ת עבד/ה במקום הקודם? (אם רלוונטי)' },
+];
+
+// After the documents, ask ONLY for whatever the passport didn't already give
+// us: marital status (→ spouse name if married) and the caregiver's parents.
+export const isMarried = (v) => /נשוי|נשואה|married|(^|\s)כן(\s|$)/i.test(String(v || ''));
+export const FOLLOWUPS = [
+  { key: 'maritalStatus', type: 'text', label: 'מצב משפחתי',
+    ask: 'עוד כמה פרטים קצרים על העובד/ת: האם הוא/היא **נשוי/אה**? (כן / לא)' },
+  { key: 'spouseName', type: 'text', label: 'שם בן/בת הזוג', when: (d) => isMarried(d.maritalStatus),
+    ask: 'מה **שם בן/בת הזוג**?' },
+  { key: 'fatherName', type: 'text', label: 'שם האב', ask: 'מה **שם האב** של העובד/ת?' },
+  { key: 'motherName', type: 'text', label: 'שם האם', ask: 'ומה **שם האם** של העובד/ת?' },
 ];
 
 export const GREETING =
