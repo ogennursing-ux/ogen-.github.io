@@ -180,7 +180,7 @@ export default function SignerView({ id }) {
   const header = (
     <header className="app-header">
       <div className="brand">
-        <span className="brand-mark">✒️</span>
+        <img className="brand-mark brand-logo" src="./klik-icon.png" alt="" />
         <BrandName />
       </div>
       <LangToggle />

@@ -19,6 +19,7 @@ export default function DocLoader({ progress, page, pages }) {
 
   return (
     <div className="doc-loader" role="status" aria-live="polite">
+      <img className="dl-logo" src="./klik-icon.png" alt="" />
       <div className="dl-stage">
         <svg viewBox="0 0 226 70" className="dl-svg" aria-hidden>
           <path className="dl-sig-track" d={SIG_PATH} />

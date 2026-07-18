@@ -520,6 +520,24 @@ button {
   font-weight: 600;
   color: var(--muted);
 }
+/* Logo artwork sizes (transparent PNG). */
+.brand-logo {
+  height: 34px;
+  width: 34px;
+  object-fit: contain;
+}
+.login-logo {
+  display: block;
+  width: 210px;
+  max-width: 80%;
+  margin: 0 auto 6px;
+}
+.dl-logo {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+}
+
 /* "קליק חתימה" wordmark: first word in the brand color. */
 .brand-klik b {
   color: var(--primary);

@@ -432,7 +432,7 @@ function PrepareApp({ onLogout, workerAdmin = false }) {
   const header = (
     <header className="app-header">
       <div className="brand">
-        <span className="brand-mark">{workerAdmin ? '📋' : '✒️'}</span>
+        {workerAdmin ? <span className="brand-mark">📋</span> : <img className="brand-mark brand-logo" src="./klik-icon.png" alt="" />}
         {workerAdmin ? <span className="brand-name">{t('טפסים לעובדים סוציאליים')}</span> : <BrandName />}
       </div>
       <div className="header-actions">
