@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   STEPS, GREETING, PAYMENT_TEXT, PAYMENT_LINK, NO_DISCOUNT_TEXT,
-  INSURANCE_TEXT, faqAnswer, saveChat, newSessionId,
+  INSURANCE_TEXT, faqAnswer, saveChat, newSessionId, applyUrlKey, aiChatReply, withTimeout,
 } from './intakeChat.js';
+import { extractDocument, extractFamilyDocument, hasAI } from './gemini.js';
 
 // Render **bold** and links inside a chat bubble.
 function renderText(text) {
@@ -21,6 +22,7 @@ export default function IntakeChat() {
   const [done, setDone] = useState(false);
   const [typing, setTyping] = useState(false);
   const filesRef = useRef([]);        // [{ category, name, blob }]
+  const extractedRef = useRef({});    // field values read from the documents
   const sessionId = useRef(newSessionId());
   const fileInput = useRef(null);
   const camInput = useRef(null);
@@ -41,6 +43,7 @@ export default function IntakeChat() {
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
+    applyUrlKey(); // pick up the AI key the office embedded in the link
     (async () => {
       await botSay(GREETING, 400);
       await botSay(STEPS[0].ask, 700);
@@ -56,7 +59,7 @@ export default function IntakeChat() {
     const transcript = messages.map((m) => ({ from: m.from, text: m.text || (m.image ? '[תמונה]' : '') }));
     saveChat(sessionId.current, {
       transcript,
-      data: collected,
+      data: { ...extractedRef.current, ...collected },
       files: finalFiles || [],
       status: finalFiles ? 'new' : 'chat',
     }).catch(() => {});
@@ -95,7 +98,15 @@ export default function IntakeChat() {
     const step = pendingStep(collected);
     const faq = faqAnswer(text);
 
-    if (!step) { if (faq) await botSay(faq); return; }
+    const missing = STEPS.filter((s) => !(s.key in collected)).map((s) => s.label);
+    const historyText = messages.slice(-8).map((m) => `${m.from === 'bot' ? 'בוט' : 'לקוח'}: ${m.text || '[תמונה]'}`).join('\n');
+
+    if (!step) { // everything collected — free chat, AI answers
+      if (faq) { await botSay(faq); return; }
+      const ai = await aiChatReply(historyText, text, missing);
+      await botSay(ai || 'תודה! 🙏', 300);
+      return;
+    }
 
     if (step.type === 'text') {
       if (faq) { await botSay(faq); await botSay('נחזור רגע: ' + step.ask, 500); return; }
@@ -106,7 +117,6 @@ export default function IntakeChat() {
       return;
     }
     // pending is a file step but the user typed
-    if (faq) { await botSay(faq); await botSay('וכשתהיו מוכנים: ' + step.ask, 500); return; }
     if (/^(אין|לא|דלג|אין לי|לא רלוונטי)/.test(text) && step.key === 'permit') {
       const col = { ...collected, [step.key]: 'אין' };
       setCollected(col);
@@ -114,7 +124,11 @@ export default function IntakeChat() {
       await advanceAfter(col);
       return;
     }
-    await botSay('כדי להמשיך אני צריך תמונה כאן 🙂 ' + step.ask, 450);
+    if (faq) { await botSay(faq); await botSay('וכשתהיו מוכנים: ' + step.ask, 500); return; }
+    // let the AI answer naturally, then steer back to the pending document
+    const ai = await aiChatReply(historyText, text, missing);
+    if (ai) { await botSay(ai, 300); await botSay(step.ask, 500); }
+    else await botSay('כדי להמשיך אני צריך תמונה כאן 🙂 ' + step.ask, 450);
   }
 
   async function onFiles(list) {
@@ -133,7 +147,33 @@ export default function IntakeChat() {
     if (step && step.type === 'file') {
       const col = { ...collected, [step.key]: true };
       setCollected(col);
-      await botSay('קיבלתי, תודה ✓', 450);
+      // Read the document with AI (if a key was provided in the link).
+      if (hasAI()) {
+        const img = files[0];
+        try {
+          setTyping(true);
+          const res = await withTimeout(
+            step.key === 'passport'
+              ? extractDocument(img, 'passport')
+              : extractFamilyDocument(img, step.key === 'permit' ? 'permit' : 'id'),
+            16000,
+          );
+          setTyping(false);
+          const patch = res?.patch || {};
+          Object.assign(extractedRef.current, patch);
+          const bits = [
+            patch.nameEn || patch.nameHe || patch.fullName,
+            patch.passportNo && 'דרכון ' + patch.passportNo,
+            patch.idNumber && 'ת.ז ' + patch.idNumber,
+          ].filter(Boolean).join(' · ');
+          await botSay(bits ? `קראתי מהמסמך: ${bits} ✓` : 'קיבלתי, תודה ✓', 300);
+        } catch {
+          setTyping(false);
+          await botSay('קיבלתי, תודה ✓', 300);
+        }
+      } else {
+        await botSay('קיבלתי, תודה ✓', 450);
+      }
       await advanceAfter(col);
     } else {
       await botSay('תודה על התמונה! 📎', 400);

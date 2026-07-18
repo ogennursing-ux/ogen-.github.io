@@ -194,8 +194,11 @@ function DashboardCard({ onDataChanged }) {
         <button className="btn-ghost small" onClick={() => exportWorkersCsv(workers)} disabled={!workers.length}>📊 ייצוא עובדים</button>
         <button className="btn-ghost small" onClick={() => exportFamiliesCsv(families)} disabled={!families.length}>📊 ייצוא משפחות</button>
         <button className="btn-ghost small" onClick={() => {
-          const url = location.origin + location.pathname + '#chat';
-          navigator.clipboard?.writeText(url).then(() => setMsg('🔗 קישור הצ׳אט ללקוח הועתק')).catch(() => setMsg(url));
+          const key = getGeminiKey() || getGroqKey();
+          const url = location.origin + location.pathname + '#chat' + (key ? '?k=' + encodeURIComponent(key) : '');
+          navigator.clipboard?.writeText(url)
+            .then(() => setMsg(key ? '🔗 קישור צ׳אט חכם הועתק (כולל AI)' : '🔗 קישור הצ׳אט הועתק (בלי AI — הגדר מפתח בהגדרות)'))
+            .catch(() => setMsg(url));
         }}>🔗 קישור צ׳אט ללקוח</button>
       </div>
       <div className="tik-dash-foot muted small">

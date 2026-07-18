@@ -7,6 +7,10 @@
 // import it. No AI key is exposed publicly — the office runs the AI extraction
 // on its side from the inbox.
 import { createClient } from '@supabase/supabase-js';
+import {
+  getGeminiKey, setGeminiKey, getGeminiModel,
+  getGroqKey, setGroqKey, getGroqTextModel, hasAI,
+} from './gemini.js';
 
 const SUPABASE_URL = 'https://dhrctqjxbdlwfxabinbr.supabase.co';
 const SUPABASE_ANON_KEY =
@@ -70,6 +74,61 @@ export function faqAnswer(text) {
   if (/כמה זמן|מתי|לוקח/.test(t)) return 'התהליך כאן לוקח כמה דקות. אחרי שנשלים, נהפוך את זה לחוזה ונשלח אליכם — ואז רק נחתים את העובד/ת.';
   if (/שלום|היי|הי |תודה|בוקר טוב|ערב טוב/.test(t)) return 'בשמחה! 🙏';
   return null;
+}
+
+// The office shares a link that carries the AI key (…/#chat?k=…), so no key is
+// committed to the public repo. On load we store it where gemini.js reads it.
+export function applyUrlKey() {
+  try {
+    const m = (location.hash || '').match(/[?&]k=([^&]+)/);
+    if (!m) return;
+    const key = decodeURIComponent(m[1]).trim();
+    if (!key) return;
+    if (key.startsWith('gsk_')) setGroqKey(key); else setGeminiKey(key);
+  } catch { /* ignore */ }
+}
+
+const SYSTEM = 'את/ה עוזר/ת דיגיטלי/ת חם/ה של "עוגן סיעוד ועובדים זרים בע"מ", לשכה להשמת עובדים זרים בסיעוד. ' +
+  'המטרה: לאסוף מהלקוח את כל המסמכים והפרטים בעברית, בנעימות. עובדות: צריך לאסוף דרכון העובד/ת, ' +
+  'תעודת זהות של המטופל/מעסיק, היתר העסקה, טלפון מעסיק וטלפון עובד/ת. תשלום: דמי השמה 2000 ש"ח + דמי ' +
+  'תאגיד 840 ש"ח = 2840 ש"ח, אין אפשרות להנחה, קישור: ' + PAYMENT_LINK + '. ביטוח: חובה על פי חוק, ' +
+  'אנחנו עובדים עם חברת הילית והם יצרו קשר, אי אפשר לוותר. כללים: תשובות קצרות (1-3 משפטים), חמות, ' +
+  'בעברית בלבד. תמיד כוון/י בעדינות להשלמת המסמכים החסרים. אל תמציא/י פרטים.';
+
+// Reject a promise after ms so a slow network never freezes the chat.
+export function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms)),
+  ]);
+}
+
+// A natural free-text reply from the AI (falls back to null if no key / error).
+export async function aiChatReply(historyText, userText, missingLabels) {
+  if (!hasAI()) return null;
+  const prompt = SYSTEM + '\n\nמה שעדיין חסר מהלקוח: ' + (missingLabels.join(', ') || 'שום דבר, הכול נאסף') +
+    '.\n\nהשיחה עד כה:\n' + historyText + '\n\nהלקוח כתב: "' + userText + '"\n\nענה/י בעברית, קצר וחם:';
+  try {
+    const groq = getGroqKey();
+    if (groq) {
+      const r = await withTimeout(fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + groq },
+        body: JSON.stringify({ model: getGroqTextModel(), temperature: 0.3, messages: [{ role: 'user', content: prompt }] }),
+      }), 18000);
+      if (!r.ok) return null;
+      const d = await r.json();
+      return d?.choices?.[0]?.message?.content?.trim() || null;
+    }
+    const key = getGeminiKey();
+    if (!key) return null;
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + getGeminiModel() +
+      ':generateContent?key=' + encodeURIComponent(key);
+    const r = await withTimeout(fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3 } }) }), 18000);
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d?.candidates?.[0]?.content?.parts?.map((p) => p.text).join('').trim() || null;
+  } catch { return null; }
 }
 
 const uid = () => (crypto.randomUUID && crypto.randomUUID()) || Date.now().toString(36) + Math.random().toString(36).slice(2);
