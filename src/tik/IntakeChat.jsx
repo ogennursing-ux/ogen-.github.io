@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  STEPS, GREETING, PAYMENT_TEXT, PAYMENT_LINK, NO_DISCOUNT_TEXT,
-  INSURANCE_TEXT, faqAnswer, saveChat, newSessionId, applyUrlKey, aiChatReply, withTimeout,
+  STEPS, GREETING, PAYMENT_TEXT, PAYMENT_LINK, NO_DISCOUNT_TEXT, INSURANCE_TEXT,
+  faqAnswer, saveChat, newSessionId, applyUrlKey, aiChatReply, withTimeout,
+  loadPublishedKey, wantsHuman, ESCALATE_TEXT, AGENT_NAME,
 } from './intakeChat.js';
 import { extractDocument, extractFamilyDocument, hasAI } from './gemini.js';
 
@@ -23,6 +24,7 @@ export default function IntakeChat() {
   const [typing, setTyping] = useState(false);
   const filesRef = useRef([]);        // [{ category, name, blob }]
   const extractedRef = useRef({});    // field values read from the documents
+  const callbackRef = useRef(false);  // customer asked to speak with a person
   const sessionId = useRef(newSessionId());
   const fileInput = useRef(null);
   const camInput = useRef(null);
@@ -32,10 +34,12 @@ export default function IntakeChat() {
   const pushBot = (text) => setMessages((m) => [...m, { from: 'bot', text }]);
   const pushMe = (msg) => setMessages((m) => [...m, { from: 'me', ...msg }]);
 
-  // Bot "types" then speaks.
-  const botSay = (text, delay = 650) => new Promise((res) => {
+  // Bot "types" then speaks — with a human-like pause that scales to the length
+  // of what it's about to say, so it reads like a real person is chatting.
+  const botSay = (text, delay) => new Promise((res) => {
+    const ms = delay != null ? delay : Math.min(3200, 900 + String(text).length * 22 + Math.random() * 500);
     setTyping(true);
-    setTimeout(() => { setTyping(false); pushBot(text); res(); }, delay);
+    setTimeout(() => { setTyping(false); pushBot(text); res(); }, ms);
   });
 
   const pendingStep = (col) => STEPS.find((s) => !(s.key in col));
@@ -43,10 +47,11 @@ export default function IntakeChat() {
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
-    applyUrlKey(); // pick up the AI key the office embedded in the link
+    applyUrlKey();                       // key from the link (fallback)
+    loadPublishedKey().catch(() => {});  // key published by the office — in the background
     (async () => {
-      await botSay(GREETING, 400);
-      await botSay(STEPS[0].ask, 700);
+      await botSay(GREETING, 900);
+      await botSay(STEPS[0].ask, 1200);
     })();
   }, []);
 
@@ -62,6 +67,7 @@ export default function IntakeChat() {
       data: { ...extractedRef.current, ...collected },
       files: finalFiles || [],
       status: finalFiles ? 'new' : 'chat',
+      needsCallback: callbackRef.current,
     }).catch(() => {});
   };
   // Save shortly after every change (debounced).
@@ -97,6 +103,14 @@ export default function IntakeChat() {
     pushMe({ text });
     const step = pendingStep(collected);
     const faq = faqAnswer(text);
+
+    // Customer asked to speak with a person → flag it and promise a callback.
+    if (wantsHuman(text)) {
+      callbackRef.current = true;
+      await botSay(ESCALATE_TEXT);
+      if (step) await botSay(step.ask, 900);
+      return;
+    }
 
     const missing = STEPS.filter((s) => !(s.key in collected)).map((s) => s.label);
     const historyText = messages.slice(-8).map((m) => `${m.from === 'bot' ? 'בוט' : 'לקוח'}: ${m.text || '[תמונה]'}`).join('\n');
@@ -187,10 +201,10 @@ export default function IntakeChat() {
   return (
     <div className="chat-wrap">
       <div className="chat-head">
-        <div className="chat-avatar">ע</div>
+        <div className="chat-avatar">{AGENT_NAME.slice(0, 1)}</div>
         <div className="chat-head-txt">
-          <strong>עוגן סיעוד</strong>
-          <span>{done ? 'הסתיים ✓' : typing ? 'מקליד/ה…' : `אוסף פרטים · ${doneCount}/${total}`}</span>
+          <strong>{AGENT_NAME} · עוגן סיעוד</strong>
+          <span>{typing ? 'מקליד…' : done ? 'מקוון' : 'מקוון · זמין עכשיו'}</span>
         </div>
       </div>
 

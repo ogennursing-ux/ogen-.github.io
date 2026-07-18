@@ -30,6 +30,7 @@ import { buildOverlayPdf } from './contractOverlay.js';
 import { createSigningRequest, getSigningUrl, setSigningUrl } from './signingBridge.js';
 import { listNewSubmissions, countNewSubmissions, setSubmissionStatus, AGENT_ENDPOINT, AGENT_ANON_KEY } from './agentInbox.js';
 import { collectRecords, recordsSignature, backupNow, restoreFromCloud, getLastSync } from './cloudBackup.js';
+import { publishChatKey } from './intakeChat.js';
 import { exportWorkersCsv, exportFamiliesCsv } from './csvExport.js';
 import {
   workerToText, familyToText, WORKER_COLS, FAMILY_COLS,
@@ -194,11 +195,8 @@ function DashboardCard({ onDataChanged }) {
         <button className="btn-ghost small" onClick={() => exportWorkersCsv(workers)} disabled={!workers.length}>📊 ייצוא עובדים</button>
         <button className="btn-ghost small" onClick={() => exportFamiliesCsv(families)} disabled={!families.length}>📊 ייצוא משפחות</button>
         <button className="btn-ghost small" onClick={() => {
-          const key = getGeminiKey() || getGroqKey();
-          const url = location.origin + location.pathname + '#chat' + (key ? '?k=' + encodeURIComponent(key) : '');
-          navigator.clipboard?.writeText(url)
-            .then(() => setMsg(key ? '🔗 קישור צ׳אט חכם הועתק (כולל AI)' : '🔗 קישור הצ׳אט הועתק (בלי AI — הגדר מפתח בהגדרות)'))
-            .catch(() => setMsg(url));
+          const url = location.origin + location.pathname + '#chat';
+          navigator.clipboard?.writeText(url).then(() => setMsg('🔗 קישור הצ׳אט הועתק — שלח לכולם')).catch(() => setMsg(url));
         }}>🔗 קישור צ׳אט ללקוח</button>
       </div>
       <div className="tik-dash-foot muted small">
@@ -375,6 +373,22 @@ function SettingsModal({ onClose }) {
             onChange={(e) => setModel(e.target.value)}
           />
         </label>
+        <hr className="tik-hr" />
+        <h3 style={{ margin: '4px 0 6px', fontSize: 15 }}>🤖 צ׳אט חכם ללקוחות</h3>
+        <p className="muted small">
+          מפרסם את מפתח ה-AI פעם אחת כדי שהצ׳אט (קישור אחד לכולם) יהיה חכם וזמין תמיד. לחץ/י אחרי שהזנת מפתח.
+        </p>
+        <div className="card-actions" style={{ marginTop: 8 }}>
+          <button className="btn-ghost" disabled={busy === 'pub'} onClick={async () => {
+            const k = (key || groqKey).trim();
+            if (!k) { setBusy('pub'); alert('אין מפתח AI. הזן/י מפתח Gemini או Groq ושמור/י קודם.'); setBusy(''); return; }
+            setBusy('pub');
+            try { await publishChatKey(k); alert('✓ הצ׳אט החכם הופעל! עכשיו הקישור לכולם עובד עם AI.'); }
+            catch (e) { alert('הפרסום נכשל: ' + (e?.message || e)); }
+            finally { setBusy(''); }
+          }}>{busy === 'pub' ? 'מפרסם…' : '🤖 הפעל צ׳אט חכם (פרסם מפתח)'}</button>
+        </div>
+
         <hr className="tik-hr" />
         <h3 style={{ margin: '4px 0 6px', fontSize: 15 }}>חתימה דיגיטלית</h3>
         <p className="muted small">
@@ -773,8 +787,11 @@ function AgentInbox({ onClose, onImported }) {
             {items.map((s) => (
               <li key={s.id} className="tik-sub">
                 <div className="tik-sub-main">
-                  <div className="tik-doc-name">{summary(s.data || {})}</div>
-                  <div className="tik-doc-meta">{s.kind === 'family' ? 'משפחה' : 'עובד'} · {fmt(s.created_at)}</div>
+                  <div className="tik-doc-name">{summary(s.data || {})}{s.data?.needsCallback && <span className="badge wait" style={{ marginInlineStart: 6 }}>📞 רוצה שיחה</span>}</div>
+                  <div className="tik-doc-meta">
+                    {s.data?.chat ? 'צ׳אט' : s.kind === 'family' ? 'משפחה' : 'עובד'} · {fmt(s.created_at)}
+                    {s.data?.fields?.contactPhone && ' · ' + s.data.fields.contactPhone}
+                  </div>
                 </div>
                 <div className="tik-sub-actions">
                   {s.data?.chat && (

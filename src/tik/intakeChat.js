@@ -18,6 +18,28 @@ const SUPABASE_ANON_KEY =
 let _sb;
 export const sb = () => (_sb || (_sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)));
 
+// One clean link for everyone: the office publishes the AI key to Supabase once,
+// and every chat reads it on load — so the assistant is "always connected" and
+// the link (…/#chat) carries no secret.
+const CONFIG_ID = '00000000-0000-4000-8000-0a9e0c0f0001';
+export async function publishChatKey(key) {
+  const { error } = await sb().from('agent_submissions')
+    .upsert({ id: CONFIG_ID, kind: 'config', status: 'config', source: 'office', data: { aiKey: key || '' } }, { onConflict: 'id' });
+  if (error) throw new Error(error.message);
+}
+export async function loadPublishedKey() {
+  try {
+    const { data } = await withTimeout(
+      sb().from('agent_submissions').select('data').eq('id', CONFIG_ID).maybeSingle(),
+      8000,
+    );
+    const key = data?.data?.aiKey || '';
+    if (!key) return false;
+    if (key.startsWith('gsk_')) setGroqKey(key); else setGeminiKey(key);
+    return true;
+  } catch { return false; }
+}
+
 // ---- fixed copy provided by the office ----
 export const PAYMENT_LINK = 'https://pay.grow.link/MTAyMDA2~518b6d50d0cd6bf8c1fb3d39339ef11c-MzU2NTg5Mg';
 export const PAYMENT_TEXT =
@@ -43,26 +65,40 @@ export const INSURANCE_WHY =
   'על ההשמה לרשויות, וזה עלול לפגוע בזכויות של המעסיק והעובד — ובמקרה של צורך רפואי, המעסיק יישא בכל ' +
   'העלויות. לכן אי אפשר לוותר על הביטוח.';
 
+// The person the customer is chatting with (front-line rep persona).
+export const AGENT_NAME = 'מאור';
+// Who unknown questions get escalated to.
+export const ESCALATE_TO = 'דביר';
+
 // ---- the required checklist. The bot asks for each missing item in order. ----
+// Phone comes FIRST so the office can always call the customer back.
 export const STEPS = [
+  { key: 'contactPhone', type: 'text', label: 'טלפון ליצירת קשר',
+    ask: 'קודם כול — מה **מספר הטלפון** שלכם? ככה נוכל לחזור אליכם אם צריך 🙂' },
   { key: 'passport', type: 'file', category: 'passport', label: 'דרכון של העובד/ת',
-    ask: 'נתחיל 🙂 אנא צלמו ושלחו כאן תמונה של **הדרכון** של העובד/ת (אפשר גם עמוד הפרטים).' },
+    ask: 'תודה! עכשיו צלמו ושלחו לי תמונה של **הדרכון** של העובד/ת (עמוד הפרטים).' },
   { key: 'patientId', type: 'file', category: 'id', label: 'תעודת זהות של המטופל/מעסיק',
-    ask: 'מצוין! עכשיו שלחו תמונה של **תעודת הזהות** של המטופל/המעסיק (כולל הספח אם יש).' },
+    ask: 'מעולה. שלחו לי בבקשה תמונה של **תעודת הזהות** של המטופל/המעסיק (עם הספח אם יש).' },
   { key: 'permit', type: 'file', category: 'permit', label: 'היתר העסקה',
-    ask: 'תודה! שלחו בבקשה תמונה של **היתר ההעסקה** (אם יש ברשותכם).' },
+    ask: 'תודה רבה. ויש לכם תמונה של **היתר ההעסקה**? שלחו לי אותה (ואם אין — כתבו לי "אין").' },
   { key: 'employerName', type: 'text', label: 'שם המעסיק/מטופל',
-    ask: 'מה **השם המלא** של המטופל/המעסיק?' },
-  { key: 'employerPhone', type: 'text', label: 'טלפון המעסיק',
-    ask: 'מה **מספר הטלפון** של המעסיק/איש הקשר?' },
+    ask: 'כמעט סיימנו. מה **השם המלא** של המטופל/המעסיק?' },
   { key: 'workerPhone', type: 'text', label: 'טלפון העובד/ת',
-    ask: 'ומה **מספר הטלפון של העובד/ת**?' },
+    ask: 'ואחרון — מה **מספר הטלפון של העובד/ת**?' },
 ];
 
 export const GREETING =
-  'שלום וברוכים הבאים לעוגן סיעוד! 👋\n' +
-  'אני כאן כדי לאסוף את הפרטים והמסמכים להשמת העובד/ת, בצורה פשוטה וזריזה. ' +
-  'נעבור על כמה דברים יחד — פשוט שלחו לי מה שאבקש. אפשר לשאול אותי כל שאלה בדרך.';
+  'היי, נעים מאוד! אני ' + AGENT_NAME + ' מעוגן סיעוד 😊\n' +
+  'אני אעזור לכם לאסוף את הפרטים והמסמכים להשמת העובד/ת — זה קצר ופשוט. ' +
+  'פשוט שלחו לי מה שאבקש, ואפשר לשאול אותי כל שאלה בדרך.';
+
+// Detect a request to speak with a human / get a call back.
+export function wantsHuman(text) {
+  return /לדבר עם|נציג|בן אדם|בנאדם|תתקשר|תחזור אלי|שיחה איתי|לדבר איתכם|טלפון איתכם|לא הבנתי|מישהו אמיתי/.test(text || '');
+}
+export const ESCALATE_TEXT =
+  'בשמחה 🙏 אני מעביר את זה ל' + ESCALATE_TO + ' מהצוות שלנו, ונחזור אליכם טלפונית בהקדם. ' +
+  'בינתיים נמשיך להשלים את הפרטים?';
 
 // Simple keyword FAQ so the customer can ask questions mid-flow.
 export function faqAnswer(text) {
@@ -88,12 +124,14 @@ export function applyUrlKey() {
   } catch { /* ignore */ }
 }
 
-const SYSTEM = 'את/ה עוזר/ת דיגיטלי/ת חם/ה של "עוגן סיעוד ועובדים זרים בע"מ", לשכה להשמת עובדים זרים בסיעוד. ' +
-  'המטרה: לאסוף מהלקוח את כל המסמכים והפרטים בעברית, בנעימות. עובדות: צריך לאסוף דרכון העובד/ת, ' +
-  'תעודת זהות של המטופל/מעסיק, היתר העסקה, טלפון מעסיק וטלפון עובד/ת. תשלום: דמי השמה 2000 ש"ח + דמי ' +
-  'תאגיד 840 ש"ח = 2840 ש"ח, אין אפשרות להנחה, קישור: ' + PAYMENT_LINK + '. ביטוח: חובה על פי חוק, ' +
-  'אנחנו עובדים עם חברת הילית והם יצרו קשר, אי אפשר לוותר. כללים: תשובות קצרות (1-3 משפטים), חמות, ' +
-  'בעברית בלבד. תמיד כוון/י בעדינות להשלמת המסמכים החסרים. אל תמציא/י פרטים.';
+const SYSTEM = 'אתה ' + AGENT_NAME + ', נציג שירות אנושי וחם של "עוגן סיעוד ועובדים זרים בע"מ", לשכה להשמת ' +
+  'עובדים זרים בסיעוד. אתה מדבר בגוף ראשון כאילו אתה בן אדם אמיתי (לא בוט). המטרה: לאסוף מהלקוח את כל ' +
+  'המסמכים והפרטים בעברית, בנעימות. עובדות: צריך לאסוף טלפון ליצירת קשר, דרכון העובד/ת, תעודת זהות של ' +
+  'המטופל/מעסיק, היתר העסקה, שם המטופל/מעסיק וטלפון עובד/ת. תשלום: דמי השמה 2000 ש"ח + דמי תאגיד ' +
+  '840 ש"ח = 2840 ש"ח, אין אפשרות להנחה, קישור: ' + PAYMENT_LINK + '. ביטוח: חובה על פי חוק, אנחנו ' +
+  'עובדים עם חברת הילית והם יצרו קשר, אי אפשר לוותר. אם אינך יודע את התשובה או שהלקוח מבקש לדבר עם ' +
+  'נציג — אמור שתעביר את זה ל' + ESCALATE_TO + ' מהצוות ושנחזור אליהם טלפונית. כללים: תשובות קצרות ' +
+  '(1-3 משפטים), חמות, בעברית בלבד, בגוף ראשון. תמיד כוון בעדינות להשלמת המסמכים החסרים. אל תמציא פרטים.';
 
 // Reject a promise after ms so a slow network never freezes the chat.
 export function withTimeout(promise, ms) {
@@ -144,7 +182,7 @@ function blobToDataUrl(blob) {
 
 // Persist (upsert) the running conversation to Supabase so the office sees it
 // live and can read the full transcript. One row per chat session.
-export async function saveChat(rowId, { transcript, data, files, status }) {
+export async function saveChat(rowId, { transcript, data, files, status, needsCallback }) {
   const filePayload = [];
   for (const f of files || []) {
     filePayload.push({ category: f.category, name: f.name, dataUrl: await blobToDataUrl(f.blob) });
@@ -153,7 +191,7 @@ export async function saveChat(rowId, { transcript, data, files, status }) {
     kind: 'family',
     source: 'chat',
     status: status || 'chat',
-    data: { chat: true, transcript, fields: data, files: filePayload, updatedAt: new Date().toISOString() },
+    data: { chat: true, needsCallback: !!needsCallback, transcript, fields: data, files: filePayload, updatedAt: new Date().toISOString() },
   };
   const { error } = await sb()
     .from('agent_submissions')
