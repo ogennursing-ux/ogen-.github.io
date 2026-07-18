@@ -193,6 +193,10 @@ function DashboardCard({ onDataChanged }) {
         </button>
         <button className="btn-ghost small" onClick={() => exportWorkersCsv(workers)} disabled={!workers.length}>📊 ייצוא עובדים</button>
         <button className="btn-ghost small" onClick={() => exportFamiliesCsv(families)} disabled={!families.length}>📊 ייצוא משפחות</button>
+        <button className="btn-ghost small" onClick={() => {
+          const url = location.origin + location.pathname + '#chat';
+          navigator.clipboard?.writeText(url).then(() => setMsg('🔗 קישור הצ׳אט ללקוח הועתק')).catch(() => setMsg(url));
+        }}>🔗 קישור צ׳אט ללקוח</button>
       </div>
       <div className="tik-dash-foot muted small">
         ☁️ גיבוי אוטומטי לענן · עדכון אחרון: {fmtSync(sync)}{msg ? ' · ' + msg : ''}
@@ -703,6 +707,7 @@ function AgentInbox({ onClose, onImported }) {
   const [busyId, setBusyId] = useState(null);
   const [err, setErr] = useState('');
   const [showConn, setShowConn] = useState(false);
+  const [chatView, setChatView] = useState(null); // transcript being read
 
   const reload = () => listNewSubmissions().then((r) => { setItems(r); setErr(''); }).catch((e) => { setItems([]); setErr(e?.message || String(e)); });
   useEffect(() => { reload(); }, []);
@@ -710,7 +715,8 @@ function AgentInbox({ onClose, onImported }) {
   async function importOne(sub, type) {
     setBusyId(sub.id);
     try {
-      const rec = recordFromSubmission(sub.data || {}, type);
+      const src = sub.data?.chat ? { ...(sub.data.fields || {}), fullName: sub.data.fields?.employerName } : (sub.data || {});
+      const rec = recordFromSubmission(src, type);
       if (type === 'family') await saveFamily(rec); else await saveWorker(rec);
       await setSubmissionStatus(sub.id, 'imported');
       await reload();
@@ -725,7 +731,10 @@ function AgentInbox({ onClose, onImported }) {
     finally { setBusyId(null); }
   }
   const copy = (t) => navigator.clipboard?.writeText(t).catch(() => {});
-  const summary = (d) => [d.nameHe, d.fullName, d.nameEn, d.passportNo && 'דרכון ' + d.passportNo, d.idNumber && 'ת.ז ' + d.idNumber].filter(Boolean).join(' · ') || 'הגשה';
+  const summary = (d) => {
+    if (d?.chat) return '💬 ' + ((d.fields?.employerName) || 'שיחת צ׳אט') + ((d.files?.length) ? ` · ${d.files.length} קבצים` : '');
+    return [d.nameHe, d.fullName, d.nameEn, d.passportNo && 'דרכון ' + d.passportNo, d.idNumber && 'ת.ז ' + d.idNumber].filter(Boolean).join(' · ') || 'הגשה';
+  };
 
   return (
     <div className="modal-backdrop" onPointerDown={onClose}>
@@ -765,13 +774,53 @@ function AgentInbox({ onClose, onImported }) {
                   <div className="tik-doc-meta">{s.kind === 'family' ? 'משפחה' : 'עובד'} · {fmt(s.created_at)}</div>
                 </div>
                 <div className="tik-sub-actions">
-                  <button className="btn-primary sm" disabled={busyId === s.id} onClick={() => importOne(s, 'worker')}>ייבא כעובד</button>
-                  <button className="btn-ghost sm" disabled={busyId === s.id} onClick={() => importOne(s, 'family')}>ייבא כמשפחה</button>
+                  {s.data?.chat && (
+                    <button className="btn-ghost sm" onClick={() => setChatView(s)}>💬 צפה בשיחה</button>
+                  )}
+                  <button className="btn-primary sm" disabled={busyId === s.id} onClick={() => importOne(s, s.data?.chat ? 'family' : 'worker')}>{s.data?.chat ? 'ייבא כמשפחה' : 'ייבא כעובד'}</button>
+                  {!s.data?.chat && <button className="btn-ghost sm" disabled={busyId === s.id} onClick={() => importOne(s, 'family')}>ייבא כמשפחה</button>}
                   <button className="icon-btn" title="התעלם" disabled={busyId === s.id} onClick={() => dismiss(s)}>🗑</button>
                 </div>
               </li>
             ))}
           </ul>
+        )}
+        {chatView && <ChatTranscript sub={chatView} onClose={() => setChatView(null)} />}
+      </div>
+    </div>
+  );
+}
+
+// Read-only view of a saved customer conversation + its uploaded files.
+function ChatTranscript({ sub, onClose }) {
+  const d = sub.data || {};
+  const tr = d.transcript || [];
+  return (
+    <div className="modal-backdrop" onPointerDown={onClose}>
+      <div className="modal tik-modal" onPointerDown={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
+        <div className="modal-head">
+          <strong>💬 השיחה המלאה{d.fields?.employerName ? ' — ' + d.fields.employerName : ''}</strong>
+          <button className="icon-btn" onClick={onClose}>✕</button>
+        </div>
+        <div className="chat-body" style={{ maxHeight: '52vh', borderRadius: 12 }}>
+          {tr.map((m, i) => (
+            <div key={i} className={`chat-row ${m.from}`}>
+              <div className="chat-bubble">{m.text}</div>
+            </div>
+          ))}
+          {!tr.length && <p className="muted">אין תמלול.</p>}
+        </div>
+        {d.files?.length > 0 && (
+          <div style={{ marginTop: 10 }}>
+            <strong className="small">קבצים שהתקבלו:</strong>
+            <div className="tik-thumbs">
+              {d.files.map((f, i) => (
+                <a key={i} href={f.dataUrl} download={f.name || 'doc'} className="tik-thumb" title={catLabel(f.category)}>
+                  <img src={f.dataUrl} alt="" />
+                </a>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </div>
@@ -1770,7 +1819,11 @@ function FamilyList({ mode, onMode, onOpen, onNew, onLogout, onOpenWorker, onOpe
 
   return (
     <div className="app">
-      <Header onLogout={onLogout} onSettings={() => setShowSettings(true)} />
+      <Header
+        onLogout={onLogout}
+        onSettings={() => setShowSettings(true)}
+        right={<a className="header-settings" href="index.html">אזור החתימות</a>}
+      />
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showInbox && <AgentInbox onClose={() => setShowInbox(false)} onImported={reloadFamilies} />}
       {showSmart && (
