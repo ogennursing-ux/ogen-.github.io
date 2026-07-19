@@ -1879,7 +1879,224 @@ function SmartImportModal({ onClose, onOpenWorker, onOpenFamily, onReload }) {
   );
 }
 
-function FamilyList({ onOpen, onNew, onLogout, onOpenWorker, onOpenFamily }) {
+// Render **bold** inside an office-chat bubble.
+function chatText(text) {
+  return String(text).split(/(\*\*[^*]+\*\*)/g).map((p, i) =>
+    /^\*\*[^*]+\*\*$/.test(p) ? <strong key={i}>{p.slice(2, -2)}</strong> : <span key={i}>{p}</span>,
+  );
+}
+
+// WhatsApp-style office assistant. The office user drops photos and details into
+// a chat; the AI reads each one (smart import), fills the running worker/family
+// fields, tells them what it read and what's still missing, then builds the one
+// unified family file (which contains the worker) — the same as the smart import,
+// but as a friendly conversation instead of a form.
+function OfficeChat({ onClose, onOpenFamily, onReload }) {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState('');
+  const [typing, setTyping] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [created, setCreated] = useState(null);
+  const [, force] = useState(0);          // re-render when the field refs change
+  const workerRef = useRef({});
+  const patientRef = useRef({});
+  const fileInput = useRef(null);
+  const camInput = useRef(null);
+  const scroller = useRef(null);
+  const startedRef = useRef(false);
+
+  const pushBot = (text) => setMessages((m) => [...m, { from: 'bot', text }]);
+  const pushMe = (msg) => setMessages((m) => [...m, { from: 'me', ...msg }]);
+  const botSay = (text, delay) => new Promise((res) => {
+    const ms = delay != null ? delay : Math.min(2600, 700 + String(text).length * 16 + Math.random() * 300);
+    setTyping(true);
+    setTimeout(() => { setTyping(false); pushBot(text); res(); }, ms);
+  });
+
+  useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    (async () => {
+      if (!hasAI()) {
+        await botSay('כדי שאקרא מסמכים צריך מפתח AI. פתח/י ⚙ הגדרות והזן/י מפתח Groq או Gemini — ואז נתחיל 🙂', 900);
+        return;
+      }
+      await botSay('שלום! 👋 אני העוזר של עוגן.', 700);
+      await botSay('שלח/י לי כאן תמונות של המסמכים (דרכון, ת״ז, היתר…) ו/או פשוט כתוב/י פרטים — ואני אקרא, אמלא את התיק ואגיד לך מה עוד חסר. בסוף בלחיצה אחת ניצור את התיק.', 1100);
+    })();
+  }, []);
+
+  useEffect(() => { scroller.current?.scrollTo(0, scroller.current.scrollHeight); }, [messages, typing]);
+
+  // Merge a smart-import result into the running fields. A newer non-empty value
+  // overrides, so a correction the user types later wins over an earlier read.
+  function mergePart(part) {
+    let added = 0;
+    for (const [k, v] of Object.entries(part.worker || {})) if (v) { if (workerRef.current[k] !== v) added++; workerRef.current[k] = v; }
+    for (const [k, v] of Object.entries(part.patient || {})) if (v) { if (patientRef.current[k] !== v) added++; patientRef.current[k] = v; }
+    force((n) => n + 1);
+    return added;
+  }
+
+  const someOf = (o, ks) => ks.some((k) => o[k]);
+  function missing() {
+    const w = workerRef.current; const p = patientRef.current; const m = [];
+    if (!someOf(w, ['nameHe', 'nameEn', 'firstNameEn', 'lastNameEn', 'firstNameHe', 'lastNameHe'])) m.push('שם העובד/ת');
+    if (!w.passportNo) m.push('מספר דרכון');
+    if (!w.nationality) m.push('אזרחות');
+    if (!w.dob) m.push('תאריך לידה של העובד/ת');
+    if (!w.passportExpiry) m.push('תוקף דרכון');
+    if (!someOf(p, ['fullName', 'firstName', 'lastName'])) m.push('שם המטופל/מעסיק');
+    if (!p.idNumber) m.push('ת.ז מטופל');
+    if (!p.city) m.push('עיר מגורים');
+    if (!someOf(p, ['phone', 'mobile', 'contactMobile'])) m.push('מספר טלפון');
+    return m;
+  }
+
+  function readSummary(part) {
+    const w = part.worker || {}; const p = part.patient || {};
+    return [
+      w.nameEn || w.nameHe || [w.firstNameEn, w.lastNameEn].filter(Boolean).join(' '),
+      w.passportNo && 'דרכון ' + w.passportNo,
+      w.nationality,
+      p.fullName || [p.firstName, p.lastName].filter(Boolean).join(' '),
+      p.idNumber && 'ת.ז ' + p.idNumber,
+      p.city,
+      (p.phone || p.mobile || p.contactMobile) && 'טל ' + (p.phone || p.mobile || p.contactMobile),
+    ].filter(Boolean);
+  }
+
+  async function reportMissing() {
+    const m = missing();
+    if (m.length) await botSay('עדיין חסר לי: **' + m.join(' · ') + '**.\nאפשר לצלם עוד מסמך או פשוט לכתוב לי את הפרטים. 🙂', 800);
+    else await botSay('מצוין! יש לי את כל הפרטים החשובים ✅ אפשר ליצור את התיק — הכפתור למטה.', 700);
+  }
+
+  const hasData = () => Object.keys(workerRef.current).length || Object.keys(patientRef.current).length;
+
+  async function onFiles(list) {
+    const files = Array.from(list || []).filter((f) => f.type?.startsWith('image/'));
+    if (!files.length || typing || busy || created) return;
+    setBusy(true);
+    for (const f of files) pushMe({ image: URL.createObjectURL(f) });
+    let failed = 0;
+    for (let i = 0; i < files.length; i++) {
+      setTyping(true);
+      try {
+        const part = await withTimeout(smartImport({ blob: files[i] }), 45000);
+        setTyping(false);
+        const bits = readSummary(part);
+        mergePart(part);
+        await botSay(bits.length ? 'קראתי: ' + bits.join(' · ') + ' ✓' : 'קיבלתי את התמונה ✓ (לא זיהיתי ממנה פרטים ברורים)', 450);
+      } catch { setTyping(false); failed++; }
+    }
+    if (failed) await botSay(`שים/י לב: ${failed} תמונות לא נקראו — נסה/י תמונה ברורה יותר, אחת בכל פעם.`, 500);
+    await reportMissing();
+    setBusy(false);
+  }
+
+  async function onText() {
+    const text = input.trim();
+    if (!text || typing || busy || created) return;
+    setInput('');
+    pushMe({ text });
+    if (!hasAI()) { await botSay('צריך מפתח AI (⚙ הגדרות) כדי שאבין את הפרטים.', 500); return; }
+    setBusy(true);
+    try {
+      setTyping(true);
+      const part = await withTimeout(smartImport({ text }), 30000);
+      setTyping(false);
+      const added = mergePart(part);
+      const bits = readSummary(part);
+      if (bits.length) await botSay('רשמתי: ' + bits.join(' · ') + ' ✓', 450);
+      else if (added) await botSay('נרשם ✓', 350);
+      else await botSay('קיבלתי 🙂 אם זה פרט לתיק (שם, ת״ז, טלפון, כתובת, דרכון…) כתוב/י אותו ואשייך אותו למקום הנכון.', 550);
+      await reportMissing();
+    } catch { setTyping(false); await botSay('לא הצלחתי לקרוא את זה כרגע. נסה/י שוב, או צלם/י את המסמך.', 450); }
+    setBusy(false);
+  }
+
+  async function createFile() {
+    if (busy || created || !hasData()) return;
+    const w = workerRef.current; const p = patientRef.current;
+    setBusy(true);
+    try {
+      if (w.passportNo) {
+        const dup = await findWorkerDuplicate(w.passportNo);
+        if (dup && !confirm(`כבר קיים עובד עם דרכון ${w.passportNo} (${dup.nameHe || dup.nameEn || 'ללא שם'}). ליצור בכל זאת?`)) { setBusy(false); return; }
+      }
+      if (p.idNumber) {
+        const dup = await findFamilyDuplicate(p.idNumber);
+        if (dup && !confirm(`כבר קיים תיק עם ת.ז ${p.idNumber} (${dup.fullName || 'ללא שם'}). ליצור בכל זאת?`)) { setBusy(false); return; }
+      }
+      let workerId = null;
+      if (Object.keys(w).length) { const s = await saveWorker({ ...emptyWorker(), ...w }); workerId = s.id; }
+      const fam = { ...emptyFamily(), ...p };
+      if (workerId) fam.caregiverWorkerId = workerId; // one unified file: family holds the worker
+      const savedFam = await saveFamily(fam);
+      onReload?.();
+      await botSay('התיק נוצר בהצלחה! ✅', 300);
+      setCreated({ familyId: savedFam.id });
+    } catch (e) { await botSay('שמירה נכשלה: ' + (e?.message || ''), 400); }
+    setBusy(false);
+  }
+
+  return (
+    <div className="chat-wrap office-chat">
+      <div className="chat-head">
+        <button className="chat-icon" onClick={onClose} title="חזרה" style={{ color: '#fff' }}>›</button>
+        <div className="chat-avatar">ע</div>
+        <div className="chat-head-txt">
+          <strong>עוזר העלאה · עוגן</strong>
+          <span>{typing ? 'קורא…' : busy ? 'עובד…' : 'מקוון'}</span>
+        </div>
+      </div>
+
+      <div className="chat-body" ref={scroller}>
+        {messages.map((m, i) => (
+          <div key={i} className={`chat-row ${m.from}`}>
+            <div className="chat-bubble">{m.image ? <img className="chat-img" src={m.image} alt="" /> : chatText(m.text)}</div>
+          </div>
+        ))}
+        {typing && (
+          <div className="chat-row bot">
+            <div className="chat-bubble chat-typing"><span></span><span></span><span></span></div>
+          </div>
+        )}
+      </div>
+
+      {!created && hasData() && (
+        <div className="chat-done">
+          <button className="btn-primary full" onClick={createFile} disabled={busy}>{busy ? 'שומר…' : '✅ צור את התיק'}</button>
+        </div>
+      )}
+      {!created && (
+        <div className="chat-input">
+          <button className="chat-icon" title="מצלמה" onClick={() => camInput.current?.click()}>📷</button>
+          <button className="chat-icon" title="קובץ" onClick={() => fileInput.current?.click()}>📎</button>
+          <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={(e) => { onFiles(e.target.files); e.target.value = ''; }} />
+          <input ref={camInput} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { onFiles(e.target.files); e.target.value = ''; }} />
+          <input
+            className="chat-text"
+            placeholder="כתבו פרטים או שלחו תמונה…"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') onText(); }}
+          />
+          <button className="chat-send" onClick={onText} disabled={!input.trim() || busy}>שלח</button>
+        </div>
+      )}
+      {created && (
+        <div className="chat-done" style={{ display: 'flex', gap: 8 }}>
+          <button className="btn-primary full" onClick={() => onOpenFamily(created.familyId)}>📂 פתח את התיק</button>
+          <button className="btn-ghost" onClick={onClose}>סגור</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FamilyList({ onOpen, onNew, onLogout, onOpenWorker, onOpenFamily, onOpenChat }) {
   const [items, setItems] = useState(null);
   const [q, setQ] = useState('');
   const [showSettings, setShowSettings] = useState(false);
@@ -1923,6 +2140,7 @@ function FamilyList({ onOpen, onNew, onLogout, onOpenWorker, onOpenFamily }) {
         <div className="tik-list-head">
           <h2 style={{ margin: 0 }}>התיקים שלי</h2>
           <div className="tik-head-actions">
+            <button className="btn-ghost" onClick={onOpenChat}>💬 צ'אט העלאה</button>
             <button className="btn-ghost" onClick={() => setShowSmart(true)}>🤖 ייבוא חכם</button>
             <button className="btn-ghost" onClick={() => setShowInbox(true)}>📥 הגשות{inboxCount ? ` (${inboxCount})` : ''}</button>
             <button className="btn-primary" onClick={onNew}>➕ תיק חדש</button>
@@ -2334,6 +2552,15 @@ export default function TikApp() {
     );
   }
 
+  if (view.screen === 'chat') {
+    return (
+      <OfficeChat
+        onClose={() => setView({ screen: 'list' })}
+        onOpenFamily={(id) => setView({ screen: 'editFamily', id })}
+      />
+    );
+  }
+
   const openWorker = (id) => setView({ screen: 'editWorker', id });
   const openFamily = (id) => setView({ screen: 'editFamily', id });
 
@@ -2345,6 +2572,7 @@ export default function TikApp() {
       onLogout={logout}
       onOpenWorker={openWorker}
       onOpenFamily={openFamily}
+      onOpenChat={() => setView({ screen: 'chat' })}
     />
   );
 }
