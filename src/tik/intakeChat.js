@@ -85,6 +85,8 @@ export const STEPS = [
     ask: 'ויש לכם תמונה של **היתר ההעסקה**? שלחו לי אותה (ואם אין — כתבו "אין").' },
   { key: 'employerName', type: 'text', label: 'שם המטופל/מעסיק',
     ask: 'מה **השם המלא** של המטופל/המעסיק?' },
+  { key: 'contactName', type: 'text', label: 'שם איש קשר',
+    ask: 'מה שם **איש הקשר** מטעם המשפחה? (אם זה המטופל עצמו — כתבו את שמו)' },
   { key: 'street', type: 'text', label: 'כתובת המטופל',
     ask: 'מה ה**כתובת המלאה** של המטופל — עיר, רחוב ומספר בית?' },
   { key: 'workerPhone', type: 'text', label: 'טלפון העובד/ת',
@@ -98,6 +100,7 @@ export const STEPS = [
 // After the documents, ask ONLY for whatever the passport didn't already give
 // us: marital status (→ spouse name if married) and the caregiver's parents.
 export const isMarried = (v) => /נשוי|נשואה|married|(^|\s)כן(\s|$)/i.test(String(v || ''));
+export const cannotSign = (v) => /^\s*(לא|לא יכול|לא מסוגל|אי אפשר|לא יכולה)/.test(String(v || ''));
 export const FOLLOWUPS = [
   { key: 'maritalStatus', type: 'text', label: 'מצב משפחתי',
     ask: 'עוד כמה פרטים קצרים על העובד/ת: האם הוא/היא **נשוי/אה**? (כן / לא)' },
@@ -105,6 +108,16 @@ export const FOLLOWUPS = [
     ask: 'מה **שם בן/בת הזוג**?' },
   { key: 'fatherName', type: 'text', label: 'שם האב', ask: 'מה **שם האב** של העובד/ת?' },
   { key: 'motherName', type: 'text', label: 'שם האם', ask: 'ומה **שם האם** של העובד/ת?' },
+  // The contract is signed by the PATIENT. If the patient can't sign, we need a
+  // guardian / power-of-attorney document and their name first.
+  { key: 'canSign', type: 'text', label: 'המטופל יכול לחתום?',
+    ask: 'לגבי החתימה על החוזה — היא צריכה להיות של **המטופל עצמו**. האם המטופל יכול לחתום בעצמו? (כן / לא)' },
+  { key: 'guardianDoc', type: 'file', category: 'guardian', label: 'מסמך אפוטרופוס / ייפוי כוח',
+    when: (d) => cannotSign(d.canSign),
+    ask: 'הבנתי. במקרה כזה נחתום דרך אפוטרופוס או מיופה כוח. אנא שלחו לי תמונה של **מסמך האפוטרופסות / ייפוי הכוח**.' },
+  { key: 'guardianName', type: 'text', label: 'שם האפוטרופוס / מיופה הכוח',
+    when: (d) => cannotSign(d.canSign),
+    ask: 'ומה **שם האפוטרופוס / מיופה הכוח** שיחתום במקום המטופל?' },
 ];
 
 export const GREETING =
