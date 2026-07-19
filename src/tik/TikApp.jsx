@@ -1657,7 +1657,6 @@ function SmartImportModal({ onClose, onOpenWorker, onOpenFamily, onReload }) {
     const picked = Array.from(fileList || []).filter((f) => f.type?.startsWith('image/'));
     if (!picked.length) return;
     setImages((prev) => [...prev, ...picked.map((f) => ({ file: f, url: URL.createObjectURL(f) }))]);
-    setText('');
   }
   function removeImage(i) {
     setImages((prev) => { const u = prev[i]?.url; if (u) URL.revokeObjectURL(u); return prev.filter((_, j) => j !== i); });
@@ -1679,7 +1678,7 @@ function SmartImportModal({ onClose, onOpenWorker, onOpenFamily, onReload }) {
         try { parts.push(await withTimeout(smartImport({ blob: images[i].file }), 45000)); }
         catch (e) { failed += 1; lastErr = e?.message || 'timeout'; }
       }
-      if (!images.length && text.trim()) parts.push(await smartImport({ text }));
+      if (text.trim()) parts.push(await smartImport({ text }));
       setProgress('');
       const worker = {}; const patient = {}; const docTypes = []; const raw = [];
       for (const r of parts) {
@@ -1777,14 +1776,13 @@ function SmartImportModal({ onClose, onOpenWorker, onOpenFamily, onReload }) {
                 ))}
               </div>
             )}
-            <p className="muted small" style={{ margin: '10px 0 4px' }}>או הדבק טקסט:</p>
+            <p className="muted small" style={{ margin: '10px 0 4px' }}>וגם/או הדבק טקסט (אפשר יחד עם תמונות):</p>
             <textarea
               className="text-input"
               rows={5}
               value={text}
               placeholder="הדבק כאן פרטים שהעתקת (שם, דרכון, ת.ז, כתובת, טלפונים…)"
               onChange={(e) => { setText(e.target.value); }}
-              disabled={images.length > 0}
               style={{ resize: 'vertical' }}
             />
             {err && <p className="tik-error small">{err}</p>}
