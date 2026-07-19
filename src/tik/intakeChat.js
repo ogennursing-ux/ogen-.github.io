@@ -73,8 +73,10 @@ export const ESCALATE_TO = 'דביר';
 // ---- the required checklist. The bot asks for each missing item in order. ----
 // Phone comes FIRST so the office can always call the customer back.
 export const STEPS = [
+  { key: 'referrer', type: 'text', label: 'מאיפה הגיעו אלינו',
+    ask: 'שאלה קטנה לפני שנתחיל — **מאיפה הגעתם אלינו?** (המלצה מחבר, גוגל, פייסבוק, וכו׳)' },
   { key: 'contactPhone', type: 'text', label: 'טלפון ליצירת קשר',
-    ask: 'קודם כול — מה **מספר הטלפון** שלכם? ככה נוכל לחזור אליכם אם צריך 🙂' },
+    ask: 'תודה! מה **מספר הטלפון** שלכם? ככה נוכל לחזור אליכם אם צריך 🙂' },
   { key: 'passport', type: 'file', category: 'passport', label: 'דרכון של העובד/ת',
     ask: 'תודה! עכשיו צלמו ושלחו לי את **עמוד הפרטים של הדרכון** של העובד/ת — התמונה עם השם, מספר הדרכון ותאריך הלידה.' },
   { key: 'visa', type: 'file', category: 'visa', optional: true, label: 'ויזה של העובד/ת',
