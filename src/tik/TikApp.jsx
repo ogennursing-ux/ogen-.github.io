@@ -1711,6 +1711,22 @@ function SmartImportModal({ onClose, onOpenWorker, onOpenFamily, onReload }) {
   const wKeys = Object.keys(wFields).filter((k) => wFields[k]);
   const pKeys = Object.keys(pFields).filter((k) => pFields[k]);
 
+  // Which important details are still missing after the read — shown to the user.
+  const someOf = (o, ks) => ks.some((k) => o[k]);
+  const missingList = (() => {
+    const m = [];
+    if (!someOf(wFields, ['nameHe', 'nameEn', 'firstNameEn', 'lastNameEn', 'firstNameHe', 'lastNameHe'])) m.push('שם העובד/ת');
+    if (!wFields.passportNo) m.push('מספר דרכון');
+    if (!wFields.nationality) m.push('אזרחות');
+    if (!wFields.dob) m.push('תאריך לידה של העובד/ת');
+    if (!wFields.passportExpiry) m.push('תוקף דרכון');
+    if (!someOf(pFields, ['fullName', 'firstName', 'lastName'])) m.push('שם המטופל/מעסיק');
+    if (!pFields.idNumber) m.push('ת.ז מטופל');
+    if (!pFields.city) m.push('עיר מגורים');
+    if (!someOf(pFields, ['phone', 'mobile', 'contactMobile'])) m.push('מספר טלפון');
+    return m;
+  })();
+
   async function create(which) {
     setBusy(true); setErr('');
     try {
@@ -1812,6 +1828,15 @@ function SmartImportModal({ onClose, onOpenWorker, onOpenFamily, onReload }) {
                 ))}
               </div>
             </div>
+            {missingList.length > 0 ? (
+              <div className="tik-chk miss-sum" style={{ display: 'block', marginTop: 10, padding: '8px 12px', borderRadius: 10 }}>
+                ⚠️ <strong>חסרים פרטים:</strong> {missingList.join(' · ')} — אפשר להשלים ידנית למטה או לצלם מסמך נוסף.
+              </div>
+            ) : (
+              <div className="tik-chk ok" style={{ display: 'block', marginTop: 10, padding: '8px 12px', borderRadius: 10 }}>
+                ✓ כל הפרטים החשובים זוהו.
+              </div>
+            )}
             {result.rawText && (
               <details style={{ marginTop: 10 }}>
                 <summary className="muted small">כל הטקסט שזוהה (להעתקה ידנית)</summary>
@@ -1825,14 +1850,14 @@ function SmartImportModal({ onClose, onOpenWorker, onOpenFamily, onReload }) {
             <div className="card-actions" style={{ marginTop: 12, flexWrap: 'wrap' }}>
               {wKeys.length > 0 && pKeys.length > 0 && (
                 <button className="btn-primary" onClick={() => create('both')} disabled={busy}>
-                  ✅ צור עובד + משפחה מקושרים
+                  ✅ צור תיק (משפחה + עובד/ת)
                 </button>
               )}
               {wKeys.length > 0 && (
-                <button className="btn-ghost" onClick={() => create('worker')} disabled={busy}>צור תיק עובד</button>
+                <button className="btn-ghost" onClick={() => create('worker')} disabled={busy}>רק עובד/ת</button>
               )}
               {pKeys.length > 0 && (
-                <button className="btn-ghost" onClick={() => create('family')} disabled={busy}>צור תיק משפחה</button>
+                <button className="btn-ghost" onClick={() => create('family')} disabled={busy}>רק משפחה</button>
               )}
               <button className="btn-ghost" onClick={() => { setResult(null); setErr(''); }} disabled={busy}>← חזרה</button>
             </div>
@@ -1841,10 +1866,10 @@ function SmartImportModal({ onClose, onOpenWorker, onOpenFamily, onReload }) {
 
         {created && (
           <div>
-            <p style={{ marginTop: 0 }}>✅ נוצר בהצלחה{created.workerId && created.familyId ? ' — העובד והמשפחה מקושרים' : ''}.</p>
+            <p style={{ marginTop: 0 }}>✅ נוצר בהצלחה{created.workerId && created.familyId ? ' — התיק כולל את המשפחה והעובד/ת' : ''}.</p>
             <div className="card-actions" style={{ flexWrap: 'wrap' }}>
-              {created.workerId && <button className="btn-primary" onClick={() => onOpenWorker(created.workerId)}>פתח תיק עובד</button>}
-              {created.familyId && <button className="btn-primary" onClick={() => onOpenFamily(created.familyId)}>פתח תיק משפחה</button>}
+              {created.familyId && <button className="btn-primary" onClick={() => onOpenFamily(created.familyId)}>פתח את התיק</button>}
+              {created.workerId && !created.familyId && <button className="btn-primary" onClick={() => onOpenWorker(created.workerId)}>פתח תיק עובד/ת</button>}
               <button className="btn-ghost" onClick={onClose}>סגור</button>
             </div>
           </div>
@@ -1854,7 +1879,7 @@ function SmartImportModal({ onClose, onOpenWorker, onOpenFamily, onReload }) {
   );
 }
 
-function FamilyList({ mode, onMode, onOpen, onNew, onLogout, onOpenWorker, onOpenFamily }) {
+function FamilyList({ onOpen, onNew, onLogout, onOpenWorker, onOpenFamily }) {
   const [items, setItems] = useState(null);
   const [q, setQ] = useState('');
   const [showSettings, setShowSettings] = useState(false);
@@ -1894,26 +1919,25 @@ function FamilyList({ mode, onMode, onOpen, onNew, onLogout, onOpenWorker, onOpe
         />
       )}
       <div className="tik-list">
-        <ModeTabs mode={mode} onMode={onMode} />
         <DashboardCard onDataChanged={reloadFamilies} />
         <div className="tik-list-head">
-          <h2 style={{ margin: 0 }}>תיקי משפחות</h2>
+          <h2 style={{ margin: 0 }}>התיקים שלי</h2>
           <div className="tik-head-actions">
             <button className="btn-ghost" onClick={() => setShowSmart(true)}>🤖 ייבוא חכם</button>
             <button className="btn-ghost" onClick={() => setShowInbox(true)}>📥 הגשות{inboxCount ? ` (${inboxCount})` : ''}</button>
-            <button className="btn-primary" onClick={onNew}>➕ משפחה חדשה</button>
+            <button className="btn-primary" onClick={onNew}>➕ תיק חדש</button>
           </div>
         </div>
         <input
           className="text-input"
-          placeholder="חיפוש לפי שם, ת.ז, יישוב או איש קשר…"
+          placeholder="חיפוש לפי שם משפחה, ת.ז, יישוב או עובד/ת…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           style={{ margin: '12px 0' }}
         />
         {items === null && <p className="muted">טוען…</p>}
         {items && !items.length && (
-          <div className="card tik-empty"><p className="muted">עדיין אין תיקי משפחות. לחץ «משפחה חדשה» כדי לפתוח תיק.</p></div>
+          <div className="card tik-empty"><p className="muted">עדיין אין תיקים. לחץ «תיק חדש» כדי לפתוח תיק משפחה — כולל העובד/ת שלה.</p></div>
         )}
         {filtered.length > 0 && (
           <ul className="req-list">
@@ -2102,19 +2126,28 @@ function FamilyEditor({ familyId, onBack, onDeleted, onOpenWorker }) {
           <button className="btn-ghost small" onClick={printPage}>🖨️ דף סיכום</button>
         </div>
 
-        {linkedWorker && (
-          <div className="card tik-placement">
-            <div className="tik-placement-head">
-              <strong>👥 השמה מקושרת — מטפל/עובד</strong>
-              <button className="btn-ghost small" onClick={() => onOpenWorker?.(linkedWorker.id)}>פתח תיק עובד ›</button>
-            </div>
-            <div className="tik-placement-body muted small">
-              {[workerName(linkedWorker), linkedWorker.passportNo && 'דרכון ' + linkedWorker.passportNo,
-                linkedWorker.nationality, linkedWorker.phone]
-                .filter(Boolean).join('  ·  ')}
-            </div>
+        {/* The worker belongs to this file. */}
+        <div className="card tik-placement">
+          <div className="tik-placement-head">
+            <strong>👷 העובד/ת בתיק</strong>
+            {linkedWorker
+              ? <button className="btn-ghost small" onClick={() => onOpenWorker?.(linkedWorker.id)}>פתח את פרטי העובד/ת ›</button>
+              : (
+                <button className="btn-primary small" onClick={async () => {
+                  const w = await saveWorker({ ...emptyWorker() });
+                  const savedFam = await saveFamily({ ...family, caregiverWorkerId: w.id });
+                  setFamily(savedFam); setLinkedWorker(w);
+                  onOpenWorker?.(w.id);
+                }}>➕ הוסף עובד/ת לתיק</button>
+              )}
           </div>
-        )}
+          <div className="tik-placement-body muted small">
+            {linkedWorker
+              ? ([workerName(linkedWorker), linkedWorker.passportNo && 'דרכון ' + linkedWorker.passportNo,
+                  linkedWorker.nationality, linkedWorker.phone].filter(Boolean).join('  ·  ') || 'לחץ «פתח את פרטי העובד/ת» למילוי')
+              : 'עדיין לא שויך/ה עובד/ת לתיק הזה. לחץ «הוסף עובד/ת» כדי לפתוח את פרטי העובד/ת (דרכון, אשרה, היתר וכו׳).'}
+          </div>
+        </div>
 
         <div className="tik-renewal">
           <div>
@@ -2304,26 +2337,11 @@ export default function TikApp() {
   const openWorker = (id) => setView({ screen: 'editWorker', id });
   const openFamily = (id) => setView({ screen: 'editFamily', id });
 
-  if (mode === 'families') {
-    return (
-      <FamilyList
-        mode={mode}
-        onMode={setMode}
-        onOpen={openFamily}
-        onNew={() => setView({ screen: 'editFamily', id: null })}
-        onLogout={logout}
-        onOpenWorker={openWorker}
-        onOpenFamily={openFamily}
-      />
-    );
-  }
-
+  // One unified file per client: the family file (which contains the worker).
   return (
-    <WorkerList
-      mode={mode}
-      onMode={setMode}
-      onOpen={openWorker}
-      onNew={() => setView({ screen: 'editWorker', id: null })}
+    <FamilyList
+      onOpen={openFamily}
+      onNew={() => setView({ screen: 'editFamily', id: null })}
       onLogout={logout}
       onOpenWorker={openWorker}
       onOpenFamily={openFamily}
