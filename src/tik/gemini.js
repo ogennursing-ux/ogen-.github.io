@@ -89,6 +89,7 @@ async function callGroq(messages, model) {
 
 // Groq image extraction: send the image + a prompt that lists the wanted keys.
 async function groqVision(blob, promptText, keys) {
+  blob = await prepImage(blob);
   const b64 = await blobToBase64(blob);
   const prompt = promptText + '\nReturn ONLY a JSON object with these keys: ' + keys.join(', ') + '. Empty string if a field is missing. Dates as YYYY-MM-DD.';
   const messages = [{ role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: `data:${blob.type};base64,${b64}` } }] }];
@@ -147,6 +148,28 @@ function blobToBase64(blob) {
     r.onerror = () => reject(r.error);
     r.readAsDataURL(blob);
   });
+}
+
+// Phone photos are often several MB, which makes the AI call slow and prone to
+// hang/timeout. Shrink the longest side to ~1600px (plenty for OCR) and re-encode
+// as JPEG before sending. Falls back to the original on any failure.
+async function prepImage(blob) {
+  try {
+    if (!blob?.type?.startsWith('image/')) return blob;
+    if (blob.size < 900000) return blob; // already small enough
+    const bitmap = await createImageBitmap(blob);
+    const max = 1600;
+    const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+    const w = Math.max(1, Math.round(bitmap.width * scale));
+    const h = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+    const out = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.85));
+    return out && out.size ? out : blob;
+  } catch {
+    return blob;
+  }
 }
 
 // Normalise anything date-ish (e.g. "05 AUG 2032", "05/08/2032", "2032-08-05")
@@ -219,6 +242,7 @@ async function callGemini(blob, prompt, schema) {
   if (!blob || !blob.type?.startsWith('image/')) {
     throw new Error('הקריאה האוטומטית עובדת על תמונות (JPG/PNG). ל-PDF, צלם/י או ייצא/י כתמונה.');
   }
+  blob = await prepImage(blob);
   const b64 = await blobToBase64(blob);
   const model = getGeminiModel();
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
@@ -451,6 +475,7 @@ const SMART_INSTRUCTION =
   'Do NOT invent values. If a detail is ambiguous, place it on the side it best fits, and always fill rawText.';
 
 async function groqVisionRaw(blob, prompt) {
+  blob = await prepImage(blob);
   const b64 = await blobToBase64(blob);
   const messages = [{ role: 'user', content: [
     { type: 'text', text: prompt },

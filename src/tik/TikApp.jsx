@@ -30,7 +30,7 @@ import { buildOverlayPdf } from './contractOverlay.js';
 import { createSigningRequest, getSigningUrl, setSigningUrl } from './signingBridge.js';
 import { listNewSubmissions, countNewSubmissions, setSubmissionStatus, AGENT_ENDPOINT, AGENT_ANON_KEY } from './agentInbox.js';
 import { collectRecords, recordsSignature, backupNow, restoreFromCloud, getLastSync } from './cloudBackup.js';
-import { publishChatKey } from './intakeChat.js';
+import { publishChatKey, withTimeout } from './intakeChat.js';
 import { exportWorkersCsv, exportFamiliesCsv } from './csvExport.js';
 import {
   workerToText, familyToText, WORKER_COLS, FAMILY_COLS,
@@ -1645,6 +1645,7 @@ function SmartImportModal({ onClose, onOpenWorker, onOpenFamily, onReload }) {
   const [text, setText] = useState('');
   const [images, setImages] = useState([]); // [{ file, url }]
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState('');
   const [err, setErr] = useState('');
   const [result, setResult] = useState(null); // { docType, rawText }
   const [wFields, setWFields] = useState({});
@@ -1670,10 +1671,16 @@ function SmartImportModal({ onClose, onOpenWorker, onOpenFamily, onReload }) {
     setBusy(true);
     try {
       // Read every image (and/or the text) and merge — first non-empty value per
-      // field wins, so a passport + an ID together fill both sides at once.
-      const parts = [];
-      for (const im of images) parts.push(await smartImport({ blob: im.file }));
+      // field wins. Each image is time-boxed so one slow/bad photo can't hang
+      // the whole read; failures are skipped and the rest still fill.
+      const parts = []; let lastErr = ''; let failed = 0;
+      for (let i = 0; i < images.length; i++) {
+        setProgress(`קורא תמונה ${i + 1} מתוך ${images.length}…`);
+        try { parts.push(await withTimeout(smartImport({ blob: images[i].file }), 45000)); }
+        catch (e) { failed += 1; lastErr = e?.message || 'timeout'; }
+      }
       if (!images.length && text.trim()) parts.push(await smartImport({ text }));
+      setProgress('');
       const worker = {}; const patient = {}; const docTypes = []; const raw = [];
       for (const r of parts) {
         for (const [k, v] of Object.entries(r.worker || {})) if (v && !worker[k]) worker[k] = v;
@@ -1681,16 +1688,22 @@ function SmartImportModal({ onClose, onOpenWorker, onOpenFamily, onReload }) {
         if (r.docType) docTypes.push(r.docType);
         if (r.rawText) raw.push(r.rawText);
       }
+      const found = Object.keys(worker).length || Object.keys(patient).length;
+      if (!found) {
+        setErr(failed
+          ? `הקריאה לא הצליחה (${failed}/${images.length} תמונות). נסה/י תמונה אחת ברורה בכל פעם, ובדוק/י מפתח/מכסת AI בהגדרות. ${lastErr}`
+          : 'לא זוהו פרטים. נסה/י תמונה ברורה יותר או הדבק/י טקסט מסודר.');
+        return;
+      }
       setResult({ docType: [...new Set(docTypes)].join(' + '), rawText: raw.join('\n\n') });
       setWFields(worker);
       setPFields(patient);
-      if (!Object.keys(worker).length && !Object.keys(patient).length) {
-        setErr('לא זוהו פרטים. נסה תמונה ברורה יותר או הדבק טקסט מסודר.');
-      }
+      if (failed) setErr(`שים/י לב: ${failed} תמונות לא נקראו, אך השאר מולאו.`);
     } catch (e) {
       setErr(e?.message || 'שגיאה בקריאה.');
     } finally {
       setBusy(false);
+      setProgress('');
     }
   }
 
@@ -1776,7 +1789,7 @@ function SmartImportModal({ onClose, onOpenWorker, onOpenFamily, onReload }) {
             />
             {err && <p className="tik-error small">{err}</p>}
             <div className="card-actions" style={{ marginTop: 12 }}>
-              <button className="btn-primary" onClick={analyze} disabled={busy}>{busy ? 'קורא…' : '✨ נתח פרטים'}</button>
+              <button className="btn-primary" onClick={analyze} disabled={busy}>{busy ? (progress || 'קורא…') : '✨ נתח פרטים'}</button>
               <button className="btn-ghost" onClick={onClose}>ביטול</button>
             </div>
           </div>
