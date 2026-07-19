@@ -179,6 +179,12 @@ export default function SignFlow({ pages, fields, signers, currentSigner, title,
           </div>
         )}
 
+        <p className="consent-note">
+          {t('בלחיצה על "סיים ושלח חתימה" הנך מסכימ/ה לביצוע חתימה אלקטרונית ומאשר/ת את')}{' '}
+          <a href="./legal.html#terms" target="_blank" rel="noreferrer">{t('תנאי השימוש')}</a>
+          {' '}{t('ואת')}{' '}
+          <a href="./legal.html#privacy" target="_blank" rel="noreferrer">{t('מדיניות הפרטיות')}</a>.
+        </p>
         <button className="btn-primary full df-submit" disabled={busy} onClick={submit}>
           {busy ? t('שולח…') : t('סיים ושלח חתימה')}
         </button>

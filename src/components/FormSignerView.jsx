@@ -76,7 +76,7 @@ export default function FormSignerView({ id, brandIcon = '✒️', brandLabel, o
       // Record the signer's name so it shows in the signatures list.
       const base = normalizeSigners(template?.signers);
       const list = (base.list && base.list.length ? base.list : SIGNERS).map((s, i) =>
-        i === 0 ? { ...s, signed: true, signedAt: new Date().toISOString(), ip, signedName: signerName || '' } : s,
+        i === 0 ? { ...s, signed: true, signedAt: new Date().toISOString(), ip, signedName: signerName || '', consent: 'terms-v1' } : s,
       );
       const { id: submissionId } = await api.submitForm(template, { fields: filled, signedPdfBytes: bytes, signers: { ...base, list } });
       setSignedBytes(bytes);

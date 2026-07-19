@@ -7,6 +7,14 @@ const EN = {
   // brand / header
   'חתימה דיגיטלית': 'Digital Signature',
   'קליק חתימה': 'Click Signature',
+  'בלחיצה על "סיים ושלח חתימה" הנך מסכימ/ה לביצוע חתימה אלקטרונית ומאשר/ת את':
+    'By clicking "Finish and submit" you agree to sign electronically and accept the',
+  'ואת': 'and the',
+  'תנאי השימוש': 'Terms of Use',
+  'מדיניות הפרטיות': 'Privacy Policy',
+  'תנאי שימוש': 'Terms of Use',
+  'מדיניות פרטיות': 'Privacy Policy',
+  'הצהרת נגישות': 'Accessibility Statement',
   '⚙ הגדרות': '⚙ Settings',
 
   // dropzone / home
