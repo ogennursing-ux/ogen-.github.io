@@ -57,6 +57,13 @@ export default function Login({ onLogin }) {
           <button className="btn-primary full" type="submit" style={{ marginTop: 14 }}>
             {t('התחבר')}
           </button>
+          <div className="legal-links">
+            <a href="./legal.html#terms" target="_blank" rel="noreferrer">{t('תנאי שימוש')}</a>
+            <span aria-hidden>·</span>
+            <a href="./legal.html#privacy" target="_blank" rel="noreferrer">{t('מדיניות פרטיות')}</a>
+            <span aria-hidden>·</span>
+            <a href="./legal.html#accessibility" target="_blank" rel="noreferrer">{t('הצהרת נגישות')}</a>
+          </div>
         </form>
       </div>
     </div>

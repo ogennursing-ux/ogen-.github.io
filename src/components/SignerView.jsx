@@ -79,7 +79,7 @@ export default function SignerView({ id }) {
       const now = new Date().toISOString();
       const ip = await getIp();
       const newList = signers.list.map((s, i) =>
-        i === current ? { ...s, signed: true, signedAt: now, ip, signedName: signerName || s.signedName || '' } : s,
+        i === current ? { ...s, signed: true, signedAt: now, ip, signedName: signerName || s.signedName || '', consent: 'terms-v1' } : s,
       );
       // Preserve any extra fields stored on signers (note, downloadGroups, …).
       const base = req && req.signers && !Array.isArray(req.signers) ? req.signers : {};
