@@ -1373,6 +1373,32 @@ button {
   justify-content: center;
   padding: 18px;
 }
+/* generic popup card — scrolls INSIDE itself so long content (e.g. the smart
+   import review) is reachable and the background doesn't move instead */
+.modal {
+  width: 100%;
+  max-width: 560px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: var(--shadow);
+  max-height: 88vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.modal .modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  position: sticky;
+  top: -18px;
+  background: #fff;
+  padding-top: 4px;
+  z-index: 1;
+}
 .sign-modal {
   width: min(560px, 100%);
   background: #fff;
