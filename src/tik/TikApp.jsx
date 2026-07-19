@@ -811,17 +811,20 @@ function AgentInbox({ onClose, onImported }) {
   );
 }
 
-// Zip every uploaded chat file and download them in one click.
-async function downloadFilesZip(files, who) {
-  const { default: JSZip } = await import('jszip');
-  const zip = new JSZip();
-  (files || []).forEach((f, i) => {
-    const b64 = String(f.dataUrl || '').split(',')[1] || '';
+// Download every uploaded chat file in one click — each as its own file.
+async function downloadAllFiles(files) {
+  const list = files || [];
+  for (let i = 0; i < list.length; i++) {
+    const f = list[i];
     const ext = (String(f.dataUrl || '').match(/^data:image\/([\w+]+)/)?.[1] || 'jpg').replace('jpeg', 'jpg');
-    zip.file(`${String(i + 1).padStart(2, '0')}-${catLabel(f.category)}.${ext}`, b64, { base64: true });
-  });
-  const blob = await zip.generateAsync({ type: 'blob' });
-  downloadBlob(blob, `מסמכים - ${who || 'צ׳אט'}.zip`);
+    const a = document.createElement('a');
+    a.href = f.dataUrl;
+    a.download = `${String(i + 1).padStart(2, '0')}-${catLabel(f.category)}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    await new Promise((r) => setTimeout(r, 400)); // let the browser start each download
+  }
 }
 
 // Read-only view of a saved customer conversation + its uploaded files.
@@ -854,7 +857,7 @@ function ChatTranscript({ sub, onClose }) {
           <div style={{ marginTop: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <strong className="small">קבצים שהתקבלו ({d.files.length}):</strong>
-              <button className="btn-ghost small" onClick={() => downloadFilesZip(d.files, d.fields?.employerName)}>⬇️ הורד הכול (ZIP)</button>
+              <button className="btn-ghost small" onClick={() => downloadAllFiles(d.files)}>⬇️ הורד הכול</button>
             </div>
             <div className="tik-thumbs">
               {d.files.map((f, i) => (
