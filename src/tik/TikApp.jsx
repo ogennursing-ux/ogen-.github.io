@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { COMPANY_NAME } from '../lib/workerPortal.js';
 import { buildContractPdf } from './contractPdf.js';
+import { buildPlacementCertificate } from './placementCertificate.js';
 import {
   emptyWorker,
   listWorkers,
@@ -2334,6 +2335,20 @@ function FamilyEditor({ familyId, onBack, onDeleted, onOpenWorker }) {
     } finally { setMakingContract(false); }
   }
 
+  // Certificate of Placement (מכתב השמה) — עוגן's page-1 document, filled from
+  // the family file + its linked worker.
+  async function makeCertificate() {
+    setMakingContract('cert');
+    try {
+      const saved = await saveFamily(family).then((s) => { setFamily(s); return s; });
+      const w = saved.caregiverWorkerId ? await getWorker(saved.caregiverWorkerId) : (linkedWorker || {});
+      const bytes = await buildPlacementCertificate(saved, w || {}, { date: saved.openDate || undefined });
+      downloadBlob(new Blob([bytes], { type: 'application/pdf' }), `מכתב השמה - ${familyName(saved) || 'משפחה'}.pdf`);
+    } catch (e) {
+      alert('הפקת מכתב ההשמה נכשלה: ' + (e?.message || e));
+    } finally { setMakingContract(false); }
+  }
+
   return (
     <div className="app">
       <Header onLogout={null} right={<button className="header-settings" onClick={onBack}>‹ חזרה לרשימה</button>} />
@@ -2369,12 +2384,17 @@ function FamilyEditor({ familyId, onBack, onDeleted, onOpenWorker }) {
 
         <div className="tik-renewal">
           <div>
-            <strong>📄 הפקת חוזה</strong>
-            <div className="muted small">החוזה משלב את פרטי המשפחה ואת פרטי העובד/ת המקושר/ת ב«השמה נוכחית».</div>
+            <strong>📄 הפקת מסמכים</strong>
+            <div className="muted small">מסמכי ההשמה משלבים את פרטי המשפחה ואת פרטי העובד/ת המקושר/ת לתיק.</div>
           </div>
-          <button className="btn-primary" onClick={openContractPicker} disabled={makingContract}>
-            {makingContract ? 'מפיק…' : '📄 הפק חוזה'}
-          </button>
+          <div className="card-actions" style={{ flexWrap: 'wrap' }}>
+            <button className="btn-ghost" onClick={makeCertificate} disabled={makingContract}>
+              {makingContract === 'cert' ? 'מפיק…' : '📜 מכתב השמה'}
+            </button>
+            <button className="btn-primary" onClick={openContractPicker} disabled={makingContract}>
+              {makingContract === true ? 'מפיק…' : '📄 הפק חוזה'}
+            </button>
+          </div>
         </div>
         {FAMILY_SECTIONS.map((sec) => (
           <section className="card tik-section" key={sec.title}>
