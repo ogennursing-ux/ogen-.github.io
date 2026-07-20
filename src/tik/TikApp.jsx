@@ -277,9 +277,6 @@ function Header({ onLogout, onSettings, right }) {
 function SettingsModal({ onClose }) {
   const [key, setKey] = useState(getGeminiKey());
   const [model, setModel] = useState(getGeminiModel());
-  const [groqKey, setGroqKeyS] = useState(getGroqKey());
-  const [groqText, setGroqTextS] = useState(getGroqTextModel());
-  const [groqVision, setGroqVisionS] = useState(getGroqVisionModel());
   const [signUrl, setSignUrl] = useState(getSigningUrl());
   const [busy, setBusy] = useState('');
   const importRef = useRef(null);
@@ -287,9 +284,7 @@ function SettingsModal({ onClose }) {
   function save() {
     setGeminiKey(key.trim());
     setGeminiModel(model.trim());
-    setGroqKey(groqKey.trim());
-    setGroqTextModel(groqText.trim());
-    setGroqVisionModel(groqVision.trim());
+    setGroqKey(''); // Gemini-only: clear any leftover Groq key so Gemini is always used
     setSigningUrl(signUrl.trim());
     onClose();
   }
@@ -334,24 +329,7 @@ function SettingsModal({ onClose }) {
         </div>
         <h3 style={{ margin: '4px 0 6px', fontSize: 15 }}>בינה מלאכותית — קריאת מסמכים ופענוח</h3>
         <p className="muted small">
-          מספיק להזין מפתח אחד (Groq או Gemini) כדי שהמערכת תקרא דרכון/ת.ז ותמלא שדות. אם הוזנו שניהם — Groq בשימוש. המפתח נשמר במכשיר בלבד.
-        </p>
-        <label className="tik-field" style={{ marginTop: 10 }}>
-          <span>מפתח Groq API (מתחיל ב-gsk_)</span>
-          <input className="text-input" dir="ltr" type="password" value={groqKey} placeholder="gsk_…" onChange={(e) => setGroqKeyS(e.target.value)} />
-        </label>
-        <div className="tik-grid" style={{ marginTop: 8 }}>
-          <label className="tik-field">
-            <span>דגם Groq — טקסט</span>
-            <input className="text-input" dir="ltr" value={groqText} onChange={(e) => setGroqTextS(e.target.value)} />
-          </label>
-          <label className="tik-field">
-            <span>דגם Groq — תמונות</span>
-            <input className="text-input" dir="ltr" value={groqVision} onChange={(e) => setGroqVisionS(e.target.value)} />
-          </label>
-        </div>
-        <p className="muted small" style={{ marginTop: 10 }}>
-          לחלופין — מפתח Gemini (חינמי ב-Google AI Studio, aistudio.google.com/apikey):
+          הזן/י מפתח Gemini כדי שהמערכת תקרא דרכון/ת.ז/היתר ותמלא שדות אוטומטית. המפתח חינמי ב-Google AI Studio (aistudio.google.com/apikey) ונשמר במכשיר בלבד.
         </p>
         <label className="tik-field" style={{ marginTop: 10 }}>
           <span>מפתח Gemini API</span>
@@ -381,8 +359,8 @@ function SettingsModal({ onClose }) {
         </p>
         <div className="card-actions" style={{ marginTop: 8 }}>
           <button className="btn-ghost" disabled={busy === 'pub'} onClick={async () => {
-            const k = (key || groqKey).trim();
-            if (!k) { setBusy('pub'); alert('אין מפתח AI. הזן/י מפתח Gemini או Groq ושמור/י קודם.'); setBusy(''); return; }
+            const k = key.trim();
+            if (!k) { setBusy('pub'); alert('אין מפתח AI. הזן/י מפתח Gemini ושמור/י קודם.'); setBusy(''); return; }
             setBusy('pub');
             try { await publishChatKey(k); alert('✓ הצ׳אט החכם הופעל! עכשיו הקישור לכולם עובד עם AI.'); }
             catch (e) { alert('הפרסום נכשל: ' + (e?.message || e)); }
@@ -1239,7 +1217,7 @@ function WorkerEditor({ workerId, onBack, onDeleted, onOpenFamily }) {
 
   async function extractFrom(file) {
     if (!hasAI()) {
-      alert('כדי לקרוא מסמכים אוטומטית צריך מפתח AI (Groq או Gemini). פותח את ההגדרות…');
+      alert('כדי לקרוא מסמכים אוטומטית צריך מפתח Gemini. פותח את ההגדרות…');
       setShowSettings(true);
       return;
     }
@@ -1666,7 +1644,7 @@ function SmartImportModal({ onClose, onOpenWorker, onOpenFamily, onReload }) {
 
   async function analyze() {
     setErr('');
-    if (!hasAI()) { setErr('צריך מפתח AI (⚙ הגדרות) — Groq או Gemini.'); return; }
+    if (!hasAI()) { setErr('צריך מפתח Gemini (⚙ הגדרות).'); return; }
     if (!images.length && !text.trim()) { setErr('הדבק טקסט או בחר תמונה קודם.'); return; }
     setBusy(true);
     try {
@@ -1919,7 +1897,7 @@ function OfficeChat({ onClose, onOpenFamily, onReload }) {
     startedRef.current = true;
     (async () => {
       if (!hasAI()) {
-        await botSay('כדי שאקרא מסמכים צריך מפתח AI. פתח/י ⚙ הגדרות והזן/י מפתח Groq או Gemini — ואז נתחיל 🙂', 900);
+        await botSay('כדי שאקרא מסמכים צריך מפתח Gemini. פתח/י ⚙ הגדרות והזן/י את המפתח — ואז נתחיל 🙂', 900);
         return;
       }
       await botSay('שלום! 👋 אני העוזר של עוגן.', 700);
@@ -2288,7 +2266,7 @@ function FamilyEditor({ familyId, onBack, onDeleted, onOpenWorker }) {
   }
 
   async function extractFromFamily(file) {
-    if (!hasAI()) { alert('כדי לקרוא מסמכים אוטומטית צריך מפתח AI — Groq או Gemini (⚙ הגדרות).'); return; }
+    if (!hasAI()) { alert('כדי לקרוא מסמכים אוטומטית צריך מפתח Gemini (⚙ הגדרות).'); return; }
     setExtractingId(file.id);
     try {
       const { patch, rawText: rt } = await extractFamilyDocument(file.blob, file.category);
