@@ -235,6 +235,8 @@ const EN = {
   'כל דף בנפרד (תמונות)': 'Each page separately (images)',
   'בחר מסמכים למחיקה.': 'Select documents to delete.',
   'להתחיל מסמך חדש? השדות הנוכחיים יימחקו.': 'Start a new document? The current fields will be cleared.',
+  'הוסף לפחות שדה אחד למסמך לפני יצירת הקישור.':
+    'Add at least one field to the document before creating the link.',
   'יצירת הקישור נכשלה': 'Failed to create the link',
   'שמירת התבנית נכשלה': 'Failed to save the template',
   'הורדה נכשלה': 'Download failed',
