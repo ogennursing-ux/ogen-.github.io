@@ -9,6 +9,13 @@
 const KEY_STORAGE = 'tik_gemini_key';
 const MODEL_STORAGE = 'tik_gemini_model';
 const DEFAULT_MODEL = 'gemini-flash-latest';
+// Older model ids that newer keys 404 on. If one of these is still saved in the
+// browser from an earlier version, ignore it and use the working default.
+const DEPRECATED_MODELS = new Set([
+  'gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest',
+  'gemini-1.5-pro', 'gemini-1.5-pro-latest', 'gemini-pro', 'gemini-pro-vision',
+  'gemini-1.0-pro', 'gemini-2.0-flash-exp',
+]);
 
 export function getGeminiKey() {
   try {
@@ -27,7 +34,12 @@ export function setGeminiKey(v) {
 }
 export function getGeminiModel() {
   try {
-    return localStorage.getItem(MODEL_STORAGE) || DEFAULT_MODEL;
+    const saved = localStorage.getItem(MODEL_STORAGE);
+    if (!saved || DEPRECATED_MODELS.has(saved)) {
+      if (saved) localStorage.removeItem(MODEL_STORAGE); // heal a stale saved model
+      return DEFAULT_MODEL;
+    }
+    return saved;
   } catch {
     return DEFAULT_MODEL;
   }
@@ -236,7 +248,7 @@ const CATEGORY_HINT = {
  */
 // Shared call: send an image + prompt + JSON schema to Gemini, return the parsed
 // object. Handles the key check and error messages.
-async function callGemini(blob, prompt, schema) {
+async function callGemini(blob, prompt, schema, model = getGeminiModel()) {
   const key = getGeminiKey();
   if (!key) throw new Error('לא הוגדר מפתח Gemini. פתח/י את ההגדרות (⚙) והזן/י מפתח.');
   if (!blob || !blob.type?.startsWith('image/')) {
@@ -244,7 +256,6 @@ async function callGemini(blob, prompt, schema) {
   }
   blob = await prepImage(blob);
   const b64 = await blobToBase64(blob);
-  const model = getGeminiModel();
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
   const body = {
     contents: [{ role: 'user', parts: [{ text: prompt }, { inline_data: { mime_type: blob.type, data: b64 } }] }],
@@ -258,6 +269,10 @@ async function callGemini(blob, prompt, schema) {
     throw new Error('החיבור ל-Gemini נכשל. בדוק/י חיבור אינטרנט. (' + (e?.message || e) + ')');
   }
   if (!res.ok) {
+    if (res.status === 404 && model !== DEFAULT_MODEL) {
+      try { localStorage.removeItem(MODEL_STORAGE); } catch { /* ignore */ }
+      return callGemini(blob, prompt, schema, DEFAULT_MODEL); // heal + retry
+    }
     let detail = '';
     try { detail = (await res.json())?.error?.message || ''; } catch { /* ignore */ }
     if (res.status === 400 && /API key not valid/i.test(detail)) throw new Error('מפתח ה-Gemini אינו תקין. בדוק/י אותו בהגדרות.');
@@ -274,17 +289,33 @@ async function callGemini(blob, prompt, schema) {
 }
 
 // Text-only Gemini call (no image) — used to parse a free-text message.
-async function callGeminiText(prompt, schema) {
+// If the chosen model 404s (e.g. a stale saved model), retry once with the
+// working default so a bad saved model never blocks reading.
+async function callGeminiText(prompt, schema, model = getGeminiModel()) {
   const key = getGeminiKey();
   if (!key) throw new Error('לא הוגדר מפתח Gemini.');
-  const model = getGeminiModel();
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
   const body = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: schema },
   };
-  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  if (!res.ok) throw new Error('שגיאת Gemini (' + res.status + ')');
+  let res;
+  try {
+    res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  } catch (e) {
+    throw new Error('החיבור ל-Gemini נכשל. בדוק/י חיבור אינטרנט. (' + (e?.message || e) + ')');
+  }
+  if (!res.ok) {
+    if (res.status === 404 && model !== DEFAULT_MODEL) {
+      try { localStorage.removeItem(MODEL_STORAGE); } catch { /* ignore */ }
+      return callGeminiText(prompt, schema, DEFAULT_MODEL); // heal + retry
+    }
+    let detail = '';
+    try { detail = (await res.json())?.error?.message || ''; } catch { /* ignore */ }
+    if (res.status === 400 && /API key not valid/i.test(detail)) throw new Error('מפתח ה-Gemini אינו תקין. בדוק/י אותו בהגדרות.');
+    if (res.status === 429) throw new Error('חרגת ממכסת השימוש ב-Gemini. נסה/י שוב מאוחר יותר.');
+    throw new Error('שגיאת Gemini (' + res.status + ')' + (detail ? ': ' + detail : ''));
+  }
   const data = await res.json();
   const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join('') || '';
   try { return JSON.parse(text); } catch { return {}; }

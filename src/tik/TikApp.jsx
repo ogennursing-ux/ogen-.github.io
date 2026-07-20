@@ -2012,7 +2012,7 @@ function OfficeChat({ onClose, onOpenFamily, onReload }) {
       else if (added) await botSay('נרשם ✓', 350);
       else await botSay('קיבלתי 🙂 אם זה פרט לתיק (שם, ת״ז, טלפון, כתובת, דרכון…) כתוב/י אותו ואשייך אותו למקום הנכון.', 550);
       await reportMissing();
-    } catch { setTyping(false); await botSay('לא הצלחתי לקרוא את זה כרגע. נסה/י שוב, או צלם/י את המסמך.', 450); }
+    } catch (e) { setTyping(false); await botSay('לא הצלחתי לקרוא את זה כרגע: ' + (e?.message || 'שגיאה') + '\nנסה/י שוב, או צלם/י את המסמך.', 450); }
     setBusy(false);
   }
 
