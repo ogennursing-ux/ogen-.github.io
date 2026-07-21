@@ -79,6 +79,20 @@ function buildFields(family, worker, opts) {
   const gId = clean(family.contactId);
   const gPhone = clean(family.contactMobile);
   const gRel = clean(family.contactRelation);
+  // Split names for the government forms that ask first/last separately.
+  const parts = (s) => clean(s).split(/\s+/).filter(Boolean);
+  const eLast = clean(family.lastName) || parts(family.fullName).slice(-1)[0] || '';
+  const eFirst = clean(family.firstName) || parts(family.fullName).slice(0, -1).join(' ') || '';
+  const wLast = clean(worker.lastNameHe) || clean(worker.lastNameEn) || parts(worker.nameHe || worker.nameEn).slice(-1)[0] || '';
+  const wFirst = clean(worker.firstNameHe) || clean(worker.firstNameEn) || parts(worker.nameHe || worker.nameEn).slice(0, -1).join(' ') || '';
+  const eZip = clean(family.zip);
+  const eMobile = clean(family.mobile);
+  const wGender = clean(worker.gender);
+  // Employment terms (from the worker record; the intake chat fills these).
+  const startDate = worker.startDate ? fmtDate(worker.startDate) : (family.placementStart ? fmtDate(family.placementStart) : '');
+  const daysWk = clean(worker.daysPerWeek);
+  const hoursDay = clean(worker.hoursPerDay);
+  const salary = clean(worker.salary || family.offeredSalary);
 
   // ---------- Page 1 — מכתב השמה / Certificate of Placement ----------
   // Hebrew (RTL, align right = value ends just left of the label).
@@ -111,6 +125,33 @@ function buildFields(family, worker, opts) {
   add(0, 355, 151, gId, { dir: 'ltr' });         // Guardian I.D.
   add(0, 521, 149, gPhone, { dir: 'ltr' });      // Guardian Telephone
 
+  // ---------- Page 2 — ביטוח לאומי / הצהרת מעסיק (values sit one row below the header) ----------
+  const C = (page, x, yLabel, val, o = {}) => add(page, x, yLabel - 17, val, { align: 'center', ...o });
+  C(1, 514, 469, eLast);    // employer שם משפחה
+  C(1, 356, 469, eFirst);   // employer שם פרטי
+  C(1, 180, 469, eId);      // employer מספר זהות
+  C(1, 514, 423, eStreet);  // רחוב ומספר
+  C(1, 291, 423, eCity);    // ישוב
+  C(1, 127, 422, eZip);     // מיקוד
+  C(1, 514, 392, ePhone);   // מספר טלפון
+  C(1, 330, 392, eMobile);  // טלפון נייד
+  C(1, 514, 320, wLast);    // worker שם משפחה
+  C(1, 368, 320, wFirst);   // worker שם פרטי
+  C(1, 200, 320, wPass);    // worker מספר זהות (passport)
+  C(1, 123, 319, wGender);  // מין
+  C(1, 513, 246, startDate);// מועד תחילת העבודה
+  C(1, 383, 246, daysWk);   // ימי עבודה בשבוע
+  C(1, 280, 246, hoursDay); // שעות עבודה ביום
+  C(1, 180, 246, salary);   // סכום השכר
+
+  // ---------- Page 11 — חוזה העסקה: employer + caregiver (value centered between the EN/HE labels) ----------
+  add(10, 302, 437, eName, { align: 'center' });    // Employer name / מר/גב'
+  add(10, 276, 423, eId, { align: 'center' });      // Employer ID No / תעודת זהות
+  add(10, 301, 409, [eStreet, eCity].filter(Boolean).join(', '), { align: 'center' }); // Address/Workplace
+  add(10, 310, 380, ePhone, { align: 'center' });   // phone number / טלפון
+  add(10, 304, 217, workerNameEn(worker), { align: 'center' }); // Caregiver name
+  add(10, 335, 202, wCountry, { align: 'center' }); // Country of Citizenship / מדינה
+
   return F;
 }
 
@@ -130,7 +171,9 @@ export async function buildFilledContract(family = {}, worker = {}, opts = {}) {
     if (!page) continue;
     const img = valueImage(f.val, { size: f.size, dir: f.dir });
     const png = await pdf.embedPng(img.bytes);
-    const x = f.align === 'right' ? f.x - img.width : f.x;
+    const x = f.align === 'right' ? f.x - img.width
+      : f.align === 'center' ? f.x - img.width / 2
+      : f.x;
     page.drawImage(png, { x, y: f.y - img.height / 2 + LIFT, width: img.width, height: img.height });
   }
   return pdf.save();
