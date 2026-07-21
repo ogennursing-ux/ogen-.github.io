@@ -181,6 +181,16 @@ function buildFields(family, worker, opts) {
   add(9, 77, 374, workerNameEn(worker), { dir: 'ltr', align: 'center', size: 8 }); // declaration name
   add(9, 256, 373, wPass, jo);                                  // Passport No
 
+  // ---------- Page 6 — הצהרת מעסיק להירשם בלשכה (patient + guardian) ----------
+  add(5, 522, 611, eName);                                   // שם המטופל
+  add(5, 533, 587, eId);                                     // מספר ת.ז
+  add(5, 515, 560, ePhone);                                  // טלפון/פלאפון
+  add(5, 524, 538, clean(family.permitNumber));              // היתר מספר
+  add(5, 429, 537, family.permitExpiry ? fmtDate(family.permitExpiry) : ''); // בתוקף עד
+  add(5, 560, 465, gName);                                   // guardian שם
+  add(5, 560, 441, gId);                                     // guardian ת.ז
+  add(5, 515, 414, gPhone);                                  // guardian טלפון
+
   // ---------- Page 8 — הצהרת עובד המבקש לעבור ללשכה אחרת (worker details) ----------
   add(7, 530, 599, wName);                                  // שם העובד
   add(7, 523, 574, wPass);                                  // מספר דרכון
