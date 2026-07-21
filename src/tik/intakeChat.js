@@ -163,12 +163,12 @@ export const GREETING =
 //   #chat?role=employer  → employer's half only
 //   #chat?role=worker    → worker's half only
 const WORKER_KEYS = new Set([
-  'passport', 'visa', 'permit', 'workerPhone', 'languages', 'overseasAgency',
+  'passport', 'visa', 'workerPhone', 'languages', 'overseasAgency',
   'arrivalDate', 'lastWorkDate', 'maritalStatus', 'spouseName', 'fatherName',
   'motherName', 'heightWeight',
 ]);
 const EMPLOYER_KEYS = new Set([
-  'contactPhone', 'passport', 'patientId', 'employerName', 'contactName', 'email',
+  'contactPhone', 'passport', 'patientId', 'permit', 'employerName', 'contactName', 'email',
   'street', 'salary', 'startDate', 'daysPerWeek', 'hoursPerDay', 'weeklyDayOff',
   'liveIn', 'jobTasks', 'weeklyAdvance', 'contactRelation', 'canSign',
   'guardianDoc', 'guardianName',
