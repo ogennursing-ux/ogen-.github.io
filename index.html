@@ -18,5 +18,34 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <!-- Always load the newest deploy: reload once if the running app's JS is no
+         longer what's served. Keeps a single plain link always up to date. -->
+    <script>
+      (function () {
+        function check() {
+          try {
+            var el = document.querySelector('script[type="module"][src*="/assets/"]');
+            var loaded = el && (el.getAttribute('src').match(/[\w.-]+\.js/) || [])[0];
+            if (!loaded) return;
+            fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store' })
+              .then(function (r) { return r.text(); })
+              .then(function (html) {
+                if (html.indexOf(loaded) === -1) {
+                  if (sessionStorage.getItem('ogenReloadTo') !== loaded) {
+                    sessionStorage.setItem('ogenReloadTo', loaded);
+                    location.reload();
+                  }
+                } else {
+                  sessionStorage.removeItem('ogenReloadTo');
+                }
+              }).catch(function () {});
+          } catch (e) { /* ignore */ }
+        }
+        setTimeout(check, 1500);
+        document.addEventListener('visibilitychange', function () {
+          if (document.visibilityState === 'visible') check();
+        });
+      })();
+    </script>
   </body>
 </html>
