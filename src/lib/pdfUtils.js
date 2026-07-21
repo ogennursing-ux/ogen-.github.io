@@ -100,7 +100,7 @@ function dataUrlToBytes(dataUrl) {
 }
 
 // Render a line of text to a transparent PNG, auto-fitting the box width.
-function drawTextDataUrl(text, boxW, boxH, { color = '#111827' } = {}) {
+function drawTextDataUrl(text, boxW, boxH, { color = '#111827', maxSize = 22 } = {}) {
   const ss = 3; // supersample for crisp output
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, Math.round(boxW * ss));
@@ -108,7 +108,7 @@ function drawTextDataUrl(text, boxW, boxH, { color = '#111827' } = {}) {
   const ctx = canvas.getContext('2d');
   ctx.scale(ss, ss);
 
-  let fontSize = Math.min(boxH * 0.62, 22);
+  let fontSize = Math.min(boxH * 0.62, maxSize);
   const setFont = () => {
     ctx.font = `500 ${fontSize}px Heebo, Arial, sans-serif`;
   };
@@ -198,12 +198,20 @@ export async function buildSignedPdf(originalPdfBytes, fields, audit) {
     } else if (TEXT_TYPES.includes(field.type)) {
       const text = field.type === 'date' ? formatDate(field.value) : String(field.value ?? '');
       if (!text) continue;
-      const img = await pdfDoc.embedPng(dataUrlToBytes(drawTextDataUrl(text, boxW, boxH)));
+      // Cap the filled text at normal document size (~12pt on A4, scaled to
+      // the page) so entries blend with the document instead of towering over
+      // it — the placed box only positions the text, it no longer inflates it.
+      const maxSize = ph * 0.0145;
+      const img = await pdfDoc.embedPng(dataUrlToBytes(drawTextDataUrl(text, boxW, boxH, { maxSize })));
       page.drawImage(img, { x, y, width: boxW, height: boxH });
     } else if (field.type === 'checkbox') {
       if (field.value !== true && field.value !== 'true') continue;
-      const img = await pdfDoc.embedPng(dataUrlToBytes(drawCheckDataUrl(boxW, boxH)));
-      page.drawImage(img, { x, y, width: boxW, height: boxH });
+      // Same idea for the check mark: never larger than ~normal text height.
+      const cap = ph * 0.018;
+      const cw = Math.min(boxW, cap);
+      const ch = Math.min(boxH, cap);
+      const img = await pdfDoc.embedPng(dataUrlToBytes(drawCheckDataUrl(cw, ch)));
+      page.drawImage(img, { x: x + (boxW - cw) / 2, y: y + (boxH - ch) / 2, width: cw, height: ch });
     }
   }
 
