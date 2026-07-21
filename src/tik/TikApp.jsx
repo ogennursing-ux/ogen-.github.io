@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { COMPANY_NAME } from '../lib/workerPortal.js';
 import { buildContractPdf } from './contractPdf.js';
 import { buildPlacementCertificate } from './placementCertificate.js';
+import { buildFilledContract } from './filledContract.js';
 import {
   emptyWorker,
   listWorkers,
@@ -2327,6 +2328,20 @@ function FamilyEditor({ familyId, onBack, onDeleted, onOpenWorker }) {
     } finally { setMakingContract(false); }
   }
 
+  // Full official packet — stamps the file's data onto עוגן's real 26-page
+  // template (the exact document, filled from the file).
+  async function makeFullPacket() {
+    setMakingContract('full');
+    try {
+      const saved = await saveFamily(family).then((s) => { setFamily(s); return s; });
+      const w = saved.caregiverWorkerId ? await getWorker(saved.caregiverWorkerId) : (linkedWorker || {});
+      const bytes = await buildFilledContract(saved, w || {}, { date: saved.openDate || undefined });
+      downloadBlob(new Blob([bytes], { type: 'application/pdf' }), `חוזה מלא - ${familyName(saved) || 'משפחה'}.pdf`);
+    } catch (e) {
+      alert('הפקת החוזה המלא נכשלה: ' + (e?.message || e));
+    } finally { setMakingContract(false); }
+  }
+
   return (
     <div className="app">
       <Header onLogout={null} right={<button className="header-settings" onClick={onBack}>‹ חזרה לרשימה</button>} />
@@ -2366,11 +2381,14 @@ function FamilyEditor({ familyId, onBack, onDeleted, onOpenWorker }) {
             <div className="muted small">מסמכי ההשמה משלבים את פרטי המשפחה ואת פרטי העובד/ת המקושר/ת לתיק.</div>
           </div>
           <div className="card-actions" style={{ flexWrap: 'wrap' }}>
+            <button className="btn-primary" onClick={makeFullPacket} disabled={makingContract}>
+              {makingContract === 'full' ? 'מפיק…' : '📑 חוזה מלא (26 עמ׳)'}
+            </button>
             <button className="btn-ghost" onClick={makeCertificate} disabled={makingContract}>
               {makingContract === 'cert' ? 'מפיק…' : '📜 מכתב השמה'}
             </button>
-            <button className="btn-primary" onClick={openContractPicker} disabled={makingContract}>
-              {makingContract === true ? 'מפיק…' : '📄 הפק חוזה'}
+            <button className="btn-ghost" onClick={openContractPicker} disabled={makingContract}>
+              {makingContract === true ? 'מפיק…' : '📄 חוזה קצר'}
             </button>
           </div>
         </div>
