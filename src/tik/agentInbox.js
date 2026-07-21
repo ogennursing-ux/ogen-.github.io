@@ -20,7 +20,9 @@ const sb = () => (_sb || (_sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)));
 export const AGENT_ENDPOINT = `${SUPABASE_URL}/rest/v1/agent_submissions`;
 export const AGENT_ANON_KEY = SUPABASE_ANON_KEY;
 
-// New (not yet imported/dismissed) submissions, newest first.
+// New (not yet imported/dismissed) submissions, newest first. Split-intake
+// halves (an employer link + a worker link) are joined automatically by the
+// worker's passport number, so the office sees ONE combined submission.
 export async function listNewSubmissions() {
   const { data, error } = await sb()
     .from('agent_submissions')
@@ -29,7 +31,54 @@ export async function listNewSubmissions() {
     .order('created_at', { ascending: false })
     .limit(200);
   if (error) throw new Error('טעינת ההגשות נכשלה: ' + error.message);
-  return data || [];
+  return mergeHalves(data || []);
+}
+
+// Group rows that share a passport key (data.meta.linkKey) and came from a
+// role-specific link, merging their fields/files into one submission.
+function mergeHalves(rows) {
+  const groups = new Map();
+  const out = [];
+  for (const r of rows) {
+    const key = r?.data?.meta?.linkKey;
+    const role = r?.data?.meta?.role;
+    if (key && (role === 'employer' || role === 'worker')) {
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(r);
+    } else {
+      out.push(r); // full flow or no key — leave as-is
+    }
+  }
+  for (const [key, group] of groups) {
+    if (group.length === 1) { out.push(group[0]); continue; } // only one half arrived so far
+    // employer first so its name/ID win, then overlay the worker's fields
+    const ordered = [...group].sort((a, b) => (a.data.meta.role === 'employer' ? -1 : 1));
+    const fields = {}; const files = []; const transcript = []; const ids = [];
+    let needsCallback = false;
+    for (const r of ordered) {
+      ids.push(r.id);
+      for (const [k, v] of Object.entries(r.data?.fields || {})) if (v != null && v !== '') fields[k] = v;
+      for (const f of r.data?.files || []) files.push(f);
+      for (const t of r.data?.transcript || []) transcript.push(t);
+      if (r.data?.needsCallback) needsCallback = true;
+    }
+    const primary = ordered[0];
+    out.push({
+      id: primary.id,
+      ids, // all rows to mark done together
+      kind: 'family',
+      source: 'chat',
+      status: 'new',
+      created_at: group.map((r) => r.created_at).sort().slice(-1)[0],
+      data: {
+        chat: true, merged: true, needsCallback,
+        meta: { ...primary.data.meta, role: 'merged', linkKey: key, roles: group.map((r) => r.data.meta.role) },
+        transcript, fields, files, updatedAt: new Date().toISOString(),
+      },
+    });
+  }
+  out.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  return out;
 }
 
 export async function countNewSubmissions() {

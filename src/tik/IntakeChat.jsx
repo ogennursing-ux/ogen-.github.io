@@ -3,6 +3,7 @@ import {
   STEPS, FOLLOWUPS, GREETING, PAYMENT_TEXT, PAYMENT_LINK, NO_DISCOUNT_TEXT, INSURANCE_TEXT,
   faqAnswer, saveChat, newSessionId, applyUrlKey, aiChatReply, withTimeout,
   loadPublishedKey, wantsHuman, ESCALATE_TEXT, AGENT_NAME, getClientMeta,
+  getRole, filterByRole, ROLE_GREETING,
 } from './intakeChat.js';
 import { extractDocument, extractFamilyDocument, hasAI } from './gemini.js';
 
@@ -17,6 +18,12 @@ function renderText(text) {
 }
 
 export default function IntakeChat() {
+  // Which half of the intake this link is for (employer / worker / all).
+  const roleRef = useRef(getRole());
+  const role = roleRef.current;
+  const steps = filterByRole(STEPS, role);
+  const followups = filterByRole(FOLLOWUPS, role);
+
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [multiSel, setMultiSel] = useState([]); // selected options for a 'multi' step
@@ -47,10 +54,10 @@ export default function IntakeChat() {
   // Next thing to ask: an unfilled required step, then a follow-up question the
   // documents didn't already answer (marital status / spouse / parents).
   const pendingStep = (col) => {
-    const s = STEPS.find((x) => !(x.key in col));
+    const s = steps.find((x) => !(x.key in col));
     if (s) return s;
     const known = { ...extractedRef.current, ...col };
-    return FOLLOWUPS.find((f) => !(f.key in known) && (!f.when || f.when(known))) || null;
+    return followups.find((f) => !(f.key in known) && (!f.when || f.when(known))) || null;
   };
 
   useEffect(() => {
@@ -60,8 +67,8 @@ export default function IntakeChat() {
     loadPublishedKey().catch(() => {});  // key published by the office — in the background
     getClientMeta().then((m) => { metaRef.current = m; }).catch(() => {}); // IP + browser info
     (async () => {
-      await botSay(GREETING, 900);
-      await botSay(STEPS[0].ask, 1200);
+      await botSay(ROLE_GREETING[role] || GREETING, 900);
+      await botSay(steps[0].ask, 1200);
     })();
   }, []);
 
@@ -72,13 +79,16 @@ export default function IntakeChat() {
   // Persist transcript (+ fields) to Supabase so the office can read it live.
   const persist = (finalFiles) => {
     const transcript = messages.map((m) => ({ from: m.from, text: m.text || (m.image ? '[תמונה]' : '') }));
+    const data = { ...extractedRef.current, ...collected };
+    // The worker's passport number is the key that matches the two halves.
+    const linkKey = (data.passportNo || data.passport || '').toString().replace(/\s+/g, '').toUpperCase();
     saveChat(sessionId.current, {
       transcript,
-      data: { ...extractedRef.current, ...collected },
+      data,
       files: finalFiles || [],
       status: finalFiles ? 'new' : 'chat',
       needsCallback: callbackRef.current,
-      meta: metaRef.current,
+      meta: { ...metaRef.current, role, linkKey },
     }).catch(() => {});
   };
   // Save shortly after every change (debounced).
@@ -89,6 +99,14 @@ export default function IntakeChat() {
   }, [messages, done]);
 
   async function finish() {
+    // The worker's half just collects details — no payment. The office joins it
+    // to the employer's half automatically by the passport number.
+    if (role === 'worker') {
+      await botSay('קיבלנו את כל הפרטים של העובד/ת, תודה רבה! 🙏', 500);
+      await botSay('נחבר את הפרטים לצד של המעסיק ונמשיך בתהליך. אפשר לסגור את החלון 💙', 700);
+      setDone(true);
+      return;
+    }
     await botSay('קיבלנו את כל הפרטים, תודה רבה! 🙏', 500);
     await botSay(PAYMENT_TEXT, 700);
     await botSay(PAYMENT_LINK, 300);
@@ -146,7 +164,7 @@ export default function IntakeChat() {
       return;
     }
 
-    const missing = STEPS.filter((s) => !(s.key in collected)).map((s) => s.label);
+    const missing = steps.filter((s) => !(s.key in collected)).map((s) => s.label);
     const historyText = messages.slice(-8).map((m) => `${m.from === 'bot' ? 'בוט' : 'לקוח'}: ${m.text || '[תמונה]'}`).join('\n');
 
     // "I don't know / not relevant / no permit…" → skip this question and move on,
@@ -241,8 +259,8 @@ export default function IntakeChat() {
     }
   }
 
-  const total = STEPS.length;
-  const doneCount = STEPS.filter((s) => s.key in collected).length;
+  const total = steps.length;
+  const doneCount = steps.filter((s) => s.key in collected).length;
   // The step currently awaiting an answer — used to show quick-select buttons.
   const curStep = !done && !typing ? pendingStep(collected) : null;
   const showChoices = curStep && (curStep.type === 'choice' || curStep.type === 'multi');
@@ -320,7 +338,7 @@ export default function IntakeChat() {
           <button className="chat-send" onClick={onText} disabled={!input.trim()}>שלח</button>
         </div>
       )}
-      {done && (
+      {done && role !== 'worker' && (
         <div className="chat-done">
           <a className="btn-primary full" href={PAYMENT_LINK} target="_blank" rel="noreferrer">💳 מעבר לתשלום המאובטח</a>
         </div>

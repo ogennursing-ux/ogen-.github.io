@@ -155,6 +155,51 @@ export const GREETING =
   'אני אעזור לכם לאסוף את הפרטים והמסמכים להשמת העובד/ת — זה קצר ופשוט. ' +
   'פשוט שלחו לי מה שאבקש, ואפשר לשאול אותי כל שאלה בדרך.';
 
+// ---- Split intake by role (three permanent links) ----------------------------
+// The office sends the same three links forever. The two halves are matched
+// automatically by the WORKER'S PASSPORT NUMBER: the employer gives the worker's
+// passport (photo or number), the worker gives their own — same number → one file.
+//   #chat                → full (employer fills everything)
+//   #chat?role=employer  → employer's half only
+//   #chat?role=worker    → worker's half only
+const WORKER_KEYS = new Set([
+  'passport', 'visa', 'permit', 'workerPhone', 'languages', 'overseasAgency',
+  'arrivalDate', 'lastWorkDate', 'maritalStatus', 'spouseName', 'fatherName',
+  'motherName', 'heightWeight',
+]);
+const EMPLOYER_KEYS = new Set([
+  'contactPhone', 'passport', 'patientId', 'employerName', 'contactName', 'email',
+  'street', 'salary', 'startDate', 'daysPerWeek', 'hoursPerDay', 'weeklyDayOff',
+  'liveIn', 'jobTasks', 'weeklyAdvance', 'contactRelation', 'canSign',
+  'guardianDoc', 'guardianName',
+]);
+// 'passport' + 'referrer' belong to both — the passport is the shared key.
+
+export function getRole() {
+  try {
+    const h = location.hash.replace(/^#\/?/, '');
+    const m = h.match(/[?&]role=(employer|worker)/i);
+    return m ? m[1].toLowerCase() : 'all';
+  } catch { return 'all'; }
+}
+
+export function filterByRole(list, role) {
+  if (role !== 'employer' && role !== 'worker') return list;
+  const keep = role === 'worker' ? WORKER_KEYS : EMPLOYER_KEYS;
+  // "How did you hear about us" only makes sense for the employer/family side.
+  return list.filter((s) => (s.key === 'referrer' && role === 'employer') || keep.has(s.key));
+}
+
+export const ROLE_GREETING = {
+  employer:
+    'היי, נעים מאוד! אני ' + AGENT_NAME + ' מעוגן סיעוד 😊\n' +
+    'זה החלק של **המעסיק/המשפחה** — נאסוף את הפרטים שלכם ואת הדרכון של העובד/ת. ' +
+    'העובד/ת ימלא/תמלא את החלק שלו/ה בנפרד, והמערכת תחבר הכול לפי מספר הדרכון.',
+  worker:
+    'Hi! I am ' + AGENT_NAME + ' from Ogen 😊\nהיי! זה החלק של **העובד/ת המטפל/ת**. ' +
+    'נאסוף את הדרכון והפרטים האישיים. החלק של המעסיק ממולא בנפרד, והמערכת מחברת הכול יחד לפי מספר הדרכון.',
+};
+
 // Detect a request to speak with a human / get a call back.
 export function wantsHuman(text) {
   return /לדבר עם|נציג|בן אדם|בנאדם|תתקשר|תחזור אלי|שיחה איתי|לדבר איתכם|טלפון איתכם|לא הבנתי|מישהו אמיתי/.test(text || '');

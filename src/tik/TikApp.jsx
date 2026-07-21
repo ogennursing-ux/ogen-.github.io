@@ -709,13 +709,26 @@ function AgentInbox({ onClose, onImported }) {
   const reload = () => listNewSubmissions().then((r) => { setItems(r); setErr(''); }).catch((e) => { setItems([]); setErr(e?.message || String(e)); });
   useEffect(() => { reload(); }, []);
 
+  const subIds = (sub) => (sub.ids && sub.ids.length ? sub.ids : [sub.id]);
   async function importOne(sub, type) {
     setBusyId(sub.id);
     try {
-      const src = sub.data?.chat ? { ...(sub.data.fields || {}), fullName: sub.data.fields?.employerName } : (sub.data || {});
-      const rec = recordFromSubmission(src, type);
-      if (type === 'family') await saveFamily(rec); else await saveWorker(rec);
-      await setSubmissionStatus(sub.id, 'imported');
+      if (sub.data?.chat) {
+        // One unified file from the chat: a worker (if there are worker details)
+        // linked to the family. Split halves already merged by passport number.
+        const fields = { ...(sub.data.fields || {}) };
+        const workerRec = recordFromSubmission(fields, 'worker');
+        const hasWorker = workerRec.passportNo || workerRec.nameEn || workerRec.nameHe || workerRec.firstNameEn;
+        let workerId = null;
+        if (hasWorker) { const w = await saveWorker(workerRec); workerId = w.id; }
+        const famRec = recordFromSubmission({ ...fields, fullName: fields.fullName || fields.employerName }, 'family');
+        if (workerId) famRec.caregiverWorkerId = workerId;
+        await saveFamily(famRec);
+      } else {
+        const rec = recordFromSubmission(sub.data || {}, type);
+        if (type === 'family') await saveFamily(rec); else await saveWorker(rec);
+      }
+      for (const id of subIds(sub)) await setSubmissionStatus(id, 'imported');
       await reload();
       onImported && onImported();
     } catch (e) { alert('הייבוא נכשל: ' + (e?.message || e)); }
@@ -723,7 +736,7 @@ function AgentInbox({ onClose, onImported }) {
   }
   async function dismiss(sub) {
     setBusyId(sub.id);
-    try { await setSubmissionStatus(sub.id, 'dismissed'); await reload(); }
+    try { for (const id of subIds(sub)) await setSubmissionStatus(id, 'dismissed'); await reload(); }
     catch (e) { alert(e?.message || String(e)); }
     finally { setBusyId(null); }
   }
@@ -767,7 +780,13 @@ function AgentInbox({ onClose, onImported }) {
             {items.map((s) => (
               <li key={s.id} className="tik-sub">
                 <div className="tik-sub-main">
-                  <div className="tik-doc-name">{summary(s.data || {})}{s.data?.needsCallback && <span className="badge wait" style={{ marginInlineStart: 6 }}>📞 רוצה שיחה</span>}</div>
+                  <div className="tik-doc-name">
+                    {summary(s.data?.fields || s.data || {})}
+                    {s.data?.merged && <span className="badge ok" style={{ marginInlineStart: 6 }}>🔗 מעסיק+מטפל</span>}
+                    {!s.data?.merged && s.data?.meta?.role === 'employer' && <span className="badge muted" style={{ marginInlineStart: 6 }}>מעסיק · ממתין למטפל</span>}
+                    {!s.data?.merged && s.data?.meta?.role === 'worker' && <span className="badge muted" style={{ marginInlineStart: 6 }}>מטפל · ממתין למעסיק</span>}
+                    {s.data?.needsCallback && <span className="badge wait" style={{ marginInlineStart: 6 }}>📞 רוצה שיחה</span>}
+                  </div>
                   <div className="tik-doc-meta">
                     {s.data?.chat ? 'צ׳אט' : s.kind === 'family' ? 'משפחה' : 'עובד'} · {fmt(s.created_at)}
                     {s.data?.fields?.contactPhone && ' · ' + s.data.fields.contactPhone}
