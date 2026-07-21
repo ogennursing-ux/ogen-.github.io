@@ -179,6 +179,21 @@ export default function IntakeChat() {
       return;
     }
 
+    // A document step that also accepts a typed value (e.g. passport by number,
+    // no photo needed). Store it and, for the passport, use it as the link key.
+    if (step && step.type === 'file' && step.allowText) {
+      if (faq) { await botSay(faq); await botSay('נחזור רגע: ' + step.ask, 500); return; }
+      const val = text.replace(/\s+/g, ' ').trim();
+      const col = { ...collected, [step.key]: val };
+      setCollected(col);
+      if (step.key === 'passport') {
+        extractedRef.current.passportNo = extractedRef.current.passportNo || val.replace(/\s+/g, '').toUpperCase();
+      }
+      await botSay('נרשם ✓', 350);
+      await advanceAfter(col);
+      return;
+    }
+
     if (!step) { // everything collected — free chat, AI answers
       if (faq) { await botSay(faq); return; }
       const ai = await aiChatReply(historyText, text, missing);
