@@ -19,6 +19,7 @@ function renderText(text) {
 export default function IntakeChat() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
+  const [multiSel, setMultiSel] = useState([]); // selected options for a 'multi' step
   const [collected, setCollected] = useState({});
   const [done, setDone] = useState(false);
   const [typing, setTyping] = useState(false);
@@ -106,6 +107,18 @@ export default function IntakeChat() {
     else await finish();
   }
 
+  // Quick-select answer (button) for a choice/multi step — records it just like
+  // a typed answer and moves on.
+  async function chooseOption(step, value) {
+    if (typing || done || !value) return;
+    pushMe({ text: value });
+    const col = { ...collected, [step.key]: value };
+    setCollected(col);
+    setMultiSel([]);
+    await botSay('נרשם ✓', 300);
+    await advanceAfter(col);
+  }
+
   async function onText() {
     const text = input.trim();
     if (!text || typing || done) return;
@@ -132,7 +145,7 @@ export default function IntakeChat() {
       return;
     }
 
-    if (step.type === 'text') {
+    if (step.type === 'text' || step.type === 'choice' || step.type === 'multi') {
       if (faq) { await botSay(faq); await botSay('נחזור רגע: ' + step.ask, 500); return; }
       const col = { ...collected, [step.key]: text };
       setCollected(col);
@@ -207,6 +220,9 @@ export default function IntakeChat() {
 
   const total = STEPS.length;
   const doneCount = STEPS.filter((s) => s.key in collected).length;
+  // The step currently awaiting an answer — used to show quick-select buttons.
+  const curStep = !done && !typing ? pendingStep(collected) : null;
+  const showChoices = curStep && (curStep.type === 'choice' || curStep.type === 'multi');
 
   return (
     <div className="chat-wrap">
@@ -232,6 +248,29 @@ export default function IntakeChat() {
           </div>
         )}
       </div>
+
+      {showChoices && curStep.type === 'choice' && (
+        <div className="chat-choices">
+          {curStep.options.map((opt) => (
+            <button key={opt} className="chat-chip" onClick={() => chooseOption(curStep, opt)}>{opt}</button>
+          ))}
+        </div>
+      )}
+      {showChoices && curStep.type === 'multi' && (
+        <div className="chat-choices">
+          {curStep.options.map((opt) => {
+            const on = multiSel.includes(opt);
+            return (
+              <button
+                key={opt}
+                className={`chat-chip${on ? ' on' : ''}`}
+                onClick={() => setMultiSel((s) => (on ? s.filter((x) => x !== opt) : [...s, opt]))}
+              >{on ? '✓ ' : ''}{opt}</button>
+            );
+          })}
+          <button className="chat-chip go" disabled={!multiSel.length} onClick={() => chooseOption(curStep, multiSel.join(', '))}>המשך ›</button>
+        </div>
+      )}
 
       {!done && (
         <div className="chat-input">

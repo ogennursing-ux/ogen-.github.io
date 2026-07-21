@@ -2154,3 +2154,10 @@ body {
   background: linear-gradient(135deg, #38bdf8, #0ea5e9); }
 .chat-send:disabled { opacity: .5; }
 .chat-done { padding: 12px; background: #fff; border-top: 1px solid #e6ebf3; }
+.chat-choices { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px 2px; background: #eaf2fb; }
+.chat-chip { padding: 9px 15px; border-radius: 20px; font-size: 14px; font-weight: 600; color: #0369a1;
+  background: #fff; border: 1.5px solid #bae0fb; }
+.chat-chip:hover { background: #f0f9ff; }
+.chat-chip.on { color: #fff; background: linear-gradient(135deg, #38bdf8, #0ea5e9); border-color: #0ea5e9; }
+.chat-chip.go { color: #fff; background: linear-gradient(135deg, #34d399, #10b981); border-color: #10b981; }
+.chat-chip:disabled { opacity: .5; }
