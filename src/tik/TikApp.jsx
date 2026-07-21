@@ -29,7 +29,7 @@ import {
 import { uid } from './workerFilesApi.js';
 import { mergeDocx, PLACEHOLDER_KEYS } from './contractMerge.js';
 import { buildOverlayPdf } from './contractOverlay.js';
-import { createSigningRequest, getSigningUrl, setSigningUrl } from './signingBridge.js';
+import { createSigningRequest, getSigningUrl, setSigningUrl, createPlacementSigning, sendSigningSms } from './signingBridge.js';
 import { listNewSubmissions, countNewSubmissions, setSubmissionStatus, AGENT_ENDPOINT, AGENT_ANON_KEY } from './agentInbox.js';
 import { collectRecords, recordsSignature, backupNow, restoreFromCloud, getLastSync } from './cloudBackup.js';
 import { publishChatKey, withTimeout } from './intakeChat.js';
@@ -740,6 +740,30 @@ function AgentInbox({ onClose, onImported }) {
     catch (e) { alert(e?.message || String(e)); }
     finally { setBusyId(null); }
   }
+  // Build the full contract from a (merged) chat submission and open a 2-signer
+  // signing request, then SMS the link to the employer and the caregiver.
+  async function sendToSigning(sub) {
+    setBusyId(sub.id);
+    try {
+      const fields = { ...(sub.data?.fields || {}) };
+      const worker = recordFromSubmission(fields, 'worker');
+      const family = recordFromSubmission({ ...fields, fullName: fields.fullName || fields.employerName }, 'family');
+      const bytes = await buildFilledContract(family, worker, {});
+      const { link } = await createPlacementSigning({
+        pdfBytes: bytes,
+        employerName: family.fullName,
+        workerName: worker.nameEn || worker.nameHe || [worker.firstNameEn, worker.lastNameEn].filter(Boolean).join(' '),
+      });
+      const ePhone = fields.contactPhone || family.phone || family.mobile;
+      const wPhone = fields.workerPhone || worker.phone;
+      const r1 = ePhone ? await sendSigningSms(ePhone, link, family.fullName) : { ok: false };
+      const r2 = wPhone ? await sendSigningSms(wPhone, link, worker.nameEn) : { ok: false };
+      const sent = (r1.ok ? 1 : 0) + (r2.ok ? 1 : 0);
+      const head = sent > 0 ? `✅ נשלחו ${sent} הודעות SMS עם קישור החתימה.` : '⚠️ SMS עדיין לא מוגדר — העתק/י ושלח/י את הקישור ידנית:';
+      window.prompt(head + '\n\nקישור החתימה (מעסיק + עובד/ת חותמים על אותו חוזה):', link);
+    } catch (e) { alert('שליחה לחתימה נכשלה: ' + (e?.message || e)); }
+    finally { setBusyId(null); }
+  }
   const copy = (t) => navigator.clipboard?.writeText(t).catch(() => {});
   const summary = (d) => {
     if (d?.chat) return '💬 ' + ((d.fields?.employerName) || 'שיחת צ׳אט') + ((d.files?.length) ? ` · ${d.files.length} קבצים` : '');
@@ -795,6 +819,9 @@ function AgentInbox({ onClose, onImported }) {
                 <div className="tik-sub-actions">
                   {s.data?.chat && (
                     <button className="btn-ghost sm" onClick={() => setChatView(s)}>💬 צפה בשיחה</button>
+                  )}
+                  {s.data?.chat && (
+                    <button className="btn-ghost sm" disabled={busyId === s.id} onClick={() => sendToSigning(s)} title="יוצר חוזה מלא ושולח לחתימה למעסיק ולעובד/ת">✍️ שלח לחתימה</button>
                   )}
                   <button className="btn-primary sm" disabled={busyId === s.id} onClick={() => importOne(s, s.data?.chat ? 'family' : 'worker')}>{s.data?.chat ? 'ייבא כמשפחה' : 'ייבא כעובד'}</button>
                   {!s.data?.chat && <button className="btn-ghost sm" disabled={busyId === s.id} onClick={() => importOne(s, 'family')}>ייבא כמשפחה</button>}

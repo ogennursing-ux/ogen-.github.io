@@ -85,3 +85,68 @@ export async function createSigningRequest({ pdfBytes, title, fields, signerName
 
   return { id, link: signingLink(id) };
 }
+
+// ---- Two-signer placement signing (employer + caregiver on the SAME contract) ----
+
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+const sig = (pageIndex, signer, xPct, yPct) => ({
+  id: uid(), type: 'signature', pageIndex, signer, xPct, yPct, wPct: 0.2, hPct: 0.07, value: '',
+});
+
+// Where each party signs on the filled 26-page packet. signer 0 = employer,
+// signer 1 = caregiver. Positions are fractions of the page (top-left origin),
+// derived from the signature lines on pages 25 (employment contract), 26
+// (permit extension) and 10 (job order). Fine-tune live in the signing editor.
+export function placementSignatureFields() {
+  return [
+    sig(24, 0, 0.219, 0.125), // חתימת המעסיק / Signature of Employer
+    sig(24, 1, 0.219, 0.241), // חתימת המטפל / Signature of Caregiver
+    sig(25, 0, 0.092, 0.601), // Signature of Employer (permit extension)
+    sig(25, 1, 0.093, 0.432), // Signature of Employee
+    sig(9, 1, 0.041, 0.833),  // Caregiver's Signature (job order)
+  ];
+}
+
+/**
+ * Upload the full filled contract and open a 2-signer request (employer first,
+ * then caregiver). Returns the request id + the signing link.
+ */
+export async function createPlacementSigning({ pdfBytes, employerName, workerName, title }) {
+  const id = uid();
+  const path = `originals/${id}.pdf`;
+  const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+  const { error: upErr } = await sb().storage.from(BUCKET).upload(path, blob, { contentType: 'application/pdf', upsert: true });
+  if (upErr) throw new Error('העלאת החוזה למערכת החתימה נכשלה: ' + upErr.message);
+
+  const list = [
+    { name: employerName || 'המעסיק', email: null, color: '#1f7a53', signed: false, signedAt: null },
+    { name: workerName || 'העובד/ת', email: null, color: '#2563eb', signed: false, signedAt: null },
+  ];
+  const { error } = await sb().from('sign_requests').insert({
+    id,
+    title: title || 'חוזה השמה — חתימת מעסיק ועובד/ת',
+    pdf_path: path,
+    fields: placementSignatureFields(),
+    signers: { current: 0, list, note: '', downloadGroups: '' },
+    status: 'sent',
+    signer_email: null, owner_email: null, webhook_url: null,
+  });
+  if (error) throw new Error('יצירת בקשת החתימה נכשלה: ' + error.message);
+  return { id, link: signingLink(id) };
+}
+
+// Send the signing link by SMS via the send-sms Edge Function. Never throws, so
+// a not-yet-configured SMS setup can't break the flow.
+export async function sendSigningSms(phone, link, name) {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/send-sms`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+      body: JSON.stringify({ to: phone, link, name }),
+    });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok && data.ok !== false, error: data.error };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
