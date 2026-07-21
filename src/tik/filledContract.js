@@ -4,8 +4,16 @@
 // canvas and embedded as transparent PNGs so Hebrew and Latin both render
 // correctly regardless of pdf-lib's built-in fonts.
 
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, rgb } from 'pdf-lib';
 import templateUrl from './assets/contract-template.pdf?url';
+
+// The template carries a previous client's details printed on the service
+// agreement (page 3). Cover those exact spots with white before stamping the
+// real client, so no stale name/ID shows through.
+const WHITEOUT = [
+  { page: 2, x0: 470, y0: 588, x1: 532, y1: 604 }, // old client name
+  { page: 2, x0: 340, y0: 590, x1: 402, y1: 605 }, // old client ת"ז
+];
 
 const SS = 3;    // supersample for crisp text
 const LIFT = 4;  // raise values so they sit on the label's line, not below it
@@ -152,6 +160,31 @@ function buildFields(family, worker, opts) {
   add(10, 304, 217, workerNameEn(worker), { align: 'center' }); // Caregiver name
   add(10, 335, 202, wCountry, { align: 'center' }); // Country of Citizenship / מדינה
 
+  // ---------- Page 3 — הסכם שירותי ליווי והשמה (client identity) ----------
+  add(2, 501, 596, eName, { align: 'center' });                    // client name (old data whited out)
+  add(2, 372, 597, eId, { align: 'center' });                      // client ת"ז
+  add(2, 440, 560, gName, { align: 'center' });                    // guardian / attorney name (blank line)
+  add(2, 270, 560, gId, { align: 'center' });                      // guardian ת"ז
+  add(2, 400, 525, [eStreet, eCity].filter(Boolean).join(' '), { align: 'center' }); // address
+
+  // ---------- Page 26 — בקשה להארכת אשרה (values sit below each header) ----------
+  const B = (x, yh, val, o = {}) => add(25, x, yh - 12, val, { align: 'center', ...o });
+  // Applicant (worker) — names
+  B(467, 738, wLast); B(332, 740, wFirst);
+  B(196, 740, clean(worker.fatherName)); B(65, 740, clean(worker.motherName));
+  // passport row
+  B(475, 687, wPass); B(355, 687, wCountry);
+  B(227, 688, worker.passportExpiry ? fmtDate(worker.passportExpiry) : '');
+  // birth / status row
+  B(491, 645, clean(worker.placeOfBirth)); B(355, 646, wDob);
+  B(248, 644, clean(worker.maritalStatus)); B(80, 644, clean(worker.spouseName));
+  // address in Israel (worker lives at the employer's address)
+  B(494, 598, eCity); B(252, 598, eStreet); B(80, 598, clean(worker.phone));
+  // employer + employee (middle block)
+  B(492, 379, eName); B(358, 379, eId); B(230, 379, wName); B(84, 379, wPass);
+  // employer + employee (bottom agency block)
+  B(492, 191, eName); B(358, 191, eId); B(230, 191, wName); B(84, 191, wPass);
+
   return F;
 }
 
@@ -164,6 +197,14 @@ export async function buildFilledContract(family = {}, worker = {}, opts = {}) {
   const bytes = await loadTemplate();
   const pdf = await PDFDocument.load(bytes);
   const pages = pdf.getPages();
+
+  // Paint over any stale printed data first.
+  for (const w of WHITEOUT) {
+    const page = pages[w.page];
+    if (!page) continue;
+    page.drawRectangle({ x: w.x0, y: w.y0, width: w.x1 - w.x0, height: w.y1 - w.y0, color: rgb(1, 1, 1) });
+  }
+
   const fields = buildFields(family, worker, opts);
 
   for (const f of fields) {
