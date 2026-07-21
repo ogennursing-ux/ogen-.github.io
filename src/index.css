@@ -2160,4 +2160,5 @@ body {
 .chat-chip:hover { background: #f0f9ff; }
 .chat-chip.on { color: #fff; background: linear-gradient(135deg, #38bdf8, #0ea5e9); border-color: #0ea5e9; }
 .chat-chip.go { color: #fff; background: linear-gradient(135deg, #34d399, #10b981); border-color: #10b981; }
+.chat-chip.skip { color: #64748b; background: #f1f5f9; border-color: #dbe3ec; font-weight: 500; }
 .chat-chip:disabled { opacity: .5; }

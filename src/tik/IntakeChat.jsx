@@ -119,6 +119,17 @@ export default function IntakeChat() {
     await advanceAfter(col);
   }
 
+  // One-tap "don't know / skip" — leaves the field empty and moves on.
+  async function skipStep(step) {
+    if (!step || typing || done) return;
+    pushMe({ text: 'לא יודע/ת' });
+    const col = { ...collected, [step.key]: '' };
+    setCollected(col);
+    setMultiSel([]);
+    await botSay('אין בעיה, נמשיך 🙂', 350);
+    await advanceAfter(col);
+  }
+
   async function onText() {
     const text = input.trim();
     if (!text || typing || done) return;
@@ -137,6 +148,18 @@ export default function IntakeChat() {
 
     const missing = STEPS.filter((s) => !(s.key in collected)).map((s) => s.label);
     const historyText = messages.slice(-8).map((m) => `${m.from === 'bot' ? 'בוט' : 'לקוח'}: ${m.text || '[תמונה]'}`).join('\n');
+
+    // "I don't know / not relevant / no permit…" → skip this question and move on,
+    // leaving the field empty so it stays blank on the contract. (Bare "לא" is NOT
+    // a skip — it's a valid answer to yes/no questions like marital status.)
+    const SKIP_RE = /^(אין|לא יודע|לא יודעת|לא ידוע|לא צריך|אין לי|לא רלוונטי|דלג|לא בטוח|לא בטוחה|אחר כך|בהמשך|לא משנה)/;
+    if (step && SKIP_RE.test(text)) {
+      const col = { ...collected, [step.key]: '' };
+      setCollected(col);
+      await botSay('אין בעיה, נמשיך הלאה 🙂', 400);
+      await advanceAfter(col);
+      return;
+    }
 
     if (!step) { // everything collected — free chat, AI answers
       if (faq) { await botSay(faq); return; }
@@ -223,6 +246,8 @@ export default function IntakeChat() {
   // The step currently awaiting an answer — used to show quick-select buttons.
   const curStep = !done && !typing ? pendingStep(collected) : null;
   const showChoices = curStep && (curStep.type === 'choice' || curStep.type === 'multi');
+  // Show a one-tap skip on optional questions and on the choice/multi ones.
+  const canSkip = curStep && (curStep.optional || curStep.type === 'choice' || curStep.type === 'multi');
 
   return (
     <div className="chat-wrap">
@@ -254,6 +279,7 @@ export default function IntakeChat() {
           {curStep.options.map((opt) => (
             <button key={opt} className="chat-chip" onClick={() => chooseOption(curStep, opt)}>{opt}</button>
           ))}
+          <button className="chat-chip skip" onClick={() => skipStep(curStep)}>לא יודע/ת</button>
         </div>
       )}
       {showChoices && curStep.type === 'multi' && (
@@ -269,6 +295,12 @@ export default function IntakeChat() {
             );
           })}
           <button className="chat-chip go" disabled={!multiSel.length} onClick={() => chooseOption(curStep, multiSel.join(', '))}>המשך ›</button>
+          <button className="chat-chip skip" onClick={() => skipStep(curStep)}>לא יודע/ת</button>
+        </div>
+      )}
+      {canSkip && !showChoices && (
+        <div className="chat-choices">
+          <button className="chat-chip skip" onClick={() => skipStep(curStep)}>אין לי / לא יודע/ת — דלג</button>
         </div>
       )}
 
