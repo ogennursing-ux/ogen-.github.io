@@ -11,8 +11,9 @@ import templateUrl from './assets/contract-template.pdf?url';
 // agreement (page 3). Cover those exact spots with white before stamping the
 // real client, so no stale name/ID shows through.
 const WHITEOUT = [
-  { page: 2, x0: 470, y0: 588, x1: 532, y1: 604 }, // old client name
-  { page: 2, x0: 340, y0: 590, x1: 402, y1: 605 }, // old client ת"ז
+  { page: 2, x0: 470, y0: 588, x1: 532, y1: 604 }, // pg3: old client name
+  { page: 2, x0: 340, y0: 590, x1: 402, y1: 605 }, // pg3: old client ת"ז
+  { page: 9, x0: 28, y0: 367, x1: 126, y1: 380 },  // pg10: old caregiver name in the declaration
 ];
 
 const SS = 3;    // supersample for crisp text
@@ -166,6 +167,28 @@ function buildFields(family, worker, opts) {
   add(2, 440, 560, gName, { align: 'center' });                    // guardian / attorney name (blank line)
   add(2, 270, 560, gId, { align: 'center' });                      // guardian ת"ז
   add(2, 400, 525, [eStreet, eCity].filter(Boolean).join(' '), { align: 'center' }); // address
+
+  // ---------- Page 10 — הזמנת עבודה / Job Order (English, LTR) ----------
+  const wAge = worker.dob ? String(new Date().getFullYear() - new Date(String(worker.dob).slice(0, 4)).getFullYear() || '') : '';
+  // The employer name/ID/address blanks here are too small for Hebrew and those
+  // details already appear on every other page — so on this dense form we fill
+  // only the fields that fit cleanly.
+  const jo = { dir: 'ltr', size: 8 };
+  add(9, 223, 659, wAge && wAge !== 'NaN' ? wAge : '', jo);      // Age
+  add(9, 156, 638, gName, jo);                                   // Contact person
+  add(9, 346, 582, clean(worker.languages), jo);                // Languages
+  add(9, 98, 437, salary, jo);                                  // Monthly salary (Nis)
+  add(9, 77, 374, workerNameEn(worker), { dir: 'ltr', align: 'center', size: 8 }); // declaration name
+  add(9, 256, 373, wPass, jo);                                  // Passport No
+
+  // ---------- Page 8 — הצהרת עובד המבקש לעבור ללשכה אחרת (worker details) ----------
+  add(7, 530, 599, wName);                                  // שם העובד
+  add(7, 523, 574, wPass);                                  // מספר דרכון
+  add(7, 503, 551, clean(worker.phone));                   // מספר טלפון נייד
+  add(7, 508, 528, [worker.addrStreet, worker.addrCity].filter(Boolean).join(' ')); // כתובת מגורים
+  add(7, 135, 311, wName, { dir: 'ltr', align: 'center', size: 8 });   // I the undersigned, <name>
+  add(7, 279, 311, wCountry, { dir: 'ltr', align: 'center', size: 8 });// Passport Country
+  add(7, 390, 311, wPass, { dir: 'ltr', size: 8 });                    // Passport Number
 
   // ---------- Page 26 — בקשה להארכת אשרה (values sit below each header) ----------
   const B = (x, yh, val, o = {}) => add(25, x, yh - 12, val, { align: 'center', ...o });
