@@ -36,7 +36,7 @@ export async function listNewSubmissions() {
 
 // Group rows that share a passport key (data.meta.linkKey) and came from a
 // role-specific link, merging their fields/files into one submission.
-function mergeHalves(rows) {
+export function mergeHalves(rows) {
   const groups = new Map();
   const out = [];
   for (const r of rows) {
