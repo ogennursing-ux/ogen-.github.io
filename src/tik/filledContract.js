@@ -7,7 +7,8 @@
 import { PDFDocument } from 'pdf-lib';
 import templateUrl from './assets/contract-template.pdf?url';
 
-const SS = 3; // supersample for crisp text
+const SS = 3;    // supersample for crisp text
+const LIFT = 4;  // raise values so they sit on the label's line, not below it
 
 let _templateBytes = null;
 async function loadTemplate() {
@@ -130,7 +131,7 @@ export async function buildFilledContract(family = {}, worker = {}, opts = {}) {
     const img = valueImage(f.val, { size: f.size, dir: f.dir });
     const png = await pdf.embedPng(img.bytes);
     const x = f.align === 'right' ? f.x - img.width : f.x;
-    page.drawImage(png, { x, y: f.y - img.height / 2, width: img.width, height: img.height });
+    page.drawImage(png, { x, y: f.y - img.height / 2 + LIFT, width: img.width, height: img.height });
   }
   return pdf.save();
 }
