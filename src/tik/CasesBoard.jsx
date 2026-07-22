@@ -160,7 +160,7 @@ export default function CasesBoard() {
       <div className="board-head">
         <div>
           <h1>📁 מערכת החוזים — עוגן סיעוד</h1>
-          <p>כל המקרים במקום אחד</p>
+          <p>{err ? '🔴 לא מחובר למסד הנתונים' : cases === null ? 'מתחבר…' : `🟢 מחובר · ${counts.all} מקרים`}</p>
         </div>
         <button className="board-refresh" onClick={reload} title="רענן">↻</button>
       </div>
