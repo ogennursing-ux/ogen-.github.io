@@ -68,8 +68,16 @@ export const INSURANCE_WHY =
 // Consolidated closing messages (fewer, cleaner bubbles) + coupon that waives payment.
 export const PAY_SUMMARY =
   'כדי להמשיך יש לבצע תשלום — **סה"כ 2,840 ₪** (דמי השמה 2,000 ₪ + דמי תאגיד לשנה 840 ₪). ' +
-  'הסכום קבוע ואחיד לכל הלקוחות, ללא הנחה, וכולל ליווי ושירות לשנה מלאה. ביטוח רפואי לעובד/ת מוסדר על ידינו ' +
-  'דרך חברת ' + INSURANCE_NAME + ' — אין צורך שתעשו כלום בנושא הביטוח.';
+  'הסכום קבוע ואחיד לכל הלקוחות, ללא הנחה, וכולל ליווי ושירות לשנה מלאה.';
+
+// Medical insurance for the worker: we ask if the employer already has it, and
+// if not we route them to our partner insurer at a discount for Ogen clients.
+export const INSURANCE_OFFER =
+  'לגבי הביטוח הרפואי — אין בעיה, אנחנו נדאג לכם 🙂 אנחנו עובדים עם חברת הביטוח **' + INSURANCE_NAME + '**, ' +
+  'ונעביר אליהם את הפרטים שלכם. הם ייצרו איתכם קשר ויסדרו את הביטוח **במחיר מיוחד ובהנחה ללקוחות עוגן** — ' +
+  'אתם לא צריכים לעשות כלום, הם יחזרו אליכם.';
+// The employer chose "we don't have insurance / help us".
+export const noInsurance = (v) => /לא|תעזר|אין|עזר|צריך/.test(String(v || ''));
 export const COUPON_PLACEHOLDER = 'יש לכם קוד קופון? הזינו כאן';
 export const COUPON_OK =
   'הקופון אושר ✓ פטורים מתשלום. סיימנו! נציג/ה מהצוות ימשיך/תמשיך איתכם מכאן. תודה שבחרתם בעוגן סיעוד! 💙';
@@ -112,6 +120,9 @@ export const STEPS = [
     ask: 'מה **מספר הטלפון של העובד/ת**?' },
   { key: 'salary', type: 'text', label: 'שכר חודשי ברוטו',
     ask: 'מה **השכר החודשי ברוטו** המוסכם — **ללא** דמי הכיס השבועי? (בש"ח)' },
+  { key: 'hasInsurance', type: 'choice', label: 'ביטוח רפואי לעובד/ת',
+    options: ['כן, יש לנו ביטוח', 'לא / תעזרו לנו'],
+    ask: 'האם כבר יש לכם **ביטוח רפואי** לעובד/ת? (חובה על פי חוק על המעסיק)' },
   // ---- Employment terms (needed for the contract — none of this is on a document) ----
   { key: 'startDate', type: 'text', label: 'תאריך תחילת העסקה',
     ask: 'מתי **מתחילה ההעסקה**? (תאריך)' },
@@ -129,7 +140,7 @@ export const STEPS = [
   { key: 'languages', type: 'text', optional: true, label: 'שפות',
     ask: 'אילו **שפות** העובד/ת דובר/ת? (אם לא בטוחים — "אין")' },
   { key: 'arrivalDate', type: 'text', label: 'תאריך הגעה לארץ',
-    ask: 'מה **התאריך המדויק** שבו העובד/ת הגיע/ה לישראל?' },
+    ask: 'מתי בערך **הגיע/ה העובד/ת לישראל**? (תאריך — גם משוער בסדר גמור)' },
   { key: 'lastWorkDate', type: 'text', label: 'תאריך עבודה אחרון',
     ask: 'ואחרון — מה **התאריך המדויק** שבו העובד/ת עבד/ה לאחרונה במקום הקודם? (אם רלוונטי)' },
 ];
@@ -180,7 +191,7 @@ const WORKER_KEYS = new Set([
 ]);
 const EMPLOYER_KEYS = new Set([
   'contactPhone', 'passport', 'patientId', 'permit', 'employerName', 'contactName', 'email',
-  'street', 'salary', 'startDate', 'daysPerWeek', 'weeklyDayOff',
+  'street', 'salary', 'hasInsurance', 'startDate', 'daysPerWeek', 'weeklyDayOff',
   'liveIn', 'jobTasks', 'weeklyAdvance', 'contactRelation', 'canSign',
   'guardianDoc', 'guardianName',
 ]);

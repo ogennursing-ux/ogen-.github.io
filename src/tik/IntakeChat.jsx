@@ -5,6 +5,7 @@ import {
   loadPublishedKey, wantsHuman, ESCALATE_TEXT, AGENT_NAME, getClientMeta,
   getRole, filterByRole, ROLE_GREETING, CONSENT_TEXT, CONSENT_BUTTON, CONSENT_VERSION,
   PAY_SUMMARY, COUPON_PLACEHOLDER, COUPON_OK, COUPON_BAD, checkCoupon,
+  INSURANCE_OFFER, noInsurance,
 } from './intakeChat.js';
 import { LANGS, RTL_LANGS, t } from './chatI18n.js';
 import { extractDocument, extractFamilyDocument, hasAI } from './gemini.js';
@@ -142,6 +143,8 @@ export default function IntakeChat() {
       setDone(true);
       return;
     }
+    // If they don't already have medical insurance, route them to our partner.
+    if (noInsurance(collected.hasInsurance)) await botSay(INSURANCE_OFFER, 800);
     // Consolidated closing — two clean bubbles instead of five.
     await botSay('קיבלנו את כל הפרטים, תודה רבה! 🙏\n\n' + PAY_SUMMARY, 800);
     await botSay(PAYMENT_LINK, 400);
@@ -298,6 +301,12 @@ export default function IntakeChat() {
           setTyping(false);
           const patch = res?.patch || {};
           Object.assign(extractedRef.current, patch);
+          // The ID card already gives us the employer/patient name — don't ask
+          // for it again. Fill it in so that step is skipped automatically.
+          if (step.key === 'patientId' && patch.fullName && !col.employerName) {
+            col.employerName = patch.fullName;
+            setCollected({ ...col });
+          }
           const bits = [
             patch.nameEn || patch.nameHe || patch.fullName,
             patch.passportNo && 'דרכון ' + patch.passportNo,
@@ -405,22 +414,28 @@ export default function IntakeChat() {
 
       {!done && consented && (
         <div className="chat-input">
-          <button className="chat-photo-btn" onClick={() => camInput.current?.click()}>
-            <span className="ic">📷</span><span className="lbl">{tr('camera')}</span>
-          </button>
-          <button className="chat-photo-btn" onClick={() => fileInput.current?.click()}>
-            <span className="ic">🖼️</span><span className="lbl">{tr('gallery')}</span>
-          </button>
-          <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={(e) => { onFiles(e.target.files); e.target.value = ''; }} />
-          <input ref={camInput} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { onFiles(e.target.files); e.target.value = ''; }} />
-          <input
-            className="chat-text"
-            placeholder={tr('placeholder')}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') onText(); }}
-          />
-          <button className="chat-send" onClick={onText} disabled={!input.trim()}>{tr('send')}</button>
+          {/* The writing field gets its own full-width row so what you type is clear. */}
+          <div className="chat-input-text">
+            <input
+              className="chat-text"
+              placeholder={tr('placeholder')}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') onText(); }}
+            />
+            <button className="chat-send" onClick={onText} disabled={!input.trim()}>{tr('send')}</button>
+          </div>
+          {/* Photo / camera on a second, smaller row. */}
+          <div className="chat-input-media">
+            <button className="chat-photo-btn" onClick={() => camInput.current?.click()}>
+              <span className="ic">📷</span><span className="lbl">{tr('camera')}</span>
+            </button>
+            <button className="chat-photo-btn" onClick={() => fileInput.current?.click()}>
+              <span className="ic">🖼️</span><span className="lbl">{tr('gallery')}</span>
+            </button>
+            <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={(e) => { onFiles(e.target.files); e.target.value = ''; }} />
+            <input ref={camInput} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { onFiles(e.target.files); e.target.value = ''; }} />
+          </div>
         </div>
       )}
       {done && role !== 'worker' && !couponOk && (
