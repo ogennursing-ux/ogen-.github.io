@@ -175,7 +175,15 @@ export default function CasesBoard() {
         <button className="board-toapp" onClick={() => { location.hash = ''; location.reload(); }}>המשרד המלא ←</button>
       </div>
 
-      {err && <p className="board-err">{err}</p>}
+      {err && (/agent_submissions|schema cache|Could not find the table/i.test(err) ? (
+        <div className="board-err">
+          <b>המערכת עדיין לא חוברה למסד הנתונים.</b><br />
+          יש להריץ פעם אחת את קובץ ההתקנה <code>supabase/schema.sql</code> ב‑Supabase
+          (Dashboard → SQL Editor → Run). אחרי זה כל המקרים יופיעו כאן אוטומטית.
+        </div>
+      ) : (
+        <p className="board-err">{err}</p>
+      ))}
       {cases === null && !err && <p className="board-empty">טוען…</p>}
       {cases && !shown.length && !err && <p className="board-empty">אין מקרים בקטגוריה הזו.</p>}
 
