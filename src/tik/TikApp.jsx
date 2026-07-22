@@ -871,6 +871,11 @@ function ChatTranscript({ sub, onClose }) {
             {d.fields?.contactPhone ? ' · ☎ ' + d.fields.contactPhone : ''}
           </p>
         )}
+        {d.meta?.consent?.at && (
+          <p className="tik-chk ok small" style={{ display: 'block', margin: '0 0 8px', padding: '6px 10px', borderRadius: 8 }}>
+            ✅ הסכים/ה לתנאי הפרטיות ולחתימה אלקטרונית ({new Date(d.meta.consent.at).toLocaleString('he-IL')})
+          </p>
+        )}
         <div className="chat-body" style={{ maxHeight: '52vh', borderRadius: 12 }}>
           {tr.map((m, i) => (
             <div key={i} className={`chat-row ${m.from}`}>

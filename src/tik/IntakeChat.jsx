@@ -3,7 +3,7 @@ import {
   STEPS, FOLLOWUPS, GREETING, PAYMENT_TEXT, PAYMENT_LINK, NO_DISCOUNT_TEXT, INSURANCE_TEXT,
   faqAnswer, saveChat, newSessionId, applyUrlKey, aiChatReply, withTimeout,
   loadPublishedKey, wantsHuman, ESCALATE_TEXT, AGENT_NAME, getClientMeta,
-  getRole, filterByRole, ROLE_GREETING,
+  getRole, filterByRole, ROLE_GREETING, CONSENT_TEXT, CONSENT_BUTTON, CONSENT_VERSION,
 } from './intakeChat.js';
 import { extractDocument, extractFamilyDocument, hasAI } from './gemini.js';
 
@@ -27,6 +27,8 @@ export default function IntakeChat() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [multiSel, setMultiSel] = useState([]); // selected options for a 'multi' step
+  const [consented, setConsented] = useState(false); // privacy + e-signature consent
+  const consentRef = useRef(null); // { at, version }
   const [collected, setCollected] = useState({});
   const [done, setDone] = useState(false);
   const [typing, setTyping] = useState(false);
@@ -68,9 +70,18 @@ export default function IntakeChat() {
     getClientMeta().then((m) => { metaRef.current = m; }).catch(() => {}); // IP + browser info
     (async () => {
       await botSay(ROLE_GREETING[role] || GREETING, 900);
-      await botSay(steps[0].ask, 1200);
+      await botSay(CONSENT_TEXT, 1200); // then wait for the consent button
     })();
   }, []);
+
+  // Record explicit consent (privacy + electronic signature) before collecting.
+  async function giveConsent() {
+    if (consented || typing) return;
+    consentRef.current = { at: new Date().toISOString(), version: CONSENT_VERSION };
+    setConsented(true);
+    pushMe({ text: CONSENT_BUTTON });
+    await botSay(steps[0].ask, 900);
+  }
 
   useEffect(() => {
     scroller.current?.scrollTo(0, scroller.current.scrollHeight);
@@ -88,7 +99,7 @@ export default function IntakeChat() {
       files: finalFiles || [],
       status: finalFiles ? 'new' : 'chat',
       needsCallback: callbackRef.current,
-      meta: { ...metaRef.current, role, linkKey },
+      meta: { ...metaRef.current, role, linkKey, consent: consentRef.current },
     }).catch(() => {});
   };
   // Save shortly after every change (debounced).
@@ -277,7 +288,7 @@ export default function IntakeChat() {
   const total = steps.length;
   const doneCount = steps.filter((s) => s.key in collected).length;
   // The step currently awaiting an answer — used to show quick-select buttons.
-  const curStep = !done && !typing ? pendingStep(collected) : null;
+  const curStep = !done && consented && !typing ? pendingStep(collected) : null;
   const showChoices = curStep && (curStep.type === 'choice' || curStep.type === 'multi');
   // Show a one-tap skip on optional questions and on the choice/multi ones.
   const canSkip = curStep && (curStep.optional || curStep.type === 'choice' || curStep.type === 'multi');
@@ -336,8 +347,13 @@ export default function IntakeChat() {
           <button className="chat-chip skip" onClick={() => skipStep(curStep)}>אין לי / לא יודע/ת — דלג</button>
         </div>
       )}
+      {!done && !consented && !typing && (
+        <div className="chat-choices">
+          <button className="chat-chip go" onClick={giveConsent}>{CONSENT_BUTTON}</button>
+        </div>
+      )}
 
-      {!done && (
+      {!done && consented && (
         <div className="chat-input">
           <button className="chat-icon" title="מצלמה" onClick={() => camInput.current?.click()}>📷</button>
           <button className="chat-icon" title="קובץ" onClick={() => fileInput.current?.click()}>📎</button>

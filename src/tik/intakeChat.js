@@ -200,6 +200,21 @@ export const ROLE_GREETING = {
     'נאסוף את הדרכון והפרטים האישיים. החלק של המעסיק ממולא בנפרד, והמערכת מחברת הכול יחד לפי מספר הדרכון.',
 };
 
+// ---- Legal: privacy consent + electronic-signature notice ----
+// Shown once, before any detail is collected. Consent (with timestamp + IP) is
+// stored with the submission so the process is compliant with חוק הגנת הפרטיות
+// and the signature with חוק חתימה אלקטרונית התשס"א-2001.
+export const CONSENT_VERSION = '2026-07-v1';
+export const CONSENT_TEXT =
+  'לפני שנתחיל — שקיפות מלאה 🔒\n' +
+  'הפרטים והמסמכים שתמסרו נאספים על ידי **עוגן סיעוד ועובדים זרים בע"מ** לצורך תהליך ההשמה והפקת החוזה בלבד, ' +
+  'ונשמרים באופן מאובטח. הם לא יימסרו לצד שלישי, למעט הרשויות הנדרשות על פי חוק (רשות האוכלוסין וההגירה, המוסד לביטוח לאומי). ' +
+  'ניתן לפנות אלינו בכל עת לעיון או תיקון הפרטים.\n' +
+  'החתימה על החוזה היא **חתימה אלקטרונית מחייבת** לפי חוק חתימה אלקטרונית, התשס"א-2001, ונשמרת עם תיעוד מלא (מועד וכתובת IP).\n' +
+  'By continuing you consent to the collection and use of these details for the placement, and to signing the contract electronically.\n' +
+  'לאישור והמשך, לחצו על הכפתור למטה 👇';
+export const CONSENT_BUTTON = '✓ אני מאשר/ת ומסכים/ה';
+
 // Detect a request to speak with a human / get a call back.
 export function wantsHuman(text) {
   return /לדבר עם|נציג|בן אדם|בנאדם|תתקשר|תחזור אלי|שיחה איתי|לדבר איתכם|טלפון איתכם|לא הבנתי|מישהו אמיתי/.test(text || '');
