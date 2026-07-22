@@ -65,6 +65,21 @@ export const INSURANCE_WHY =
   'על ההשמה לרשויות, וזה עלול לפגוע בזכויות של המעסיק והעובד — ובמקרה של צורך רפואי, המעסיק יישא בכל ' +
   'העלויות. לכן אי אפשר לוותר על הביטוח.';
 
+// Consolidated closing messages (fewer, cleaner bubbles) + coupon that waives payment.
+export const PAY_SUMMARY =
+  'כדי להמשיך יש לבצע תשלום — **סה"כ 2,840 ₪** (דמי השמה 2,000 ₪ + דמי תאגיד לשנה 840 ₪). ' +
+  'הסכום קבוע ואחיד לכל הלקוחות, ללא הנחה, וכולל ליווי ושירות לשנה מלאה. ביטוח רפואי לעובד/ת מוסדר על ידינו ' +
+  'דרך חברת ' + INSURANCE_NAME + ' — אין צורך שתעשו כלום בנושא הביטוח.';
+export const COUPON_PLACEHOLDER = 'יש לכם קוד קופון? הזינו כאן';
+export const COUPON_OK =
+  'הקופון אושר ✓ פטורים מתשלום. סיימנו! נציג/ה מהצוות ימשיך/תמשיך איתכם מכאן. תודה שבחרתם בעוגן סיעוד! 💙';
+export const COUPON_BAD = 'הקוד לא זוהה. בדקו ונסו שוב, או המשיכו לתשלום המאובטח.';
+// Valid coupons waive payment. First code: "עוגן 2840".
+export function checkCoupon(text) {
+  const t = String(text || '').replace(/\s+/g, '');
+  return /עוגן2840/.test(t);
+}
+
 // The person the customer is chatting with (front-line rep persona).
 export const AGENT_NAME = 'מאור';
 // Who unknown questions get escalated to.
@@ -78,7 +93,7 @@ export const STEPS = [
   { key: 'contactPhone', type: 'text', label: 'טלפון ליצירת קשר',
     ask: 'תודה! מה **מספר הטלפון** שלכם? ככה נוכל לחזור אליכם אם צריך 🙂' },
   { key: 'passport', type: 'file', category: 'passport', label: 'דרכון של העובד/ת', allowText: true,
-    ask: 'תודה! אפשר בשתי דרכים — **או** לשלוח **צילום** של עמוד הפרטים בדרכון של העובד/ת, **או** פשוט **לכתוב כאן את מספר הדרכון**. אין צורך בדרכון הפיזי.' },
+    ask: 'תודה! עכשיו הדרכון של העובד/ת. אפשר **לשלוח צילום** של עמוד הפרטים בדרכון, **או פשוט לכתוב כאן את מספר הדרכון**. אין צורך בדרכון עצמו.' },
   { key: 'visa', type: 'file', category: 'visa', optional: true, label: 'ויזה של העובד/ת',
     ask: 'מצוין. שלחו לי בבקשה תמונה של ה**ויזה / אשרה** של העובד/ת (ואם אין ברשותכם — כתבו "אין").' },
   { key: 'patientId', type: 'file', category: 'id', label: 'תעודת זהות של המטופל/מעסיק',
@@ -95,15 +110,13 @@ export const STEPS = [
     ask: 'מה ה**כתובת המלאה** של המטופל — עיר, רחוב ומספר בית?' },
   { key: 'workerPhone', type: 'text', label: 'טלפון העובד/ת',
     ask: 'מה **מספר הטלפון של העובד/ת**?' },
-  { key: 'salary', type: 'text', label: 'שכר חודשי',
-    ask: 'מה **גובה השכר החודשי** המוסכם לעובד/ת? (בש"ח)' },
+  { key: 'salary', type: 'text', label: 'שכר חודשי ברוטו',
+    ask: 'מה **השכר החודשי ברוטו** המוסכם — **ללא** דמי הכיס השבועי? (בש"ח)' },
   // ---- Employment terms (needed for the contract — none of this is on a document) ----
   { key: 'startDate', type: 'text', label: 'תאריך תחילת העסקה',
     ask: 'מתי **מתחילה ההעסקה**? (תאריך)' },
   { key: 'daysPerWeek', type: 'choice', label: 'ימי עבודה בשבוע', options: ['5', '6', '7'],
     ask: 'כמה **ימים בשבוע** העובד/ת עובד/ת?' },
-  { key: 'hoursPerDay', type: 'text', label: 'שעות ביום',
-    ask: 'כמה **שעות עבודה ביום** בערך?' },
   { key: 'weeklyDayOff', type: 'choice', label: 'יום חופש שבועי', options: ['שבת', 'ראשון', 'אחר'],
     ask: 'מהו **יום החופש השבועי** של העובד/ת?' },
   { key: 'liveIn', type: 'choice', label: 'מגורים', options: ['גר/ה בבית המטופל', 'לא גר/ה בבית'],
@@ -111,16 +124,14 @@ export const STEPS = [
   { key: 'jobTasks', type: 'multi', label: 'מרכיבי העבודה',
     options: ['בישול', 'ניקיון', 'כביסה', 'מתן תרופות', 'זריקות', 'השגחה'],
     ask: 'מה **מרכיבי העבודה**? בחרו כמה שרלוונטי 👇' },
-  { key: 'weeklyAdvance', type: 'text', optional: true, label: 'מקדמה שבועית',
-    ask: 'האם יש **מקדמה / דמי כיס שבועיים**? (סכום, או "אין")' },
+  { key: 'weeklyAdvance', type: 'text', optional: true, label: 'דמי כיס שבועי',
+    ask: 'האם יש **דמי כיס שבועי**? אם כן — כמה? (הסכום הזה נדרש בחוזה לפי חוק. אם אין — כתבו "אין")' },
   { key: 'languages', type: 'text', optional: true, label: 'שפות',
     ask: 'אילו **שפות** העובד/ת דובר/ת? (אם לא בטוחים — "אין")' },
-  { key: 'overseasAgency', type: 'text', optional: true, label: 'חברת כ״א בחו״ל',
-    ask: 'דרך איזו **חברת כוח-אדם בחו״ל** הגיע/ה העובד/ת? (אם ידוע, אחרת "אין")' },
   { key: 'arrivalDate', type: 'text', label: 'תאריך הגעה לארץ',
-    ask: 'מתי העובד/ת **הגיע/ה לארץ**? (תאריך — גם משוער עוזר)' },
+    ask: 'מה **התאריך המדויק** שבו העובד/ת הגיע/ה לישראל?' },
   { key: 'lastWorkDate', type: 'text', label: 'תאריך עבודה אחרון',
-    ask: 'ואחרון — מה ה**תאריך המדויק האחרון** שבו העובד/ת עבד/ה במקום הקודם? (אם רלוונטי)' },
+    ask: 'ואחרון — מה **התאריך המדויק** שבו העובד/ת עבד/ה לאחרונה במקום הקודם? (אם רלוונטי)' },
 ];
 
 // After the documents, ask ONLY for whatever the passport didn't already give
@@ -163,13 +174,13 @@ export const GREETING =
 //   #chat?role=employer  → employer's half only
 //   #chat?role=worker    → worker's half only
 const WORKER_KEYS = new Set([
-  'passport', 'visa', 'workerPhone', 'languages', 'overseasAgency',
+  'passport', 'visa', 'workerPhone', 'languages',
   'arrivalDate', 'lastWorkDate', 'maritalStatus', 'spouseName', 'fatherName',
   'motherName', 'heightWeight',
 ]);
 const EMPLOYER_KEYS = new Set([
   'contactPhone', 'passport', 'patientId', 'permit', 'employerName', 'contactName', 'email',
-  'street', 'salary', 'startDate', 'daysPerWeek', 'hoursPerDay', 'weeklyDayOff',
+  'street', 'salary', 'startDate', 'daysPerWeek', 'weeklyDayOff',
   'liveIn', 'jobTasks', 'weeklyAdvance', 'contactRelation', 'canSign',
   'guardianDoc', 'guardianName',
 ]);

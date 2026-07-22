@@ -4,6 +4,7 @@ import {
   faqAnswer, saveChat, newSessionId, applyUrlKey, aiChatReply, withTimeout,
   loadPublishedKey, wantsHuman, ESCALATE_TEXT, AGENT_NAME, getClientMeta,
   getRole, filterByRole, ROLE_GREETING, CONSENT_TEXT, CONSENT_BUTTON, CONSENT_VERSION,
+  PAY_SUMMARY, COUPON_PLACEHOLDER, COUPON_OK, COUPON_BAD, checkCoupon,
 } from './intakeChat.js';
 import { LANGS, RTL_LANGS, t } from './chatI18n.js';
 import { extractDocument, extractFamilyDocument, hasAI } from './gemini.js';
@@ -37,6 +38,10 @@ export default function IntakeChat() {
   const [multiSel, setMultiSel] = useState([]); // selected options for a 'multi' step
   const [consented, setConsented] = useState(false); // privacy + e-signature consent
   const consentRef = useRef(null); // { at, version }
+  const [couponInput, setCouponInput] = useState('');
+  const [couponMsg, setCouponMsg] = useState('');
+  const [couponOk, setCouponOk] = useState(false);
+  const couponRef = useRef('');
   const [collected, setCollected] = useState({});
   const [done, setDone] = useState(false);
   const [typing, setTyping] = useState(false);
@@ -118,7 +123,7 @@ export default function IntakeChat() {
       files: finalFiles || [],
       status: finalFiles ? 'new' : 'chat',
       needsCallback: callbackRef.current,
-      meta: { ...metaRef.current, role, linkKey, consent: consentRef.current, lang: lang || 'he' },
+      meta: { ...metaRef.current, role, linkKey, consent: consentRef.current, lang: lang || 'he', coupon: couponRef.current || undefined },
     }).catch(() => {});
   };
   // Save shortly after every change (debounced).
@@ -137,16 +142,25 @@ export default function IntakeChat() {
       setDone(true);
       return;
     }
-    await botSay('קיבלנו את כל הפרטים, תודה רבה! 🙏', 500);
-    await botSay(PAYMENT_TEXT, 700);
-    await botSay(PAYMENT_LINK, 300);
-    await botSay(NO_DISCOUNT_TEXT, 600);
-    await botSay(INSURANCE_TEXT, 700);
-    await botSay(
-      'לאחר התשלום נהפוך את הפרטים לחוזה ונשלח אליכם — ואז נשאר רק להחתים את העובד/ת. ' +
-      'תודה שבחרתם בעוגן סיעוד! 💙', 700,
-    );
+    // Consolidated closing — two clean bubbles instead of five.
+    await botSay('קיבלנו את כל הפרטים, תודה רבה! 🙏\n\n' + PAY_SUMMARY, 800);
+    await botSay(PAYMENT_LINK, 400);
     setDone(true);
+  }
+
+  // A coupon (e.g. "עוגן 2840") waives the payment and finishes the process.
+  function applyCoupon() {
+    const code = couponInput.trim();
+    if (!code) return;
+    if (checkCoupon(code)) {
+      couponRef.current = code;
+      setCouponOk(true);
+      setCouponMsg('');
+      pushBot(COUPON_OK);
+      setTimeout(() => persist(filesRef.current), 300); // record the coupon
+    } else {
+      setCouponMsg(COUPON_BAD);
+    }
   }
 
   async function advanceAfter(col) {
@@ -409,10 +423,20 @@ export default function IntakeChat() {
           <button className="chat-send" onClick={onText} disabled={!input.trim()}>{tr('send')}</button>
         </div>
       )}
-      {done && role !== 'worker' && (
+      {done && role !== 'worker' && !couponOk && (
         <div className="chat-done">
           <a className="btn-primary full" href={PAYMENT_LINK} target="_blank" rel="noreferrer">💳 מעבר לתשלום המאובטח</a>
+          <div className="chat-coupon">
+            <input className="chat-text" placeholder={COUPON_PLACEHOLDER} value={couponInput}
+              onChange={(e) => { setCouponInput(e.target.value); setCouponMsg(''); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') applyCoupon(); }} />
+            <button className="chat-send" onClick={applyCoupon} disabled={!couponInput.trim()}>אישור</button>
+          </div>
+          {couponMsg && <p className="chat-coupon-msg">{couponMsg}</p>}
         </div>
+      )}
+      {done && couponOk && (
+        <div className="chat-done"><div className="chat-coupon-ok">✓ פטורים מתשלום — סיימנו!</div></div>
       )}
       <div className="chat-legal">
         <a href="privacy.html" target="_blank" rel="noreferrer">🔒 מדיניות פרטיות ותנאי שימוש</a>

@@ -100,8 +100,13 @@ function buildFields(family, worker, opts) {
   // Employment terms (from the worker record; the intake chat fills these).
   const startDate = worker.startDate ? fmtDate(worker.startDate) : (family.placementStart ? fmtDate(family.placementStart) : '');
   const daysWk = clean(worker.daysPerWeek);
-  const hoursDay = clean(worker.hoursPerDay);
-  const salary = clean(worker.salary || family.offeredSalary);
+  const hoursDay = '24'; // live-in caregiver: around-the-clock availability
+  // Contract salary = gross monthly + weekly allowance × 4 (the allowance must
+  // be included in the contract by law). E.g. 6500 + 100×4 = 6900.
+  const num = (v) => { const m = String(v == null ? '' : v).replace(/[^\d.]/g, ''); return m ? parseFloat(m) : 0; };
+  const baseSalary = num(worker.salary || family.offeredSalary);
+  const weeklyAllow = num(worker.weeklyAdvance);
+  const salary = baseSalary ? String(Math.round(baseSalary + weeklyAllow * 4)) : '';
 
   // ---------- Page 1 — מכתב השמה / Certificate of Placement ----------
   // Hebrew (RTL, align right = value ends just left of the label).

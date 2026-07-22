@@ -2159,6 +2159,10 @@ body {
   background: linear-gradient(135deg, #0369a1, #075985); }
 .chat-send:disabled { opacity: .5; }
 .chat-done { padding: 14px; background: #fff; border-top: 1px solid #e6ebf3; }
+.chat-coupon { display: flex; gap: 8px; margin-top: 10px; }
+.chat-coupon .chat-text { font-size: 16px; padding: 12px 14px; }
+.chat-coupon-msg { margin: 8px 0 0; color: #b45309; font-size: 14px; font-weight: 600; text-align: center; }
+.chat-coupon-ok { text-align: center; font-size: 18px; font-weight: 800; color: #047857; padding: 6px; }
 .chat-choices { display: flex; flex-wrap: wrap; gap: 10px; padding: 12px 14px 4px; background: #eaf2fb; }
 .chat-chip { padding: 13px 20px; border-radius: 24px; font-size: 17px; font-weight: 700; color: #075985;
   background: #fff; border: 2px solid #bae0fb; min-height: 50px; }
