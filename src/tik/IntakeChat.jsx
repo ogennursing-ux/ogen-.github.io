@@ -5,6 +5,7 @@ import {
   loadPublishedKey, wantsHuman, ESCALATE_TEXT, AGENT_NAME, getClientMeta,
   getRole, filterByRole, ROLE_GREETING, CONSENT_TEXT, CONSENT_BUTTON, CONSENT_VERSION,
 } from './intakeChat.js';
+import { LANGS, RTL_LANGS, t } from './chatI18n.js';
 import { extractDocument, extractFamilyDocument, hasAI } from './gemini.js';
 
 // Render **bold** and links inside a chat bubble.
@@ -23,6 +24,13 @@ export default function IntakeChat() {
   const role = roleRef.current;
   const steps = filterByRole(STEPS, role);
   const followups = filterByRole(FOLLOWUPS, role);
+
+  // Only the caregiver (worker) chooses a language; the rest stay in Hebrew.
+  const [lang, setLang] = useState(role === 'worker' ? '' : 'he');
+  const multi = role === 'worker';
+  const tr = (k) => t(lang || 'he', k);
+  // The question to ask for a step — translated for the worker, Hebrew otherwise.
+  const askText = (step) => (multi && lang ? (t(lang, 'ask_' + step.key) || step.ask) : step.ask);
 
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -64,23 +72,34 @@ export default function IntakeChat() {
 
   useEffect(() => {
     if (startedRef.current) return;
-    startedRef.current = true;
     applyUrlKey();                       // key from the link (fallback)
     loadPublishedKey().catch(() => {});  // key published by the office — in the background
     getClientMeta().then((m) => { metaRef.current = m; }).catch(() => {}); // IP + browser info
-    (async () => {
-      await botSay(ROLE_GREETING[role] || GREETING, 900);
-      await botSay(CONSENT_TEXT, 1200); // then wait for the consent button
-    })();
+    if (!multi) { startedRef.current = true; runGreeting('he'); } // worker waits for a language pick
   }, []);
+
+  async function runGreeting(code) {
+    const greet = multi ? t(code, 'greeting') : (ROLE_GREETING[role] || GREETING);
+    const consentMsg = multi ? t(code, 'consent') : CONSENT_TEXT;
+    await botSay(greet, 900);
+    await botSay(consentMsg, 1200); // then wait for the consent button
+  }
+
+  // Worker picks a language on the opening screen → the whole chat runs in it.
+  async function pickLang(code) {
+    if (lang || typing) return;
+    setLang(code);
+    startedRef.current = true;
+    await runGreeting(code);
+  }
 
   // Record explicit consent (privacy + electronic signature) before collecting.
   async function giveConsent() {
     if (consented || typing) return;
     consentRef.current = { at: new Date().toISOString(), version: CONSENT_VERSION };
     setConsented(true);
-    pushMe({ text: CONSENT_BUTTON });
-    await botSay(steps[0].ask, 900);
+    pushMe({ text: tr('consentBtn') });
+    await botSay(askText(steps[0]), 900);
   }
 
   useEffect(() => {
@@ -113,8 +132,8 @@ export default function IntakeChat() {
     // The worker's half just collects details — no payment. The office joins it
     // to the employer's half automatically by the passport number.
     if (role === 'worker') {
-      await botSay('קיבלנו את כל הפרטים של העובד/ת, תודה רבה! 🙏', 500);
-      await botSay('נחבר את הפרטים לצד של המעסיק ונמשיך בתהליך. אפשר לסגור את החלון 💙', 700);
+      await botSay(tr('finish1'), 500);
+      await botSay(tr('finish2'), 700);
       setDone(true);
       return;
     }
@@ -132,7 +151,7 @@ export default function IntakeChat() {
 
   async function advanceAfter(col) {
     const next = pendingStep(col);
-    if (next) await botSay(next.ask, 650);
+    if (next) await botSay(askText(next), 650);
     else await finish();
   }
 
@@ -144,18 +163,18 @@ export default function IntakeChat() {
     const col = { ...collected, [step.key]: value };
     setCollected(col);
     setMultiSel([]);
-    await botSay('נרשם ✓', 300);
+    await botSay(tr('recorded'), 300);
     await advanceAfter(col);
   }
 
   // One-tap "don't know / skip" — leaves the field empty and moves on.
   async function skipStep(step) {
     if (!step || typing || done) return;
-    pushMe({ text: 'לא יודע/ת' });
+    pushMe({ text: tr('skip') });
     const col = { ...collected, [step.key]: '' };
     setCollected(col);
     setMultiSel([]);
-    await botSay('אין בעיה, נמשיך 🙂', 350);
+    await botSay(tr('noWorries'), 350);
     await advanceAfter(col);
   }
 
@@ -171,7 +190,7 @@ export default function IntakeChat() {
     if (wantsHuman(text)) {
       callbackRef.current = true;
       await botSay(ESCALATE_TEXT);
-      if (step) await botSay(step.ask, 900);
+      if (step) await botSay(askText(step), 900);
       return;
     }
 
@@ -185,7 +204,7 @@ export default function IntakeChat() {
     if (step && SKIP_RE.test(text)) {
       const col = { ...collected, [step.key]: '' };
       setCollected(col);
-      await botSay('אין בעיה, נמשיך הלאה 🙂', 400);
+      await botSay(tr('noWorries'), 400);
       await advanceAfter(col);
       return;
     }
@@ -193,14 +212,14 @@ export default function IntakeChat() {
     // A document step that also accepts a typed value (e.g. passport by number,
     // no photo needed). Store it and, for the passport, use it as the link key.
     if (step && step.type === 'file' && step.allowText) {
-      if (faq) { await botSay(faq); await botSay('נחזור רגע: ' + step.ask, 500); return; }
+      if (faq) { await botSay(faq); await botSay('נחזור רגע: ' + askText(step), 500); return; }
       const val = text.replace(/\s+/g, ' ').trim();
       const col = { ...collected, [step.key]: val };
       setCollected(col);
       if (step.key === 'passport') {
         extractedRef.current.passportNo = extractedRef.current.passportNo || val.replace(/\s+/g, '').toUpperCase();
       }
-      await botSay('נרשם ✓', 350);
+      await botSay(tr('recorded'), 350);
       await advanceAfter(col);
       return;
     }
@@ -213,10 +232,10 @@ export default function IntakeChat() {
     }
 
     if (step.type === 'text' || step.type === 'choice' || step.type === 'multi') {
-      if (faq) { await botSay(faq); await botSay('נחזור רגע: ' + step.ask, 500); return; }
+      if (faq) { await botSay(faq); await botSay('נחזור רגע: ' + askText(step), 500); return; }
       const col = { ...collected, [step.key]: text };
       setCollected(col);
-      await botSay('נרשם ✓', 350);
+      await botSay(tr('recorded'), 350);
       await advanceAfter(col);
       return;
     }
@@ -228,11 +247,11 @@ export default function IntakeChat() {
       await advanceAfter(col);
       return;
     }
-    if (faq) { await botSay(faq); await botSay('וכשתהיו מוכנים: ' + step.ask, 500); return; }
+    if (faq) { await botSay(faq); await botSay('וכשתהיו מוכנים: ' + askText(step), 500); return; }
     // let the AI answer naturally, then steer back to the pending document
     const ai = await aiChatReply(historyText, text, missing);
-    if (ai) { await botSay(ai, 300); await botSay(step.ask, 500); }
-    else await botSay('כדי להמשיך אני צריך תמונה כאן 🙂 ' + step.ask, 450);
+    if (ai) { await botSay(ai, 300); await botSay(askText(step), 500); }
+    else await botSay('כדי להמשיך אני צריך תמונה כאן 🙂 ' + askText(step), 450);
   }
 
   async function onFiles(list) {
@@ -270,18 +289,18 @@ export default function IntakeChat() {
             patch.passportNo && 'דרכון ' + patch.passportNo,
             patch.idNumber && 'ת.ז ' + patch.idNumber,
           ].filter(Boolean).join(' · ');
-          await botSay(bits ? `קראתי מהמסמך: ${bits} ✓` : 'קיבלתי, תודה ✓', 300);
+          await botSay(bits ? `קראתי מהמסמך: ${bits} ✓` : tr('gotImage'), 300);
         } catch {
           setTyping(false);
-          await botSay('קיבלתי, תודה ✓', 300);
+          await botSay(tr('gotImage'), 300);
         }
       } else {
-        await botSay('קיבלתי, תודה ✓', 450);
+        await botSay(tr('gotImage'), 450);
       }
       await advanceAfter(col);
     } else {
       await botSay('תודה על התמונה! 📎', 400);
-      if (step) await botSay(step.ask, 450);
+      if (step) await botSay(askText(step), 450);
     }
   }
 
@@ -292,16 +311,33 @@ export default function IntakeChat() {
   const showChoices = curStep && (curStep.type === 'choice' || curStep.type === 'multi');
   // Show a one-tap skip on optional questions and on the choice/multi ones.
   const canSkip = curStep && (curStep.optional || curStep.type === 'choice' || curStep.type === 'multi');
+  // The caregiver's assistant is "Yael"; the employer/full flow keeps AGENT_NAME.
+  const ltr = !RTL_LANGS.has(lang || 'he');
+  const agentName = multi ? (ltr ? 'Yael' : 'יעל') : AGENT_NAME;
+  const company = multi && ltr ? 'Ogen' : 'עוגן סיעוד';
 
   return (
-    <div className="chat-wrap">
+    <div className="chat-wrap" dir={RTL_LANGS.has(lang || 'he') ? 'rtl' : 'ltr'}>
       <div className="chat-head">
-        <div className="chat-avatar">{AGENT_NAME.slice(0, 1)}</div>
+        <div className="chat-avatar">{agentName.slice(0, 1)}</div>
         <div className="chat-head-txt">
-          <strong>{AGENT_NAME} · עוגן סיעוד</strong>
-          <span>{typing ? 'מקליד…' : done ? 'מקוון' : 'מקוון · זמין עכשיו'}</span>
+          <strong>{agentName} · {company}</strong>
+          <span>{typing ? tr('typing') : tr('online')}</span>
         </div>
       </div>
+
+      {multi && !lang && (
+        <div className="chat-lang-pick">
+          <p className="chat-lang-title">{t('en', 'pickLanguage')}</p>
+          <div className="chat-lang-grid">
+            {LANGS.map((l) => (
+              <button key={l.code} className="chat-lang-btn" onClick={() => pickLang(l.code)}>
+                <span className="flag">{l.flag}</span><span>{l.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="chat-body" ref={scroller}>
         {messages.map((m, i) => (
@@ -323,7 +359,7 @@ export default function IntakeChat() {
           {curStep.options.map((opt) => (
             <button key={opt} className="chat-chip" onClick={() => chooseOption(curStep, opt)}>{opt}</button>
           ))}
-          <button className="chat-chip skip" onClick={() => skipStep(curStep)}>לא יודע/ת</button>
+          <button className="chat-chip skip" onClick={() => skipStep(curStep)}>{tr('skip')}</button>
         </div>
       )}
       {showChoices && curStep.type === 'multi' && (
@@ -339,17 +375,17 @@ export default function IntakeChat() {
             );
           })}
           <button className="chat-chip go" disabled={!multiSel.length} onClick={() => chooseOption(curStep, multiSel.join(', '))}>המשך ›</button>
-          <button className="chat-chip skip" onClick={() => skipStep(curStep)}>לא יודע/ת</button>
+          <button className="chat-chip skip" onClick={() => skipStep(curStep)}>{tr('skip')}</button>
         </div>
       )}
       {canSkip && !showChoices && (
         <div className="chat-choices">
-          <button className="chat-chip skip" onClick={() => skipStep(curStep)}>אין לי / לא יודע/ת — דלג</button>
+          <button className="chat-chip skip" onClick={() => skipStep(curStep)}>{tr('skip')}</button>
         </div>
       )}
-      {!done && !consented && !typing && (
+      {!done && !consented && !typing && lang && (
         <div className="chat-choices">
-          <button className="chat-chip go" onClick={giveConsent}>{CONSENT_BUTTON}</button>
+          <button className="chat-chip go" onClick={giveConsent}>{tr('consentBtn')}</button>
         </div>
       )}
 
@@ -361,12 +397,12 @@ export default function IntakeChat() {
           <input ref={camInput} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { onFiles(e.target.files); e.target.value = ''; }} />
           <input
             className="chat-text"
-            placeholder="כתבו הודעה…"
+            placeholder={tr('placeholder')}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') onText(); }}
           />
-          <button className="chat-send" onClick={onText} disabled={!input.trim()}>שלח</button>
+          <button className="chat-send" onClick={onText} disabled={!input.trim()}>{tr('send')}</button>
         </div>
       )}
       {done && role !== 'worker' && (
