@@ -775,7 +775,13 @@ function AgentInbox({ onClose, onImported }) {
   }
   const copy = (t) => navigator.clipboard?.writeText(t).catch(() => {});
   const summary = (d) => {
-    if (d?.chat) return '💬 ' + ((d.fields?.employerName) || 'שיחת צ׳אט') + ((d.files?.length) ? ` · ${d.files.length} קבצים` : '');
+    if (d?.chat) {
+      const f = d.fields || {};
+      const emp = f.employerName || f.fullName;
+      const wrk = f.nameHe || f.nameEn;
+      const bits = [emp, wrk && '👤 ' + wrk, f.passportNo && 'דרכון ' + f.passportNo].filter(Boolean);
+      return '💬 ' + (bits.join(' · ') || 'שיחת צ׳אט') + (d.files?.length ? ` · 📎${d.files.length}` : '');
+    }
     return [d.nameHe, d.fullName, d.nameEn, d.passportNo && 'דרכון ' + d.passportNo, d.idNumber && 'ת.ז ' + d.idNumber].filter(Boolean).join(' · ') || 'הגשה';
   };
 
@@ -828,7 +834,7 @@ function AgentInbox({ onClose, onImported }) {
                 </div>
                 <div className="tik-sub-actions">
                   {s.data?.chat && (
-                    <button className="btn-ghost sm" onClick={() => setChatView(s)}>💬 צפה בשיחה</button>
+                    <button className="btn-ghost sm" onClick={() => setChatView(s)}>👁 פרטים מלאים</button>
                   )}
                   {s.data?.chat && (
                     <button className="btn-ghost sm" disabled={busyId === s.id} onClick={() => sendToSigning(s)} title="יוצר חוזה מלא ושולח לחתימה למעסיק ולעובד/ת">✍️ שלח לחתימה</button>
@@ -885,57 +891,140 @@ async function downloadAllFiles(files) {
 }
 
 // Read-only view of a saved customer conversation + its uploaded files.
+// One group of labelled fields; renders only the rows that actually have a value.
+function DetailGroup({ title, rows }) {
+  const filled = rows.filter(([, v]) => v != null && String(v).trim() !== '');
+  if (!filled.length) return null;
+  return (
+    <div className="tik-detail-group">
+      <div className="tik-detail-title">{title}</div>
+      {filled.map(([label, v]) => (
+        <div className="tik-detail-row" key={label}>
+          <span className="tik-detail-k">{label}</span>
+          <span className="tik-detail-v">{String(v)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// The office view of one submission: an ORGANIZED card of everything collected
+// (employer, worker, employment terms, documents), plus the full conversation
+// underneath for reference.
 function ChatTranscript({ sub, onClose }) {
   const d = sub.data || {};
+  const f = d.fields || {};
   const tr = d.transcript || [];
+  const [showChat, setShowChat] = useState(false);
   const langObj = d.meta?.lang && CHAT_LANGS.find((l) => l.code === d.meta.lang);
+
+  const num = (v) => { const m = String(v == null ? '' : v).replace(/[^\d.]/g, ''); return m ? parseFloat(m) : 0; };
+  const contractSalary = f.salary ? String(Math.round(num(f.salary) + num(f.weeklyAdvance) * 4)) : '';
+  const employerName = f.employerName || f.fullName || '';
+  const workerName = f.nameHe || f.nameEn || '';
+  const addr = [f.street, f.city].filter(Boolean).join(', ');
+  const contact = [f.contactName, f.contactRelation && '(' + f.contactRelation + ')'].filter(Boolean).join(' ');
+
+  const employerRows = [
+    ['שם מלא', employerName], ['ת״ז', f.idNumber], ['טלפון', f.contactPhone],
+    ['אימייל', f.email], ['כתובת', addr], ['איש קשר', contact],
+    ['היתר העסקה', f.permitNumber], ['היתר בתוקף עד', f.permitExpiry], ['מאיפה הגיעו', f.referrer],
+  ];
+  const workerRows = [
+    ['שם', workerName], ['שם באנגלית', f.nameEn && f.nameEn !== workerName ? f.nameEn : ''],
+    ['דרכון', f.passportNo], ['לאום', f.nationality], ['טלפון', f.workerPhone || f.phone],
+    ['תאריך לידה', f.dob], ['מין', f.gender], ['שפות', f.languages],
+    ['מצב משפחתי', f.maritalStatus], ['בן/בת זוג', f.spouseName],
+    ['שם האב', f.fatherName], ['שם האם', f.motherName],
+    ['הגעה לארץ', f.arrivalDate], ['עבודה אחרונה', f.lastWorkDate], ['גובה/משקל', f.heightWeight],
+  ];
+  const termRows = [
+    ['תחילת העסקה', f.startDate], ['שכר ברוטו', f.salary && f.salary + ' ₪'],
+    ['דמי כיס שבועי', f.weeklyAdvance && f.weeklyAdvance + ' ₪'],
+    ['שכר בחוזה (ברוטו + כיס×4)', contractSalary && contractSalary + ' ₪'],
+    ['ימים בשבוע', f.daysPerWeek], ['יום חופש', f.weeklyDayOff], ['מגורים', f.liveIn],
+    ['מרכיבי עבודה', f.jobTasks], ['ביטוח רפואי', f.hasInsurance],
+    ['המטופל יכול לחתום', f.canSign], ['אפוטרופוס/מיופה כוח', f.guardianName],
+  ];
+  // A few essentials the office needs — flag any that are still missing.
+  const essentials = [
+    ['שם מעסיק', employerName], ['ת״ז מעסיק', f.idNumber], ['טלפון מעסיק', f.contactPhone],
+    ['דרכון עובד/ת', f.passportNo], ['שכר', f.salary], ['תחילת העסקה', f.startDate],
+  ];
+  const missing = essentials.filter(([, v]) => !v || !String(v).trim()).map(([l]) => l);
+
   return (
     <div className="modal-backdrop" onPointerDown={onClose}>
-      <div className="modal tik-modal" onPointerDown={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
+      <div className="modal tik-modal tik-sub-view" onPointerDown={(e) => e.stopPropagation()} style={{ maxWidth: 600 }}>
         <div className="modal-head">
-          <strong>💬 השיחה המלאה{d.fields?.employerName ? ' — ' + d.fields.employerName : ''}</strong>
+          <strong>📋 פרטי הפנייה{employerName ? ' — ' + employerName : ''}</strong>
           <button className="icon-btn" onClick={onClose}>✕</button>
         </div>
-        {d.meta && (d.meta.ip || d.meta.startedAt) && (
-          <p className="muted small" style={{ margin: '0 0 8px' }} dir="ltr">
-            {d.meta.ip ? 'IP: ' + d.meta.ip : ''}
-            {d.meta.startedAt ? ' · ' + new Date(d.meta.startedAt).toLocaleString('he-IL') : ''}
-            {d.fields?.contactPhone ? ' · ☎ ' + d.fields.contactPhone : ''}
-          </p>
-        )}
-        {d.meta?.consent?.at && (
-          <p className="tik-chk ok small" style={{ display: 'block', margin: '0 0 8px', padding: '6px 10px', borderRadius: 8 }}>
-            ✅ הסכים/ה לתנאי הפרטיות ולחתימה אלקטרונית ({new Date(d.meta.consent.at).toLocaleString('he-IL')})
-          </p>
-        )}
-        {langObj && langObj.code !== 'he' && (
-          <p className="small" style={{ display: 'block', margin: '0 0 8px', padding: '6px 10px', borderRadius: 8, background: '#e0f2fe', color: '#0369a1' }}>
-            🌐 שפת השיחה: {langObj.flag} {langObj.label} — התמלול למטה הוא המקור המלא של המטפל/ת, ללא תרגום (לתיעוד משפטי).
-          </p>
-        )}
-        <div className="chat-body" style={{ maxHeight: '52vh', borderRadius: 12 }}>
-          {tr.map((m, i) => (
-            <div key={i} className={`chat-row ${m.from}`}>
-              <div className="chat-bubble">{m.text}</div>
+
+        <div className="tik-sub-scroll">
+          {d.partial && (
+            <p className="tik-detail-flag warn">🟡 השיחה עדיין בתהליך — ייתכן שחסרים פרטים; מה שכבר נאסף מוצג כאן.</p>
+          )}
+          {d.merged && (
+            <p className="tik-detail-flag ok">🔗 אוחדו שני חצאים (מעסיק + מטפל/ת) לפי מספר הדרכון.</p>
+          )}
+          {missing.length > 0 && (
+            <p className="tik-detail-flag warn">⚠️ חסר להשלמה: {missing.join(' · ')}</p>
+          )}
+
+          <DetailGroup title="🧑‍💼 מעסיק / מטופל" rows={employerRows} />
+          <DetailGroup title="👩‍⚕️ עובד/ת (מטפל/ת)" rows={workerRows} />
+          <DetailGroup title="📝 תנאי העסקה" rows={termRows} />
+
+          {d.files?.length > 0 && (
+            <div className="tik-detail-group">
+              <div className="tik-detail-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>📎 מסמכים שהתקבלו ({d.files.length})</span>
+                <button className="btn-ghost small" onClick={() => downloadAllFiles(d.files)}>⬇️ הורד הכול</button>
+              </div>
+              <div className="tik-thumbs">
+                {d.files.map((file, i) => (
+                  <a key={i} href={file.dataUrl} download={file.name || 'doc'} className="tik-thumb" title={catLabel(file.category)}>
+                    <img src={file.dataUrl} alt="" />
+                    <span className="tik-thumb-cap">{catLabel(file.category)}</span>
+                  </a>
+                ))}
+              </div>
             </div>
-          ))}
-          {!tr.length && <p className="muted">אין תמלול.</p>}
-        </div>
-        {d.files?.length > 0 && (
-          <div style={{ marginTop: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-              <strong className="small">קבצים שהתקבלו ({d.files.length}):</strong>
-              <button className="btn-ghost small" onClick={() => downloadAllFiles(d.files)}>⬇️ הורד הכול</button>
-            </div>
-            <div className="tik-thumbs">
-              {d.files.map((f, i) => (
-                <a key={i} href={f.dataUrl} download={f.name || 'doc'} className="tik-thumb" title={catLabel(f.category)}>
-                  <img src={f.dataUrl} alt="" />
-                </a>
-              ))}
-            </div>
+          )}
+
+          <div className="tik-detail-group">
+            {d.meta?.consent?.at && (
+              <p className="tik-chk ok small" style={{ display: 'block', margin: '0 0 6px', padding: '6px 10px', borderRadius: 8 }}>
+                ✅ הסכים/ה לתנאי הפרטיות ולחתימה אלקטרונית ({new Date(d.meta.consent.at).toLocaleString('he-IL')})
+              </p>
+            )}
+            <p className="muted small" style={{ margin: 0 }} dir="ltr">
+              {d.meta?.startedAt ? new Date(d.meta.startedAt).toLocaleString('he-IL') : ''}
+              {d.meta?.ip ? ' · IP ' + d.meta.ip : ''}
+            </p>
           </div>
-        )}
+
+          {langObj && langObj.code !== 'he' && (
+            <p className="small" style={{ display: 'block', margin: '0 0 8px', padding: '6px 10px', borderRadius: 8, background: '#e0f2fe', color: '#0369a1' }}>
+              🌐 שפת השיחה: {langObj.flag} {langObj.label} — התמלול הוא המקור המלא של המטפל/ת, ללא תרגום (לתיעוד משפטי).
+            </p>
+          )}
+
+          <button className="btn-ghost sm" style={{ width: '100%' }} onClick={() => setShowChat((v) => !v)}>
+            {showChat ? '▲ הסתר את השיחה המלאה' : '💬 הצג את השיחה המלאה'}
+          </button>
+          {showChat && (
+            <div className="chat-body" style={{ maxHeight: '42vh', borderRadius: 12, marginTop: 8 }}>
+              {tr.map((m, i) => (
+                <div key={i} className={`chat-row ${m.from}`}>
+                  <div className="chat-bubble">{m.text}</div>
+                </div>
+              ))}
+              {!tr.length && <p className="muted">אין תמלול.</p>}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

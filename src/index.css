@@ -1993,6 +1993,20 @@ textarea.gov-input { resize: vertical; }
 .tik-tg-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .tik-tg-head strong { font-size: 15px; }
 
+/* ---- office view of one submission: organized details card ---- */
+.tik-sub-view { max-height: 88vh; display: flex; flex-direction: column; }
+.tik-sub-scroll { overflow-y: auto; padding-inline-end: 2px; }
+.tik-detail-flag { margin: 0 0 8px; padding: 8px 12px; border-radius: 8px; font-size: 13.5px; font-weight: 600; }
+.tik-detail-flag.warn { background: #fef3c7; color: #92400e; }
+.tik-detail-flag.ok { background: #d1fae5; color: #065f46; }
+.tik-detail-group { border: 1px solid var(--line, #e6ebf3); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; background: #fbfcfe; }
+.tik-detail-title { font-size: 14.5px; font-weight: 800; color: #0f2740; margin-bottom: 8px; }
+.tik-detail-row { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; border-top: 1px solid #eef2f7; font-size: 14.5px; }
+.tik-detail-row:first-of-type { border-top: 0; }
+.tik-detail-k { color: #64748b; flex: 0 0 auto; }
+.tik-detail-v { color: #0f172a; font-weight: 600; text-align: end; word-break: break-word; }
+.tik-thumb-cap { display: block; font-size: 10.5px; color: #64748b; text-align: center; margin-top: 2px; max-width: 84px; }
+
 /* =======================================================================
    VISUAL REFRESH — modern, warm, inviting look (appended last so it wins)
    ======================================================================= */
