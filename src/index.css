@@ -2162,3 +2162,6 @@ body {
 .chat-chip.go { color: #fff; background: linear-gradient(135deg, #34d399, #10b981); border-color: #10b981; }
 .chat-chip.skip { color: #64748b; background: #f1f5f9; border-color: #dbe3ec; font-weight: 500; }
 .chat-chip:disabled { opacity: .5; }
+.chat-legal { text-align: center; padding: 6px 10px 10px; background: #eaf2fb; }
+.chat-legal a { color: #64748b; font-size: 12px; text-decoration: none; }
+.chat-legal a:hover { text-decoration: underline; }

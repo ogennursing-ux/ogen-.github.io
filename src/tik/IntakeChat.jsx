@@ -374,6 +374,9 @@ export default function IntakeChat() {
           <a className="btn-primary full" href={PAYMENT_LINK} target="_blank" rel="noreferrer">💳 מעבר לתשלום המאובטח</a>
         </div>
       )}
+      <div className="chat-legal">
+        <a href="privacy.html" target="_blank" rel="noreferrer">🔒 מדיניות פרטיות ותנאי שימוש</a>
+      </div>
     </div>
   );
 }
