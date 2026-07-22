@@ -112,25 +112,36 @@ export default function IntakeChat() {
     scroller.current?.scrollTo(0, scroller.current.scrollHeight);
   }, [messages, typing]);
 
-  // Persist transcript (+ fields) to Supabase so the office can read it live.
-  const persist = (finalFiles) => {
+  // How many uploaded files are already saved to the cloud (so we don't
+  // re-upload them on every message, but DO upload each new photo right away).
+  const uploadedFiles = useRef(0);
+  // Persist transcript (+ fields + photos) to Supabase so the office can read it
+  // live — even a half-finished chat shows up, with whatever was sent so far.
+  const persist = (includeFiles, isFinal) => {
     const transcript = messages.map((m) => ({ from: m.from, text: m.text || (m.image ? '[תמונה]' : '') }));
     const data = { ...extractedRef.current, ...collected };
     // The worker's passport number is the key that matches the two halves.
     const linkKey = (data.passportNo || data.passport || '').toString().replace(/\s+/g, '').toUpperCase();
-    saveChat(sessionId.current, {
+    const files = includeFiles ? filesRef.current : [];
+    return saveChat(sessionId.current, {
       transcript,
       data,
-      files: finalFiles || [],
-      status: finalFiles ? 'new' : 'chat',
+      files,
+      status: isFinal ? 'new' : 'chat',
       needsCallback: callbackRef.current,
       meta: { ...metaRef.current, role, linkKey, consent: consentRef.current, lang: lang || 'he', coupon: couponRef.current || undefined },
-    }).catch(() => {});
+    }).then(() => { if (includeFiles) uploadedFiles.current = filesRef.current.length; })
+      .catch(() => {});
   };
-  // Save shortly after every change (debounced).
+  // Save shortly after every change (debounced). Upload photos as soon as they
+  // arrive — and everything again at the end — so nothing is lost if the
+  // customer stops halfway.
   useEffect(() => {
     if (!messages.length) return undefined;
-    const t = setTimeout(() => persist(done ? filesRef.current : null), 800);
+    const t = setTimeout(() => {
+      const includeFiles = done || filesRef.current.length > uploadedFiles.current;
+      persist(includeFiles, done);
+    }, 800);
     return () => clearTimeout(t);
   }, [messages, done]);
 
@@ -160,7 +171,7 @@ export default function IntakeChat() {
       setCouponOk(true);
       setCouponMsg('');
       pushBot(COUPON_OK);
-      setTimeout(() => persist(filesRef.current), 300); // record the coupon
+      setTimeout(() => persist(true, true), 300); // record the coupon (final)
     } else {
       setCouponMsg(COUPON_BAD);
     }

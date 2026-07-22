@@ -699,6 +699,21 @@ function recordFromSubmission(data, type) {
   return rec;
 }
 
+// Build BOTH the worker and family records from a chat submission's fields,
+// mapping the chat-specific keys the contract needs: the chat stores the
+// employer's phone as `contactPhone` and the worker's as `workerPhone`, while
+// the contract reads `family.phone` / `worker.phone`. Also folds the employer
+// name (`employerName`) into `family.fullName`.
+function recordsFromChat(fields) {
+  const f = { ...(fields || {}) };
+  const worker = recordFromSubmission(f, 'worker');
+  const family = recordFromSubmission({ ...f, fullName: f.fullName || f.employerName }, 'family');
+  if (!worker.phone) worker.phone = f.workerPhone || '';
+  if (!family.phone) family.phone = f.contactPhone || '';
+  if (!family.mobile) family.mobile = f.contactPhone || '';
+  return { worker, family };
+}
+
 // Submissions sent in by the external agent (Base44), for review + import.
 function AgentInbox({ onClose, onImported }) {
   const [items, setItems] = useState(null);
@@ -719,11 +734,10 @@ function AgentInbox({ onClose, onImported }) {
         // One unified file from the chat: a worker (if there are worker details)
         // linked to the family. Split halves already merged by passport number.
         const fields = { ...(sub.data.fields || {}) };
-        const workerRec = recordFromSubmission(fields, 'worker');
+        const { worker: workerRec, family: famRec } = recordsFromChat(fields);
         const hasWorker = workerRec.passportNo || workerRec.nameEn || workerRec.nameHe || workerRec.firstNameEn;
         let workerId = null;
         if (hasWorker) { const w = await saveWorker(workerRec); workerId = w.id; }
-        const famRec = recordFromSubmission({ ...fields, fullName: fields.fullName || fields.employerName }, 'family');
         if (workerId) famRec.caregiverWorkerId = workerId;
         await saveFamily(famRec);
       } else {
@@ -748,8 +762,7 @@ function AgentInbox({ onClose, onImported }) {
     setBusyId(sub.id);
     try {
       const fields = { ...(sub.data?.fields || {}) };
-      const worker = recordFromSubmission(fields, 'worker');
-      const family = recordFromSubmission({ ...fields, fullName: fields.fullName || fields.employerName }, 'family');
+      const { worker, family } = recordsFromChat(fields);
       const bytes = await buildFilledContract(family, worker, {});
       const { link } = await createPlacementSigning({
         pdfBytes: bytes,
@@ -802,6 +815,7 @@ function AgentInbox({ onClose, onImported }) {
                 <div className="tik-sub-main">
                   <div className="tik-doc-name">
                     {summary(s.data?.fields || s.data || {})}
+                    {s.data?.partial && <span className="badge wait" style={{ marginInlineStart: 6 }}>🟡 בתהליך</span>}
                     {s.data?.merged && <span className="badge ok" style={{ marginInlineStart: 6 }}>🔗 מעסיק+מטפל</span>}
                     {!s.data?.merged && s.data?.meta?.role === 'employer' && <span className="badge muted" style={{ marginInlineStart: 6 }}>מעסיק · ממתין למטפל</span>}
                     {!s.data?.merged && s.data?.meta?.role === 'worker' && <span className="badge muted" style={{ marginInlineStart: 6 }}>מטפל · ממתין למעסיק</span>}

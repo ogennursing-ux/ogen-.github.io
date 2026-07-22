@@ -24,10 +24,12 @@ export const AGENT_ANON_KEY = SUPABASE_ANON_KEY;
 // halves (an employer link + a worker link) are joined automatically by the
 // worker's passport number, so the office sees ONE combined submission.
 export async function listNewSubmissions() {
+  // 'new' = the customer finished; 'chat' = still in progress / stopped halfway.
+  // We show BOTH so nothing is missed even if the customer didn't complete.
   const { data, error } = await sb()
     .from('agent_submissions')
     .select('*')
-    .eq('status', 'new')
+    .in('status', ['new', 'chat'])
     .order('created_at', { ascending: false })
     .limit(200);
   if (error) throw new Error('טעינת ההגשות נכשלה: ' + error.message);
@@ -40,6 +42,7 @@ export function mergeHalves(rows) {
   const groups = new Map();
   const out = [];
   for (const r of rows) {
+    if (r?.data) r.data.partial = r.status === 'chat'; // still in progress / stopped halfway
     const key = r?.data?.meta?.linkKey;
     const role = r?.data?.meta?.role;
     if (key && (role === 'employer' || role === 'worker')) {
@@ -72,6 +75,7 @@ export function mergeHalves(rows) {
       created_at: group.map((r) => r.created_at).sort().slice(-1)[0],
       data: {
         chat: true, merged: true, needsCallback,
+        partial: group.some((r) => r.status === 'chat'), // a half is still in progress
         meta: { ...primary.data.meta, role: 'merged', linkKey: key, roles: group.map((r) => r.data.meta.role) },
         transcript, fields, files, updatedAt: new Date().toISOString(),
       },
@@ -85,7 +89,7 @@ export async function countNewSubmissions() {
   const { count, error } = await sb()
     .from('agent_submissions')
     .select('id', { count: 'exact', head: true })
-    .eq('status', 'new');
+    .in('status', ['new', 'chat']);
   if (error) return 0;
   return count || 0;
 }
