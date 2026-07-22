@@ -391,8 +391,12 @@ export default function IntakeChat() {
 
       {!done && consented && (
         <div className="chat-input">
-          <button className="chat-icon" title="מצלמה" onClick={() => camInput.current?.click()}>📷</button>
-          <button className="chat-icon" title="קובץ" onClick={() => fileInput.current?.click()}>📎</button>
+          <button className="chat-photo-btn" onClick={() => camInput.current?.click()}>
+            <span className="ic">📷</span><span className="lbl">{tr('camera')}</span>
+          </button>
+          <button className="chat-photo-btn" onClick={() => fileInput.current?.click()}>
+            <span className="ic">🖼️</span><span className="lbl">{tr('gallery')}</span>
+          </button>
           <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={(e) => { onFiles(e.target.files); e.target.value = ''; }} />
           <input ref={camInput} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { onFiles(e.target.files); e.target.value = ''; }} />
           <input
