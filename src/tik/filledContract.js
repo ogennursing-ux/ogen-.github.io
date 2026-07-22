@@ -65,6 +65,14 @@ function fmtDate(v) {
 const workerNameEn = (w) => w?.nameEn || [w?.lastNameEn, w?.firstNameEn].filter(Boolean).join(' ') || w?.nameHe || '';
 const clean = (v) => (v == null ? '' : String(v).trim());
 
+// Nationality in Hebrew for the Hebrew side of the bilingual contract.
+const HE_NATIONALITY = {
+  philippines: 'פיליפינים', india: 'הודו', nepal: 'נפאל', 'sri lanka': 'סרי לנקה',
+  thailand: 'תאילנד', moldova: 'מולדובה', ukraine: 'אוקראינה', uzbekistan: 'אוזבקיסטן',
+  romania: 'רומניה', russia: 'רוסיה', 'south africa': 'דרום אפריקה',
+};
+const heNationality = (v) => HE_NATIONALITY[clean(v).toLowerCase()] || clean(v);
+
 // Field map, page by page. Each entry: { page, x, y, val, dir, align, size }.
 // x/y are PDF points (origin bottom-left). align 'right' → x is the right edge
 // (RTL Hebrew, value grows leftward); align 'left' → x is the left edge (LTR).
@@ -158,13 +166,21 @@ function buildFields(family, worker, opts) {
   C(1, 280, 246, hoursDay); // שעות עבודה ביום
   C(1, 180, 246, salary);   // סכום השכר
 
-  // ---------- Page 11 — חוזה העסקה: employer + caregiver (value centered between the EN/HE labels) ----------
-  add(10, 302, 437, eName, { align: 'center' });    // Employer name / מר/גב'
-  add(10, 276, 423, eId, { align: 'center' });      // Employer ID No / תעודת זהות
-  add(10, 301, 409, [eStreet, eCity].filter(Boolean).join(', '), { align: 'center' }); // Address/Workplace
-  add(10, 310, 380, ePhone, { align: 'center' });   // phone number / טלפון
-  add(10, 304, 217, workerNameEn(worker), { align: 'center' }); // Caregiver name
-  add(10, 335, 202, wCountry, { align: 'center' }); // Country of Citizenship / מדינה
+  // ---------- Page 11 — חוזה העסקה (SEC): bilingual. Hebrew details go on the
+  // Hebrew (right) column, next to the Hebrew labels; the caregiver's Latin
+  // name/country go on the English (left) column — NOT centered in the middle.
+  const eAddr = [eStreet, eCity].filter(Boolean).join(', ');
+  const wNameHe = clean(worker.nameHe) || clean([worker.firstNameHe, worker.lastNameHe].filter(Boolean).join(' '));
+  // A. Employer (the Israeli party — Hebrew) → Hebrew (right) side.
+  add(10, 459, 437, eName, { align: 'right' });                 // מר/גב'
+  add(10, 421, 423, eId, { align: 'right', dir: 'ltr' });       // מס' תעודת זהות
+  add(10, 400, 409, eAddr, { align: 'right' });                 // כתובת/מקום העבודה
+  add(10, 446, 380, ePhone, { align: 'right', dir: 'ltr' });    // מס' טלפון
+  // B. Caregiver → Hebrew name/country on the right, Latin name/country on the left.
+  add(10, 458, 217, wNameHe, { align: 'right' });               // מר/גב' (עברית)
+  add(10, 423, 202, heNationality(wCountry), { align: 'right' }); // מדינה/אזרחות (עברית)
+  add(10, 150, 217, workerNameEn(worker), { align: 'left', dir: 'ltr' }); // Mr./Ms. (Latin)
+  add(10, 211, 202, wCountry, { align: 'left', dir: 'ltr' });   // Country of Citizenship (Latin)
 
   // ---------- Page 3 — הסכם שירותי ליווי והשמה (client identity) ----------
   add(2, 501, 596, eName, { align: 'center' });                    // client name (old data whited out)
