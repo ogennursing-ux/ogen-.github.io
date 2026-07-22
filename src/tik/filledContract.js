@@ -171,11 +171,16 @@ function buildFields(family, worker, opts) {
   // name/country go on the English (left) column — NOT centered in the middle.
   const eAddr = [eStreet, eCity].filter(Boolean).join(', ');
   const wNameHe = clean(worker.nameHe) || clean([worker.firstNameHe, worker.lastNameHe].filter(Boolean).join(' '));
-  // A. Employer (the Israeli party — Hebrew) → Hebrew (right) side.
+  // A. Employer — Hebrew details on the Hebrew (right) side AND mirrored on the
+  // English (left) side, so both columns are filled the same way.
   add(10, 459, 437, eName, { align: 'right' });                 // מר/גב'
   add(10, 421, 423, eId, { align: 'right', dir: 'ltr' });       // מס' תעודת זהות
   add(10, 400, 409, eAddr, { align: 'right' });                 // כתובת/מקום העבודה
   add(10, 446, 380, ePhone, { align: 'right', dir: 'ltr' });    // מס' טלפון
+  add(10, 145, 437, eName, { align: 'left' });                  // Mr./Ms.
+  add(10, 136, 423, eId, { align: 'left', dir: 'ltr' });        // ID No.
+  add(10, 196, 409, eAddr, { align: 'left' });                  // Address/Workplace
+  add(10, 174, 380, ePhone, { align: 'left', dir: 'ltr' });     // phone number
   // B. Caregiver → Hebrew name/country on the right, Latin name/country on the left.
   add(10, 458, 217, wNameHe, { align: 'right' });               // מר/גב' (עברית)
   add(10, 423, 202, heNationality(wCountry), { align: 'right' }); // מדינה/אזרחות (עברית)
