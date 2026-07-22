@@ -84,8 +84,10 @@ function buildFields(family, worker, opts) {
   const wName = workerNameEn(worker);
   const wCountry = clean(worker.nationality);
   const wPass = clean(worker.passportNo);
-  const wCity = clean(worker.addrCity || worker.city);
-  const wStreet = clean(worker.addrStreet) || wCity;
+  // A live-in caregiver resides at the employer's home, so fall back to the
+  // employer's address when the worker has none of their own.
+  const wCity = clean(worker.addrCity || worker.city) || clean(family.city);
+  const wStreet = clean(worker.addrStreet) || clean(family.street) || wCity;
   const wDob = worker.dob ? fmtDate(worker.dob) : '';
   const eName = clean(family.fullName || [family.firstName, family.lastName].filter(Boolean).join(' '));
   const eId = clean(family.idNumber);
@@ -171,15 +173,13 @@ function buildFields(family, worker, opts) {
   // name/country go on the English (left) column — NOT centered in the middle.
   const eAddr = [eStreet, eCity].filter(Boolean).join(', ');
   const wNameHe = clean(worker.nameHe) || clean([worker.firstNameHe, worker.lastNameHe].filter(Boolean).join(' '));
-  // A. Employer — Hebrew details on the Hebrew (right) side AND mirrored on the
-  // English (left) side, so both columns are filled the same way.
+  // A. Employer — Hebrew details (name + address) on the Hebrew (right) column;
+  // the numeric fields (ID, phone) mirrored on the English (left) column too.
   add(10, 459, 437, eName, { align: 'right' });                 // מר/גב'
   add(10, 421, 423, eId, { align: 'right', dir: 'ltr' });       // מס' תעודת זהות
   add(10, 400, 409, eAddr, { align: 'right' });                 // כתובת/מקום העבודה
   add(10, 446, 380, ePhone, { align: 'right', dir: 'ltr' });    // מס' טלפון
-  add(10, 145, 437, eName, { align: 'left' });                  // Mr./Ms.
   add(10, 136, 423, eId, { align: 'left', dir: 'ltr' });        // ID No.
-  add(10, 196, 409, eAddr, { align: 'left' });                  // Address/Workplace
   add(10, 174, 380, ePhone, { align: 'left', dir: 'ltr' });     // phone number
   // B. Caregiver → Hebrew name/country on the right, Latin name/country on the left.
   add(10, 458, 217, wNameHe, { align: 'right' });               // מר/גב' (עברית)
@@ -200,7 +200,9 @@ function buildFields(family, worker, opts) {
   // details already appear on every other page — so on this dense form we fill
   // only the fields that fit cleanly.
   const jo = { dir: 'ltr', size: 8 };
+  add(9, 155, 659, eId, jo);                                    // Employer I.D (fits — numeric)
   add(9, 223, 659, wAge && wAge !== 'NaN' ? wAge : '', jo);      // Age
+  add(9, 259, 659, wGender, jo);                                // Sex
   add(9, 156, 638, gName, jo);                                   // Contact person
   add(9, 346, 582, clean(worker.languages), jo);                // Languages
   add(9, 98, 437, salary, jo);                                  // Monthly salary (Nis)
