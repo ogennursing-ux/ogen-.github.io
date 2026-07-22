@@ -34,6 +34,7 @@ import { LANGS as CHAT_LANGS } from './chatI18n.js';
 import { listNewSubmissions, countNewSubmissions, setSubmissionStatus, AGENT_ENDPOINT, AGENT_ANON_KEY } from './agentInbox.js';
 import { collectRecords, recordsSignature, backupNow, restoreFromCloud, getLastSync } from './cloudBackup.js';
 import { publishChatKey, withTimeout } from './intakeChat.js';
+import { recordFromSubmission, recordsFromChat } from './chatRecords.js';
 import { exportWorkersCsv, exportFamiliesCsv } from './csvExport.js';
 import {
   workerToText, familyToText, WORKER_COLS, FAMILY_COLS,
@@ -688,31 +689,8 @@ function ContractPicker({ worker, family, onClose, onBuiltin, onSigned }) {
   );
 }
 
-// Turn an agent submission's flexible data into a worker/family record,
-// mapping matching field keys and preserving anything else in the notes.
-function recordFromSubmission(data, type) {
-  const rec = type === 'family' ? emptyFamily() : emptyWorker();
-  const known = new Set(Object.keys(rec));
-  for (const k of known) if (data[k] != null && data[k] !== '') rec[k] = data[k];
-  const extra = Object.entries(data || {}).filter(([k, v]) => !known.has(k) && v != null && v !== '');
-  if (extra.length) rec.notes = [rec.notes, ...extra.map(([k, v]) => `${k}: ${v}`)].filter(Boolean).join('\n');
-  return rec;
-}
-
-// Build BOTH the worker and family records from a chat submission's fields,
-// mapping the chat-specific keys the contract needs: the chat stores the
-// employer's phone as `contactPhone` and the worker's as `workerPhone`, while
-// the contract reads `family.phone` / `worker.phone`. Also folds the employer
-// name (`employerName`) into `family.fullName`.
-function recordsFromChat(fields) {
-  const f = { ...(fields || {}) };
-  const worker = recordFromSubmission(f, 'worker');
-  const family = recordFromSubmission({ ...f, fullName: f.fullName || f.employerName }, 'family');
-  if (!worker.phone) worker.phone = f.workerPhone || '';
-  if (!family.phone) family.phone = f.contactPhone || '';
-  if (!family.mobile) family.mobile = f.contactPhone || '';
-  return { worker, family };
-}
+// Chat → worker/family record mapping lives in ./chatRecords.js (shared with
+// the cases board), imported at the top of this file.
 
 // Submissions sent in by the external agent (Base44), for review + import.
 function AgentInbox({ onClose, onImported }) {
@@ -1081,6 +1059,7 @@ function WorkerList({ mode, onMode, onOpen, onNew, onLogout, onOpenWorker, onOpe
           <h2 style={{ margin: 0 }}>תיקי עובדים</h2>
           <div className="tik-head-actions">
             <button className="btn-ghost" onClick={() => setShowSmart(true)}>🤖 ייבוא חכם</button>
+            <button className="btn-ghost" onClick={() => { location.hash = 'board'; location.reload(); }}>📁 מערכת החוזים</button>
             <button className="btn-ghost" onClick={() => setShowInbox(true)}>
               📥 הגשות{inboxCount ? ` (${inboxCount})` : ''}
             </button>

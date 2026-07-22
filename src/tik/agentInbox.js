@@ -66,6 +66,9 @@ export function mergeHalves(rows) {
       if (r.data?.needsCallback) needsCallback = true;
     }
     const primary = ordered[0];
+    // Carry any signing info stored on either half (set once the office creates
+    // the contract) so the cases board sees it after re-merging.
+    const withSign = ordered.find((r) => r.data?.signRequestId);
     out.push({
       id: primary.id,
       ids, // all rows to mark done together
@@ -76,6 +79,8 @@ export function mergeHalves(rows) {
       data: {
         chat: true, merged: true, needsCallback,
         partial: group.some((r) => r.status === 'chat'), // a half is still in progress
+        signRequestId: withSign?.data?.signRequestId,
+        signLink: withSign?.data?.signLink,
         meta: { ...primary.data.meta, role: 'merged', linkKey: key, roles: group.map((r) => r.data.meta.role) },
         transcript, fields, files, updatedAt: new Date().toISOString(),
       },

@@ -2008,6 +2008,54 @@ textarea.gov-input { resize: vertical; }
 .tik-thumb-cap { display: block; font-size: 10.5px; color: #64748b; text-align: center; margin-top: 2px; max-width: 84px; }
 
 /* =======================================================================
+   CASES BOARD (…/#board) — the contracts control room
+   ======================================================================= */
+.board-wrap { max-width: 640px; margin: 0 auto; min-height: 100dvh; background: #eef2f7; padding-bottom: 30px; }
+.board-head { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between;
+  background: linear-gradient(135deg, #0369a1, #075985); color: #fff; padding: 16px 16px 14px; }
+.board-head h1 { font-size: 19px; font-weight: 800; margin: 0; }
+.board-head p { font-size: 12.5px; opacity: .9; margin: 2px 0 0; }
+.board-refresh { background: rgba(255,255,255,.2); color: #fff; border: 0; width: 40px; height: 40px; border-radius: 50%; font-size: 20px; cursor: pointer; }
+.board-tabs { display: flex; gap: 6px; padding: 12px 14px 6px; overflow-x: auto; }
+.board-tab { flex: 0 0 auto; padding: 8px 14px; border-radius: 20px; font-size: 13px; font-weight: 700; border: 1.5px solid #cbd5e1; background: #fff; color: #475569; white-space: nowrap; }
+.board-tab.on { background: #0369a1; color: #fff; border-color: #0369a1; }
+.board-search { display: flex; gap: 8px; align-items: center; padding: 4px 14px 8px; }
+.board-search .text-input { flex: 1; }
+.board-toapp { flex: 0 0 auto; background: none; border: 0; color: #0369a1; font-weight: 800; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.board-err { margin: 8px 16px; padding: 10px 12px; background: #fee2e2; color: #991b1b; border-radius: 8px; font-size: 13.5px; }
+.board-empty { text-align: center; color: #64748b; padding: 30px 16px; }
+.board-list { padding: 4px 14px 8px; display: flex; flex-direction: column; gap: 12px; }
+.board-card { background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(15,40,70,.06); }
+.board-card-top { padding: 12px 14px; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.board-who b { font-size: 16px; color: #0f2740; }
+.board-who span { display: block; font-size: 13px; color: #64748b; margin-top: 2px; }
+.board-bdg { flex: 0 0 auto; font-size: 12px; font-weight: 800; padding: 5px 10px; border-radius: 20px; white-space: nowrap; }
+.board-bdg.miss { background: #fef3c7; color: #92400e; }
+.board-bdg.ready { background: #dbeafe; color: #1e40af; }
+.board-bdg.sent { background: #ede9fe; color: #6d28d9; }
+.board-bdg.signed { background: #d1fae5; color: #065f46; }
+.board-card-body { padding: 0 14px 14px; }
+.board-miss { background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 10px 12px; }
+.board-miss .t { font-weight: 800; color: #92400e; font-size: 13.5px; margin-bottom: 4px; }
+.board-miss ul { margin: 4px 18px 0; color: #92400e; font-size: 13.5px; }
+.board-miss .reason { font-size: 12.5px; color: #b45309; margin-top: 8px; }
+.board-ready { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 10px; padding: 12px; text-align: center; }
+.board-ready .t { color: #075985; font-weight: 800; font-size: 14px; margin-bottom: 10px; }
+.board-linkrow { display: flex; gap: 6px; }
+.board-linkrow input { flex: 1; min-width: 0; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 10px; font-size: 12px; color: #334155; }
+.board-linkrow button { flex: 0 0 auto; background: #0369a1; color: #fff; border: 0; border-radius: 8px; padding: 0 14px; font-weight: 800; cursor: pointer; }
+.board-prog { display: flex; gap: 14px; justify-content: center; margin-top: 10px; font-size: 13px; }
+.board-prog .ok { color: #047857; font-weight: 700; }
+.board-prog .wait { color: #b45309; font-weight: 700; }
+.board-actions { display: flex; gap: 8px; margin-top: 10px; }
+.board-link2 { flex: 1; text-align: center; text-decoration: none; padding: 10px; border-radius: 8px; font-size: 12.5px; font-weight: 700; background: #f1f5f9; color: #334155; }
+.board-login { min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 20px; background: #eef2f7; }
+.board-login-card { background: #fff; border-radius: 16px; padding: 24px; width: 100%; max-width: 380px; box-shadow: 0 10px 40px rgba(15,40,70,.15); }
+.board-login-card h2 { margin: 0 0 4px; color: #0f2740; }
+.board-legal { text-align: center; padding: 12px; }
+.board-legal a { color: #64748b; font-size: 12px; text-decoration: none; }
+
+/* =======================================================================
    VISUAL REFRESH — modern, warm, inviting look (appended last so it wins)
    ======================================================================= */
 :root {

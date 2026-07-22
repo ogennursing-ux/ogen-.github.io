@@ -3,17 +3,23 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import TikApp from './tik/TikApp.jsx';
 import IntakeChat from './tik/IntakeChat.jsx';
+import CasesBoard from './tik/CasesBoard.jsx';
 import './index.css';
 
 // RTL Hebrew — this standalone module has no language toggle.
 document.documentElement.lang = 'he';
 document.documentElement.dir = 'rtl';
 
-// Public customer chat lives at …/#chat — no login. Everything else is the app.
-const isChat = location.hash.replace(/^#\/?/, '').toLowerCase().startsWith('chat');
+// Routing by hash:
+//   …/#chat   → the public customer chat (no login)
+//   …/#board  → the cases control room (office login)
+//   anything else → the full office app (TikApp)
+const route = location.hash.replace(/^#\/?/, '').toLowerCase();
+const isChat = route.startsWith('chat');
+const isBoard = route.startsWith('board');
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    {isChat ? <IntakeChat /> : <TikApp />}
+    {isChat ? <IntakeChat /> : isBoard ? <CasesBoard /> : <TikApp />}
   </React.StrictMode>,
 );
