@@ -706,6 +706,7 @@ function AgentInbox({ onClose, onImported }) {
   const [err, setErr] = useState('');
   const [showConn, setShowConn] = useState(false);
   const [chatView, setChatView] = useState(null); // transcript being read
+  const [signLink, setSignLink] = useState(null); // signing link to copy
 
   const reload = () => listNewSubmissions().then((r) => { setItems(r); setErr(''); }).catch((e) => { setItems([]); setErr(e?.message || String(e)); });
   useEffect(() => { reload(); }, []);
@@ -755,14 +756,8 @@ function AgentInbox({ onClose, onImported }) {
         employerName: family.fullName,
         workerName: worker.nameEn || worker.nameHe || [worker.firstNameEn, worker.lastNameEn].filter(Boolean).join(' '),
       });
-      const ePhone = fields.contactPhone || family.phone || family.mobile;
-      const wPhone = fields.workerPhone || worker.phone;
-      const r1 = ePhone ? await sendSigningSms(ePhone, link, family.fullName) : { ok: false };
-      const r2 = wPhone ? await sendSigningSms(wPhone, link, worker.nameEn) : { ok: false };
-      const sent = (r1.ok ? 1 : 0) + (r2.ok ? 1 : 0);
-      const head = sent > 0 ? `✅ נשלחו ${sent} הודעות SMS עם קישור החתימה.` : '⚠️ SMS עדיין לא מוגדר — העתק/י ושלח/י את הקישור ידנית:';
-      window.prompt(head + '\n\nקישור החתימה (מעסיק + עובד/ת חותמים על אותו חוזה):', link);
-    } catch (e) { alert('שליחה לחתימה נכשלה: ' + (e?.message || e)); }
+      setSignLink({ link, name: family.fullName || 'החוזה' });
+    } catch (e) { alert('יצירת קישור החתימה נכשלה: ' + (e?.message || e)); }
     finally { setBusyId(null); }
   }
   const copy = (t) => navigator.clipboard?.writeText(t).catch(() => {});
@@ -833,6 +828,27 @@ function AgentInbox({ onClose, onImported }) {
           </ul>
         )}
         {chatView && <ChatTranscript sub={chatView} onClose={() => setChatView(null)} />}
+        {signLink && (
+          <div className="modal-backdrop" onPointerDown={() => setSignLink(null)}>
+            <div className="modal tik-modal" onPointerDown={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
+              <div className="modal-head">
+                <strong>✍️ קישור לחתימה — {signLink.name}</strong>
+                <button className="icon-btn" onClick={() => setSignLink(null)}>✕</button>
+              </div>
+              <p className="muted small" style={{ marginTop: 0 }}>
+                העתק/י את הקישור ושלח/י למעסיק ולעובד/ת (וואטסאפ / מייל / איך שנוח). <strong>המעסיק חותם ראשון, אחר כך המטפל/ת</strong> — על אותו חוזה מלא.
+              </p>
+              <div className="tik-input-row" style={{ marginTop: 8 }}>
+                <input className="text-input" dir="ltr" readOnly value={signLink.link} onFocus={(e) => e.target.select()} />
+                <button className="btn-primary" onClick={async () => { try { await navigator.clipboard.writeText(signLink.link); alert('הקישור הועתק ✓'); } catch { alert('בחר/י את הקישור והעתק/י ידנית'); } }}>📋 העתק</button>
+              </div>
+              <div className="card-actions" style={{ marginTop: 10, flexWrap: 'wrap' }}>
+                <a className="btn-ghost" href={signLink.link} target="_blank" rel="noreferrer">🔗 פתח את קישור החתימה</a>
+                <a className="btn-ghost" href={`https://wa.me/?text=${encodeURIComponent('קישור לחתימה על החוזה: ' + signLink.link)}`} target="_blank" rel="noreferrer">💬 שלח בוואטסאפ</a>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
