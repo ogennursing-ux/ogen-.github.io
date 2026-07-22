@@ -118,7 +118,7 @@ export default function IntakeChat() {
       files: finalFiles || [],
       status: finalFiles ? 'new' : 'chat',
       needsCallback: callbackRef.current,
-      meta: { ...metaRef.current, role, linkKey, consent: consentRef.current },
+      meta: { ...metaRef.current, role, linkKey, consent: consentRef.current, lang: lang || 'he' },
     }).catch(() => {});
   };
   // Save shortly after every change (debounced).
@@ -311,9 +311,9 @@ export default function IntakeChat() {
   const showChoices = curStep && (curStep.type === 'choice' || curStep.type === 'multi');
   // Show a one-tap skip on optional questions and on the choice/multi ones.
   const canSkip = curStep && (curStep.optional || curStep.type === 'choice' || curStep.type === 'multi');
-  // The caregiver's assistant is "Yael"; the employer/full flow keeps AGENT_NAME.
+  // Same assistant across the registration bot — "מאור" (Maor in Latin scripts).
   const ltr = !RTL_LANGS.has(lang || 'he');
-  const agentName = multi ? (ltr ? 'Yael' : 'יעל') : AGENT_NAME;
+  const agentName = multi && ltr ? 'Maor' : AGENT_NAME;
   const company = multi && ltr ? 'Ogen' : 'עוגן סיעוד';
 
   return (

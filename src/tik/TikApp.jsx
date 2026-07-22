@@ -30,6 +30,7 @@ import { uid } from './workerFilesApi.js';
 import { mergeDocx, PLACEHOLDER_KEYS } from './contractMerge.js';
 import { buildOverlayPdf } from './contractOverlay.js';
 import { createSigningRequest, getSigningUrl, setSigningUrl, createPlacementSigning, sendSigningSms } from './signingBridge.js';
+import { LANGS as CHAT_LANGS } from './chatI18n.js';
 import { listNewSubmissions, countNewSubmissions, setSubmissionStatus, AGENT_ENDPOINT, AGENT_ANON_KEY } from './agentInbox.js';
 import { collectRecords, recordsSignature, backupNow, restoreFromCloud, getLastSync } from './cloudBackup.js';
 import { publishChatKey, withTimeout } from './intakeChat.js';
@@ -857,6 +858,7 @@ async function downloadAllFiles(files) {
 function ChatTranscript({ sub, onClose }) {
   const d = sub.data || {};
   const tr = d.transcript || [];
+  const langObj = d.meta?.lang && CHAT_LANGS.find((l) => l.code === d.meta.lang);
   return (
     <div className="modal-backdrop" onPointerDown={onClose}>
       <div className="modal tik-modal" onPointerDown={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
@@ -874,6 +876,11 @@ function ChatTranscript({ sub, onClose }) {
         {d.meta?.consent?.at && (
           <p className="tik-chk ok small" style={{ display: 'block', margin: '0 0 8px', padding: '6px 10px', borderRadius: 8 }}>
             ✅ הסכים/ה לתנאי הפרטיות ולחתימה אלקטרונית ({new Date(d.meta.consent.at).toLocaleString('he-IL')})
+          </p>
+        )}
+        {langObj && langObj.code !== 'he' && (
+          <p className="small" style={{ display: 'block', margin: '0 0 8px', padding: '6px 10px', borderRadius: 8, background: '#e0f2fe', color: '#0369a1' }}>
+            🌐 שפת השיחה: {langObj.flag} {langObj.label} — התמלול למטה הוא המקור המלא של המטפל/ת, ללא תרגום (לתיעוד משפטי).
           </p>
         )}
         <div className="chat-body" style={{ maxHeight: '52vh', borderRadius: 12 }}>
