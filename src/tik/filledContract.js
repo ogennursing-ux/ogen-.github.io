@@ -223,10 +223,17 @@ function buildFields(family, worker, opts) {
   add(7, 530, 599, wName);                                  // שם העובד
   add(7, 523, 574, wPass);                                  // מספר דרכון
   add(7, 503, 551, clean(worker.phone));                   // מספר טלפון נייד
-  add(7, 508, 528, [worker.addrStreet, worker.addrCity].filter(Boolean).join(' ')); // כתובת מגורים
+  add(7, 508, 528, [...new Set([wStreet, wCity].filter(Boolean))].join(' ')); // כתובת מגורים (live-in → employer)
   add(7, 135, 311, wName, { dir: 'ltr', align: 'center', size: 8 });   // I the undersigned, <name>
   add(7, 279, 311, wCountry, { dir: 'ltr', align: 'center', size: 8 });// Passport Country
   add(7, 390, 311, wPass, { dir: 'ltr', size: 8 });                    // Passport Number
+
+  // ---------- Page 7 — הצהרת המטופל/מעסיק ("אני החח\"מ … נושא ת.ז מספר …") ----------
+  add(6, 530, 814, eName);                                  // אני החח"מ [שם]
+  add(6, 405, 814, eId, { align: 'right', dir: 'ltr' });    // נושא ת.ז מספר [מספר]
+
+  // ---------- Page 9 — הצהרת מנכ"ל הלשכה (worker passport) ----------
+  add(8, 463, 476, wPass, { align: 'right', dir: 'ltr' });  // מספר דרכון
 
   // ---------- Page 26 — בקשה להארכת אשרה (values sit below each header) ----------
   const B = (x, yh, val, o = {}) => add(25, x, yh - 12, val, { align: 'center', ...o });
