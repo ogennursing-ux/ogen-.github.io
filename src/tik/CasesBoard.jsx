@@ -76,6 +76,12 @@ function Card({ c, onCreate, busy }) {
           </div>
         )}
 
+        {(c.stage === 'missing' || c.stage === 'ready') && c.recommended?.length > 0 && (
+          <div className="board-rec">
+            💡 מומלץ להוסיף (לא חובה): {c.recommended.join(' · ')}
+          </div>
+        )}
+
         {(c.stage === 'sent' || c.stage === 'partial' || c.stage === 'signed') && (
           <>
             {link && (

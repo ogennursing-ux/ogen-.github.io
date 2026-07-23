@@ -27,19 +27,26 @@ export const DOC_ESSENTIALS = [
   ['צילום ת״ז מטופל', 'id'],
 ];
 
-// What is still missing for a case to be "ready" (empty array = ready).
+// What is still missing for a case to be "ready" (empty array = ready). Only the
+// text essentials block readiness — the numbers are what the contract needs.
 export function missingForCase(c) {
   const f = c.data?.fields || {};
-  const files = c.data?.files || [];
   const miss = [];
   for (const [label, get] of ESSENTIALS) {
     const v = get(f);
     if (v == null || !String(v).trim()) miss.push(label);
   }
-  for (const [label, cat] of DOC_ESSENTIALS) {
-    if (!files.some((x) => x.category === cat)) miss.push(label);
-  }
   return miss;
+}
+
+// Documents that are nice to have but do NOT block producing a contract.
+export function recommendedForCase(c) {
+  const files = c.data?.files || [];
+  const rec = [];
+  for (const [label, cat] of DOC_ESSENTIALS) {
+    if (!files.some((x) => x.category === cat)) rec.push(label);
+  }
+  return rec;
 }
 
 // Signature progress from an attached sign_request row.
@@ -91,6 +98,7 @@ export async function loadCases() {
   for (const c of cases) {
     c.sign = c.data?.signRequestId ? byId[c.data.signRequestId] || null : null;
     c.missing = missingForCase(c);
+    c.recommended = recommendedForCase(c);
     c.stage = caseStage(c);
   }
   return cases;

@@ -110,6 +110,8 @@ export const STEPS = [
     ask: 'ויש לכם תמונה של **היתר ההעסקה**? שלחו לי אותה (ואם אין — כתבו "אין").' },
   { key: 'employerName', type: 'text', label: 'שם המטופל/מעסיק',
     ask: 'מה **השם המלא** של המטופל/המעסיק?' },
+  { key: 'idNumber', type: 'text', label: 'ת״ז המטופל/מעסיק', when: (d) => !d.idNumber,
+    ask: 'מה **מספר תעודת הזהות** של המטופל/המעסיק? (9 ספרות)' },
   { key: 'contactName', type: 'text', label: 'שם איש קשר',
     ask: 'מה שם **איש הקשר** מטעם המשפחה? (אם זה המטופל עצמו — כתבו את שמו)' },
   { key: 'email', type: 'text', label: 'אימייל המעסיק',
@@ -190,7 +192,7 @@ const WORKER_KEYS = new Set([
   'motherName', 'heightWeight',
 ]);
 const EMPLOYER_KEYS = new Set([
-  'contactPhone', 'passport', 'patientId', 'permit', 'employerName', 'contactName', 'email',
+  'contactPhone', 'passport', 'patientId', 'permit', 'employerName', 'idNumber', 'contactName', 'email',
   'street', 'salary', 'hasInsurance', 'startDate', 'daysPerWeek', 'weeklyDayOff',
   'liveIn', 'jobTasks', 'weeklyAdvance', 'contactRelation', 'canSign',
   'guardianDoc', 'guardianName',
