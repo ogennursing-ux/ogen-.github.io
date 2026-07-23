@@ -179,6 +179,7 @@ export default function CasesBoard() {
       <div className="board-search">
         <input className="text-input" placeholder="🔍 חיפוש לפי שם / דרכון / טלפון…" value={q} onChange={(e) => setQ(e.target.value)} />
         <button className="board-toapp" onClick={() => { location.hash = ''; location.reload(); }}>המשרד המלא ←</button>
+        <button className="board-toapp" onClick={() => { location.hash = 'signfields'; location.reload(); }}>✒️ מיקום החתימות</button>
       </div>
 
       {err && (/agent_submissions|schema cache|Could not find the table/i.test(err) ? (

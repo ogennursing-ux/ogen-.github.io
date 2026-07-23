@@ -23,8 +23,15 @@ export const sb = () => (_sb || (_sb = createClient(SUPABASE_URL, SUPABASE_ANON_
 // the link (…/#chat) carries no secret.
 const CONFIG_ID = '00000000-0000-4000-8000-0a9e0c0f0001';
 export async function publishChatKey(key) {
+  // Merge into the config row so other settings (e.g. saved signature
+  // placement) are preserved.
+  let current = {};
+  try {
+    const { data } = await sb().from('agent_submissions').select('data').eq('id', CONFIG_ID).maybeSingle();
+    current = data?.data || {};
+  } catch { /* first write */ }
   const { error } = await sb().from('agent_submissions')
-    .upsert({ id: CONFIG_ID, kind: 'config', status: 'config', source: 'office', data: { aiKey: key || '' } }, { onConflict: 'id' });
+    .upsert({ id: CONFIG_ID, kind: 'config', status: 'config', source: 'office', data: { ...current, aiKey: key || '' } }, { onConflict: 'id' });
   if (error) throw new Error(error.message);
 }
 export async function loadPublishedKey() {

@@ -7,6 +7,7 @@
 // Only the contract-to-sign travels to the cloud; the worker files themselves
 // stay local in IndexedDB.
 import { createClient } from '@supabase/supabase-js';
+import { loadPlacementFields } from './officeConfig.js';
 
 // Public anon key — safe to ship (protected by Row Level Security), same one the
 // signing app uses so the request it creates is readable there.
@@ -107,6 +108,22 @@ export function placementSignatureFields() {
   ];
 }
 
+// Use the office-saved signature placement if it exists (set once in the
+// "מיקום החתימות" screen), otherwise the built-in defaults above.
+export async function resolvePlacementFields() {
+  try {
+    const saved = await loadPlacementFields();
+    if (saved && saved.length) {
+      return saved.map((f) => ({
+        id: uid(), type: 'signature', value: '',
+        pageIndex: f.pageIndex, signer: f.signer,
+        xPct: f.xPct, yPct: f.yPct, wPct: f.wPct ?? 0.2, hPct: f.hPct ?? 0.07,
+      }));
+    }
+  } catch { /* fall back to defaults */ }
+  return placementSignatureFields();
+}
+
 /**
  * Upload the full filled contract and open a 2-signer request (employer first,
  * then caregiver). Returns the request id + the signing link.
@@ -126,7 +143,7 @@ export async function createPlacementSigning({ pdfBytes, employerName, workerNam
     id,
     title: title || 'חוזה השמה — חתימת מעסיק ועובד/ת',
     pdf_path: path,
-    fields: placementSignatureFields(),
+    fields: await resolvePlacementFields(),
     signers: { current: 0, list, note: '', downloadGroups: '' },
     status: 'sent',
     signer_email: null, owner_email: null, webhook_url: null,
