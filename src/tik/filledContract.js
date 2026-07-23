@@ -308,8 +308,8 @@ function buildFields(family, worker, opts) {
   C(1, 356, 469, eFirst);   // employer שם פרטי
   C(1, 180, 469, eId);      // employer מספר זהות
   C(1, 514, 423, eStreet);  // רחוב ומספר
-  C(1, 299, 423, eCity);    // ישוב
-  C(1, 135, 422, eZip);     // מיקוד
+  C(1, 303, 423, eCity, { align: 'right' });   // ישוב — flush to the right inside the box
+  C(1, 141, 422, eZip, { align: 'right' });    // מיקוד — flush to the right inside the box
   C(1, 514, 392, ePhone);   // מספר טלפון
   C(1, 330, 392, eMobile);  // טלפון נייד
   C(1, 514, 320, wLast);    // worker שם משפחה
