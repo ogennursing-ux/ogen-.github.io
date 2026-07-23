@@ -103,7 +103,7 @@ export function placementSignatureFields() {
     sig(24, 1, 0.219, 0.241), // חתימת המטפל / Signature of Caregiver
     sig(25, 0, 0.092, 0.601), // Signature of Employer (permit extension)
     sig(25, 1, 0.093, 0.432), // Signature of Employee
-    sig(9, 1, 0.041, 0.833),  // Caregiver's Signature (job order)
+    sig(9, 1, 0.315, 0.833),  // Caregiver's signature (rebuilt job order — blank at x≈185–310)
   ];
 }
 
