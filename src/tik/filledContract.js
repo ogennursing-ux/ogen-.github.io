@@ -13,7 +13,7 @@ import templateUrl from './assets/contract-template.pdf?url';
 const WHITEOUT = [
   { page: 2, x0: 470, y0: 588, x1: 532, y1: 604 }, // pg3: old client name
   { page: 2, x0: 340, y0: 590, x1: 402, y1: 605 }, // pg3: old client ת"ז
-  { page: 9, x0: 28, y0: 367, x1: 126, y1: 380 },  // pg10: old caregiver name in the declaration
+  // pg10 (Job Order) is rebuilt from scratch as a clean page — see drawJobOrderImage.
 ];
 
 const SS = 3;    // supersample for crisp text
@@ -95,6 +95,135 @@ function toLatin(v) {
     }
     return out ? out[0].toUpperCase() + out.slice(1) : '';
   }).join(' ');
+}
+
+// Build a clean, self-drawn Job Order (page 10) as a full-page transparent-free
+// PNG, so it replaces the dense scanned form with a legible page that shows all
+// of the file's details. Returns { bytes, width, height } (points).
+function drawJobOrderImage(family = {}, worker = {}, opts = {}) {
+  const num = (v) => { const m = String(v == null ? '' : v).replace(/[^\d.]/g, ''); return m ? parseFloat(m) : 0; };
+  const eName = clean(family.fullName || [family.firstName, family.lastName].filter(Boolean).join(' '));
+  const eId = clean(family.idNumber);
+  const eAddr = [clean(family.street), clean(family.city)].filter(Boolean).join(', ');
+  const gName = clean(family.contactName);
+  const ePhone = clean(family.phone || family.mobile || family.contactMobile);
+  const languages = clean(worker.languages);
+  const wPass = clean(worker.passportNo);
+  const wGender = clean(worker.gender);
+  const wAge = worker.dob ? String(new Date().getFullYear() - new Date(String(worker.dob).slice(0, 4)).getFullYear() || '') : '';
+  const wNameEn = workerNameEn(worker);
+  const dayoff = clean(worker.weeklyDayOff);
+  const advance = clean(worker.weeklyAdvance) || '100';
+  const base = num(worker.salary || family.offeredSalary);
+  const salary = base ? String(Math.round(base + num(worker.weeklyAdvance) * 4)) : '';
+  const date = fmtDate(opts.date || '');
+
+  const W = 595.32, H = 841.92;
+  const c = document.createElement('canvas');
+  c.width = Math.round(W * SS); c.height = Math.round(H * SS);
+  const ctx = c.getContext('2d');
+  ctx.scale(SS, SS);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
+  ctx.textBaseline = 'alphabetic';
+  const FF = 'Heebo, Arial, sans-serif';
+  const setf = (s, w = 400) => { ctx.font = `${w} ${s}px ${FF}`; };
+  const ink = '#111827';
+  // Left-aligned LTR; returns the x where the text ends.
+  const L = (x, y, t, s = 9.5, w = 400) => { setf(s, w); ctx.fillStyle = ink; ctx.textAlign = 'left'; ctx.direction = 'ltr'; ctx.fillText(t, x, y); return x + ctx.measureText(String(t)).width; };
+  // Hebrew value anchored at left edge x (renders RTL internally).
+  const HV = (x, y, t, s = 9.5, w = 400) => { if (!t) return; setf(s, w); ctx.fillStyle = ink; ctx.textAlign = 'left'; ctx.direction = 'rtl'; ctx.fillText(String(t), x, y); };
+  // Right-aligned at x.
+  const RA = (x, y, t, s = 9.5, w = 400, dir = 'rtl') => { setf(s, w); ctx.fillStyle = ink; ctx.textAlign = 'right'; ctx.direction = dir; ctx.fillText(String(t), x, y); };
+  const CEN = (x, y, t, s = 10, w = 700) => { setf(s, w); ctx.fillStyle = ink; ctx.textAlign = 'center'; ctx.direction = 'ltr'; ctx.fillText(String(t), x, y); };
+  const rule = (x1, y, x2, lw = 0.5, col = '#6b7280') => { ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x2, y); ctx.stroke(); };
+  const para = (x, y, t, maxW, s = 8, lh = 10) => {
+    setf(s); ctx.textAlign = 'left'; ctx.direction = 'ltr'; ctx.fillStyle = ink;
+    const words = String(t).split(' '); let ln = ''; let yy = y;
+    for (const wd of words) { const tt = ln ? ln + ' ' + wd : wd; if (ctx.measureText(tt).width > maxW && ln) { ctx.fillText(ln, x, yy); ln = wd; yy += lh; } else ln = tt; }
+    if (ln) { ctx.fillText(ln, x, yy); yy += lh; }
+    return yy;
+  };
+  const M = 42, RIGHT = 553;
+
+  // ---- Company header (top-right, Hebrew) ----
+  RA(RIGHT, 50, 'עוגן סיעוד ועובדים זרים בע"מ', 15, 700);
+  RA(RIGHT, 66, 'בן צבי 84, תל אביב', 9.5, 400);
+  RA(RIGHT, 80, '216095568', 9.5, 400, 'ltr');
+
+  // ---- Title ----
+  CEN(297, 108, 'Job Order  —  השמת מטפל', 14, 700);
+  rule(232, 113, 362, 0.8, ink);
+
+  // ---- Date ----
+  let ex = L(M, 138, 'Date:', 9.5, 700);
+  rule(ex + 6, 140, ex + 120); if (date) L(ex + 12, 138, date, 9.5);
+
+  // ---- Employer / caregiver identity ----
+  ex = L(M, 166, "Employer's Name:", 9.5, 700); HV(ex + 6, 166, eName, 10, 500);
+  ex = L(330, 166, 'I.D:', 9.5, 700); L(ex + 6, 166, eId, 9.5, 500);
+  ex = L(M, 190, 'Age:', 9.5, 700); L(ex + 6, 190, wAge && wAge !== 'NaN' ? wAge : '', 9.5, 500);
+  ex = L(120, 190, 'Sex:', 9.5, 700); L(ex + 6, 190, wGender, 9.5, 500);
+  ex = L(205, 190, 'Height:', 9.5, 700); rule(ex + 6, 192, ex + 90);
+  ex = L(370, 190, 'Weight:', 9.5, 700); rule(ex + 6, 192, ex + 90);
+  ex = L(M, 214, 'Address:', 9.5, 700); HV(ex + 6, 214, eAddr, 9.5, 500);
+  ex = L(320, 214, 'Contact person:', 9.5, 700); HV(ex + 6, 214, gName, 9.5, 500);
+  ex = L(M, 238, 'Tel:', 9.5, 700); L(ex + 6, 238, ePhone, 9.5, 500);
+
+  // ---- Condition / requirements (blank checkboxes, filled by hand) ----
+  ex = L(M, 268, 'Physical condition:', 9, 700);
+  L(ex + 6, 268, '(  ) Independent      (  ) With support / walker      (  ) Full support / wheelchair', 9);
+  ex = L(M, 290, 'Mental condition:', 9, 700);
+  L(ex + 6, 290, '(  ) Alzheimer     (  ) Dementia     (  ) Clear mind', 9);
+  ex = L(392, 290, 'Languages:', 9, 700); HV(ex + 6, 290, languages, 9, 500);
+  L(M, 312, 'Live alone:  ____ / with:  ________        Accommodation:  (  ) Private room     (  ) Other:  ________', 9);
+  ex = L(M, 336, 'Job requirements:', 9, 700);
+  L(ex + 6, 336, '(  ) Feeding   (  ) Bathing   (  ) Dressing   (  ) Diaper change   (  ) Toilet assistant', 9);
+  L(M, 356, '(  ) House cleaning   (  ) Laundry   (  ) Cooking   (  ) Medication   (  ) Injections   (  ) Supervision', 9);
+
+  // ---- Notes ----
+  ex = L(M, 386, 'Special notes:', 9.5, 700); rule(ex + 6, 388, RIGHT);
+  rule(M, 408, RIGHT);
+
+  // ---- Terms ----
+  ex = L(M, 436, 'Monthly salary:', 9.5, 700); L(ex + 6, 436, (salary ? salary : '________') + ' NIS', 9.5, 700);
+  ex = L(250, 436, 'Weekly advance:', 9.5, 700); L(ex + 6, 436, advance + ' NIS', 9.5, 500);
+  ex = L(420, 436, 'Day off:', 9.5, 700); L(ex + 6, 436, '25 hr', 9.5, 500);
+  ex = L(M, 458, 'Weekly rest:', 9.5, 700); L(ex + 6, 458, dayoff || 'Saturday night – Sunday', 9.5, 500);
+  ex = L(M, 480, 'Term of employment:', 9.5, 700); L(ex + 6, 480, 'A one-year contract with an option to renew.', 9.5);
+
+  // ---- Declaration ----
+  CEN(297, 510, 'Declaration', 11, 700); rule(263, 514, 331, 0.8, ink);
+  let x = L(M, 532, 'I ', 9.5, 400);
+  x = L(x, 532, wNameEn || '____________', 9.5, 700);
+  x = L(x, 532, ', the undersigned, Passport No. ', 9.5, 400);
+  x = L(x, 532, wPass || '__________', 9.5, 700);
+  L(x, 532, ', hereby declare:', 9.5, 400);
+
+  const clauses = [
+    ['a.', 'I hereby declare and approve that I have read the above job-offer details, and assure that my abilities and qualifications fulfill my obligations as a caregiver for the above requests.'],
+    ['b.', 'I hereby declare that I am aware of and understand that, according to Israeli regulation, in the event of terminated employment with at least three (3) employers within a two-year period, the Israeli ministry may request that I appear before an investigator and may decide to revoke or not renew my working visa.'],
+    ['c.', 'I hereby declare that I did not and will not pay any amount over the allowed sum for my recruitment.'],
+    ['d.', 'I know that a caregiver must be registered with an agency under a legal employer within 90 days from the day he left the previous employer. A caregiver who fails to do so, without a reasonable explanation, could face deportation.'],
+    ['e.', 'I hereby declare that I am fully aware and understand that I cannot leave my employer unattended and without supervision.'],
+    ['f.', "The ombudsman for foreign workers' labor rights, telephone: 074-7696161 / 6235."],
+    ['g.', 'I received and understood, in my language, the regulation regarding "Advance Notice".'],
+    ['h.', 'I declare that this is my name, this is my signature, and the contents of this affidavit are the truth and are understood by me.'],
+  ];
+  let y = 550;
+  for (const [letter, text] of clauses) {
+    L(M + 2, y, letter, 8, 700);
+    y = para(M + 16, y, text, RIGHT - (M + 16), 8, 10) + 3;
+  }
+
+  // ---- Signatures ----
+  y += 10;
+  ex = L(M, y, "Caregiver's signature:", 9.5, 700); rule(ex + 6, y + 2, ex + 130);
+  ex = L(340, y, 'Agency stamp & sign:', 9.5, 700); rule(ex + 6, y + 2, RIGHT);
+
+  const b64 = c.toDataURL('image/png').split(',')[1];
+  const bin = atob(b64); const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return { bytes, width: W, height: H };
 }
 
 // Field map, page by page. Each entry: { page, x, y, val, dir, align, size }.
@@ -221,20 +350,9 @@ function buildFields(family, worker, opts) {
   add(2, 270, 560, gId, { align: 'center' });                      // guardian ת"ז
   add(2, 400, 525, [eStreet, eCity].filter(Boolean).join(' '), { align: 'center' }); // address
 
-  // ---------- Page 10 — הזמנת עבודה / Job Order (English, LTR) ----------
-  const wAge = worker.dob ? String(new Date().getFullYear() - new Date(String(worker.dob).slice(0, 4)).getFullYear() || '') : '';
-  // The employer name/ID/address blanks here are too small for Hebrew and those
-  // details already appear on every other page — so on this dense form we fill
-  // only the fields that fit cleanly.
-  const jo = { dir: 'ltr', size: 8 };
-  add(9, 155, 659, eId, jo);                                    // Employer I.D (fits — numeric)
-  add(9, 223, 659, wAge && wAge !== 'NaN' ? wAge : '', jo);      // Age
-  add(9, 259, 659, wGender, jo);                                // Sex
-  add(9, 156, 638, toLatin(gName), jo);                          // Contact person (Latin — English form)
-  add(9, 346, 582, toLatin(worker.languages), jo);              // Languages (transliterated)
-  add(9, 98, 437, salary, jo);                                  // Monthly salary (Nis)
-  add(9, 77, 374, workerNameEn(worker), { dir: 'ltr', align: 'center', size: 8 }); // declaration name
-  add(9, 256, 373, wPass, jo);                                  // Passport No
+  // ---------- Page 10 — הזמנת עבודה / Job Order ----------
+  // This dense scanned form is replaced entirely by a clean, self-built page
+  // (drawJobOrderImage) in buildFilledContract, so nothing is overlaid here.
 
   // ---------- Page 6 — הצהרת מעסיק להירשם בלשכה (patient + guardian) ----------
   add(5, 522, 611, eName);                                   // שם המטופל
@@ -324,5 +442,15 @@ export async function buildFilledContract(family = {}, worker = {}, opts = {}) {
       : f.x;
     page.drawImage(png, { x, y: f.y - img.height / 2 + LIFT, width: img.width, height: img.height });
   }
+
+  // Replace the dense scanned Job Order (page 10) with a clean, self-built page.
+  const jo = pages[9];
+  if (jo) {
+    const joImg = drawJobOrderImage(family, worker, opts);
+    const joPng = await pdf.embedPng(joImg.bytes);
+    const { width: pw, height: ph } = jo.getSize();
+    jo.drawImage(joPng, { x: 0, y: 0, width: pw, height: ph });
+  }
+
   return pdf.save();
 }
