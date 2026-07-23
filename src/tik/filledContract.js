@@ -73,6 +73,51 @@ const HE_NATIONALITY = {
 };
 const heNationality = (v) => HE_NATIONALITY[clean(v).toLowerCase()] || clean(v);
 
+// Transliterate a Hebrew name to Latin for the English-only forms. Common
+// names come out right via the dictionary; the rest fall back to a letter map.
+const HE_NAME_DICT = {
+  'יעקב': 'Yaakov', 'משה': 'Moshe', 'דוד': 'David', 'אברהם': 'Avraham', 'יצחק': 'Yitzhak', 'ישראל': 'Israel',
+  'יוסף': 'Yosef', 'חיים': 'Chaim', 'שמואל': 'Shmuel', 'דניאל': 'Daniel', 'מיכאל': 'Michael', 'יהודה': 'Yehuda',
+  'שלמה': 'Shlomo', 'אליהו': 'Eliyahu', 'מרדכי': 'Mordechai', 'נתן': 'Natan', 'אהרן': 'Aharon', 'בנימין': 'Binyamin',
+  'שרה': 'Sara', 'רבקה': 'Rivka', 'רחל': 'Rachel', 'לאה': 'Leah', 'מרים': 'Miriam', 'אסתר': 'Esther', 'חנה': 'Hana',
+  'רונית': 'Ronit', 'אילנה': 'Ilana', 'מיכל': 'Michal', 'יעל': 'Yael', 'נעמה': 'Naama', 'תמר': 'Tamar', 'דנה': 'Dana',
+  'צבי': 'Zvi', 'כהן': 'Cohen', 'לוי': 'Levi', 'מזרחי': 'Mizrahi', 'פרץ': 'Peretz', 'ביטון': 'Biton', 'דהן': 'Dahan',
+  'אזולאי': 'Azoulay', 'גבאי': 'Gabay', 'אוחיון': 'Ohayon', 'חדד': 'Hadad', 'עמר': 'Amar', 'סוזי': 'Suzy', 'אבי': 'Avi',
+};
+const HE_LETTER = {
+  'א': 'a', 'ב': 'b', 'ג': 'g', 'ד': 'd', 'ה': 'h', 'ו': 'o', 'ז': 'z', 'ח': 'ch', 'ט': 't', 'י': 'i',
+  'כ': 'k', 'ך': 'k', 'ל': 'l', 'מ': 'm', 'ם': 'm', 'נ': 'n', 'ן': 'n', 'ס': 's', 'ע': 'a', 'פ': 'p',
+  'ף': 'f', 'צ': 'tz', 'ץ': 'tz', 'ק': 'k', 'ר': 'r', 'ש': 'sh', 'ת': 't', '"': '', "'": '', '־': '-',
+};
+// Translate Hebrew language names to English for the English-only job order.
+const HE_LANGUAGE = {
+  'אנגלית': 'English', 'עברית': 'Hebrew', 'ערבית': 'Arabic', 'רוסית': 'Russian', 'ספרדית': 'Spanish',
+  'טאגלוג': 'Tagalog', 'הינדי': 'Hindi', 'הינדית': 'Hindi', 'נפאלית': 'Nepali', 'סינהלה': 'Sinhala',
+  'אוזבקית': 'Uzbek', 'רומנית': 'Romanian', 'תאית': 'Thai', 'צרפתית': 'French', 'סינית': 'Chinese',
+};
+function enLanguages(v) {
+  const s = clean(v);
+  if (!s || /[A-Za-z]/.test(s)) return s;
+  return s.split(/[,،]|\s+ו/).map((p) => { const t = p.trim(); return HE_LANGUAGE[t] || t; }).filter(Boolean).join(', ');
+}
+function toLatin(v) {
+  const s = clean(v);
+  if (!s || /[A-Za-z]/.test(s)) return s; // empty or already Latin
+  return s.split(/\s+/).map((w) => {
+    if (HE_NAME_DICT[w]) return HE_NAME_DICT[w];
+    const ch = [...w]; let out = '';
+    for (let i = 0; i < ch.length; i++) {
+      const c = ch[i]; let t = (c in HE_LETTER) ? HE_LETTER[c] : c;
+      if (c === 'ה' && i === ch.length - 1) t = '';           // final ה silent
+      if (c === 'ו' && i === 0) t = 'v';
+      if (c === 'י' && i === 0) t = 'y';
+      if ((c === 'א' || c === 'ע') && i === 0) t = '';
+      out += t;
+    }
+    return out ? out[0].toUpperCase() + out.slice(1) : '';
+  }).join(' ');
+}
+
 // Field map, page by page. Each entry: { page, x, y, val, dir, align, size }.
 // x/y are PDF points (origin bottom-left). align 'right' → x is the right edge
 // (RTL Hebrew, value grows leftward); align 'left' → x is the left edge (LTR).
@@ -141,11 +186,11 @@ function buildFields(family, worker, opts) {
   add(0, 56, 275, wName, { dir: 'ltr' });        // Caregiver Mr./Ms.
   add(0, 238, 273, wCountry, { dir: 'ltr' });    // Passport County
   add(0, 373, 273, wPass, { dir: 'ltr' });       // Passport Number
-  add(0, 61, 234, eName, { dir: 'ltr' });        // Employer Mr / Mrs
+  add(0, 61, 234, toLatin(eName), { dir: 'ltr' }); // Employer Mr / Mrs (Latin)
   add(0, 199, 234, eId, { dir: 'ltr' });         // I.D. number
   add(0, 88, 220, eStreet, { dir: 'ltr' });      // Street Address
   add(0, 200, 218, eCity, { dir: 'ltr' });       // City
-  add(0, 201, 149, gName, { dir: 'ltr' });       // Guardian name
+  add(0, 201, 149, toLatin(gName), { dir: 'ltr' }); // Guardian name (Latin)
   add(0, 355, 151, gId, { dir: 'ltr' });         // Guardian I.D.
   add(0, 521, 149, gPhone, { dir: 'ltr' });      // Guardian Telephone
 
@@ -203,8 +248,8 @@ function buildFields(family, worker, opts) {
   add(9, 155, 659, eId, jo);                                    // Employer I.D (fits — numeric)
   add(9, 223, 659, wAge && wAge !== 'NaN' ? wAge : '', jo);      // Age
   add(9, 259, 659, wGender, jo);                                // Sex
-  add(9, 156, 638, gName, jo);                                   // Contact person
-  add(9, 346, 582, clean(worker.languages), jo);                // Languages
+  add(9, 156, 638, toLatin(gName), jo);                          // Contact person (Latin — English form)
+  add(9, 346, 582, enLanguages(worker.languages), jo);          // Languages (English — English form)
   add(9, 98, 437, salary, jo);                                  // Monthly salary (Nis)
   add(9, 77, 374, workerNameEn(worker), { dir: 'ltr', align: 'center', size: 8 }); // declaration name
   add(9, 256, 373, wPass, jo);                                  // Passport No
