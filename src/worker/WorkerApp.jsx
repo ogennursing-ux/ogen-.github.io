@@ -52,8 +52,9 @@ function AccessGate({ onEnter }) {
         <form className="card login-card" onSubmit={submit}>
           <h2>{t('כניסה לפורטל הטפסים')}</h2>
           <p className="muted">{t('הזן/י את קוד הגישה שקיבלת מ{company}.', { company: COMPANY_NAME })}</p>
-          <label className="field-label">{t('קוד גישה')}</label>
+          <label className="field-label" htmlFor="worker-code">{t('קוד גישה')}</label>
           <input
+            id="worker-code"
             className="text-input"
             dir="ltr"
             value={code}
