@@ -179,8 +179,8 @@ function buildFields(family, worker, opts) {
   C(1, 356, 469, eFirst);   // employer שם פרטי
   C(1, 180, 469, eId);      // employer מספר זהות
   C(1, 514, 423, eStreet);  // רחוב ומספר
-  C(1, 291, 423, eCity);    // ישוב
-  C(1, 127, 422, eZip);     // מיקוד
+  C(1, 299, 423, eCity);    // ישוב
+  C(1, 135, 422, eZip);     // מיקוד
   C(1, 514, 392, ePhone);   // מספר טלפון
   C(1, 330, 392, eMobile);  // טלפון נייד
   C(1, 514, 320, wLast);    // worker שם משפחה
@@ -191,7 +191,7 @@ function buildFields(family, worker, opts) {
   C(1, 383, 246, daysWk);   // ימי עבודה בשבוע
   C(1, 280, 246, hoursDay); // שעות עבודה ביום
   C(1, 180, 246, salary);   // סכום השכר
-  add(1, 480, 74, eName, { align: 'right' }); // שם מעסיק (bottom, left of the label)
+  add(1, 411, 72, eName, { align: 'center' }); // שם מעסיק (bottom, centered in the blank cell left of the label)
 
   // ---------- Page 11 — חוזה העסקה (SEC): bilingual. Hebrew details go on the
   // Hebrew (right) column, next to the Hebrew labels; the caregiver's Latin
