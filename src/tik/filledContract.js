@@ -73,38 +73,17 @@ const HE_NATIONALITY = {
 };
 const heNationality = (v) => HE_NATIONALITY[clean(v).toLowerCase()] || clean(v);
 
-// Transliterate a Hebrew name to Latin for the English-only forms. Common
-// names come out right via the dictionary; the rest fall back to a letter map.
-const HE_NAME_DICT = {
-  'יעקב': 'Yaakov', 'משה': 'Moshe', 'דוד': 'David', 'אברהם': 'Avraham', 'יצחק': 'Yitzhak', 'ישראל': 'Israel',
-  'יוסף': 'Yosef', 'חיים': 'Chaim', 'שמואל': 'Shmuel', 'דניאל': 'Daniel', 'מיכאל': 'Michael', 'יהודה': 'Yehuda',
-  'שלמה': 'Shlomo', 'אליהו': 'Eliyahu', 'מרדכי': 'Mordechai', 'נתן': 'Natan', 'אהרן': 'Aharon', 'בנימין': 'Binyamin',
-  'שרה': 'Sara', 'רבקה': 'Rivka', 'רחל': 'Rachel', 'לאה': 'Leah', 'מרים': 'Miriam', 'אסתר': 'Esther', 'חנה': 'Hana',
-  'רונית': 'Ronit', 'אילנה': 'Ilana', 'מיכל': 'Michal', 'יעל': 'Yael', 'נעמה': 'Naama', 'תמר': 'Tamar', 'דנה': 'Dana',
-  'צבי': 'Zvi', 'כהן': 'Cohen', 'לוי': 'Levi', 'מזרחי': 'Mizrahi', 'פרץ': 'Peretz', 'ביטון': 'Biton', 'דהן': 'Dahan',
-  'אזולאי': 'Azoulay', 'גבאי': 'Gabay', 'אוחיון': 'Ohayon', 'חדד': 'Hadad', 'עמר': 'Amar', 'סוזי': 'Suzy', 'אבי': 'Avi',
-};
+// Pure letter-by-letter transliteration of Hebrew to Latin for the English-only
+// forms — no word translation, just the letters.
 const HE_LETTER = {
   'א': 'a', 'ב': 'b', 'ג': 'g', 'ד': 'd', 'ה': 'h', 'ו': 'o', 'ז': 'z', 'ח': 'ch', 'ט': 't', 'י': 'i',
   'כ': 'k', 'ך': 'k', 'ל': 'l', 'מ': 'm', 'ם': 'm', 'נ': 'n', 'ן': 'n', 'ס': 's', 'ע': 'a', 'פ': 'p',
   'ף': 'f', 'צ': 'tz', 'ץ': 'tz', 'ק': 'k', 'ר': 'r', 'ש': 'sh', 'ת': 't', '"': '', "'": '', '־': '-',
 };
-// Translate Hebrew language names to English for the English-only job order.
-const HE_LANGUAGE = {
-  'אנגלית': 'English', 'עברית': 'Hebrew', 'ערבית': 'Arabic', 'רוסית': 'Russian', 'ספרדית': 'Spanish',
-  'טאגלוג': 'Tagalog', 'הינדי': 'Hindi', 'הינדית': 'Hindi', 'נפאלית': 'Nepali', 'סינהלה': 'Sinhala',
-  'אוזבקית': 'Uzbek', 'רומנית': 'Romanian', 'תאית': 'Thai', 'צרפתית': 'French', 'סינית': 'Chinese',
-};
-function enLanguages(v) {
-  const s = clean(v);
-  if (!s || /[A-Za-z]/.test(s)) return s;
-  return s.split(/[,،]|\s+ו/).map((p) => { const t = p.trim(); return HE_LANGUAGE[t] || t; }).filter(Boolean).join(', ');
-}
 function toLatin(v) {
   const s = clean(v);
   if (!s || /[A-Za-z]/.test(s)) return s; // empty or already Latin
   return s.split(/\s+/).map((w) => {
-    if (HE_NAME_DICT[w]) return HE_NAME_DICT[w];
     const ch = [...w]; let out = '';
     for (let i = 0; i < ch.length; i++) {
       const c = ch[i]; let t = (c in HE_LETTER) ? HE_LETTER[c] : c;
@@ -249,7 +228,7 @@ function buildFields(family, worker, opts) {
   add(9, 223, 659, wAge && wAge !== 'NaN' ? wAge : '', jo);      // Age
   add(9, 259, 659, wGender, jo);                                // Sex
   add(9, 156, 638, toLatin(gName), jo);                          // Contact person (Latin — English form)
-  add(9, 346, 582, enLanguages(worker.languages), jo);          // Languages (English — English form)
+  add(9, 346, 582, toLatin(worker.languages), jo);              // Languages (transliterated)
   add(9, 98, 437, salary, jo);                                  // Monthly salary (Nis)
   add(9, 77, 374, workerNameEn(worker), { dir: 'ltr', align: 'center', size: 8 }); // declaration name
   add(9, 256, 373, wPass, jo);                                  // Passport No
