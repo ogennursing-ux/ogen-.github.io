@@ -173,8 +173,8 @@ function buildFields(family, worker, opts) {
   add(0, 355, 151, gId, { dir: 'ltr' });         // Guardian I.D.
   add(0, 521, 149, gPhone, { dir: 'ltr' });      // Guardian Telephone
 
-  // ---------- Page 2 — ביטוח לאומי / הצהרת מעסיק (values sit one row below the header) ----------
-  const C = (page, x, yLabel, val, o = {}) => add(page, x, yLabel - 17, val, { align: 'center', ...o });
+  // ---------- Page 2 — ביטוח לאומי / הצהרת מעסיק (values sit ~22pt below the header) ----------
+  const C = (page, x, yLabel, val, o = {}) => add(page, x, yLabel - 22, val, { align: 'center', ...o });
   C(1, 514, 469, eLast);    // employer שם משפחה
   C(1, 356, 469, eFirst);   // employer שם פרטי
   C(1, 180, 469, eId);      // employer מספר זהות
@@ -191,6 +191,7 @@ function buildFields(family, worker, opts) {
   C(1, 383, 246, daysWk);   // ימי עבודה בשבוע
   C(1, 280, 246, hoursDay); // שעות עבודה ביום
   C(1, 180, 246, salary);   // סכום השכר
+  add(1, 480, 74, eName, { align: 'right' }); // שם מעסיק (bottom, left of the label)
 
   // ---------- Page 11 — חוזה העסקה (SEC): bilingual. Hebrew details go on the
   // Hebrew (right) column, next to the Hebrew labels; the caregiver's Latin
@@ -203,7 +204,9 @@ function buildFields(family, worker, opts) {
   add(10, 421, 423, eId, { align: 'right', dir: 'ltr' });       // מס' תעודת זהות
   add(10, 400, 409, eAddr, { align: 'right' });                 // כתובת/מקום העבודה
   add(10, 446, 380, ePhone, { align: 'right', dir: 'ltr' });    // מס' טלפון
+  add(10, 145, 437, toLatin(eName), { align: 'left' });         // Mr./Ms. (Latin)
   add(10, 136, 423, eId, { align: 'left', dir: 'ltr' });        // ID No.
+  add(10, 196, 409, toLatin(eAddr), { align: 'left' });         // Address/Workplace (Latin)
   add(10, 174, 380, ePhone, { align: 'left', dir: 'ltr' });     // phone number
   // B. Caregiver → Hebrew name/country on the right, Latin name/country on the left.
   add(10, 458, 217, wNameHe, { align: 'right' });               // מר/גב' (עברית)
@@ -258,6 +261,18 @@ function buildFields(family, worker, opts) {
 
   // ---------- Page 9 — הצהרת מנכ"ל הלשכה (worker passport) ----------
   add(8, 463, 476, wPass, { align: 'right', dir: 'ltr' });  // מספר דרכון
+
+  // ---------- Page 12 — worker passport (bilingual clause) ----------
+  add(11, 194, 679, wPass, { dir: 'ltr', align: 'left' });   // Passport Number (English side)
+  add(11, 430, 681, wPass, { dir: 'ltr', align: 'right' });  // מס' דרכון (Hebrew side)
+
+  // ---------- Page 14 — employment "from … until" (start date) ----------
+  add(13, 158, 641, startDate, { dir: 'ltr', align: 'left' }); // English: shall be from …
+  add(13, 424, 655, startDate, { dir: 'ltr', align: 'left' }); // Hebrew: החל מ- …
+
+  // ---------- Page 17 — monthly salary (bilingual clause) ----------
+  add(16, 153, 163, salary, { align: 'center' });   // salary (English side)
+  add(16, 446, 163, salary, { align: 'center' });   // salary (Hebrew side)
 
   // ---------- Page 26 — בקשה להארכת אשרה (values sit below each header) ----------
   const B = (x, yh, val, o = {}) => add(25, x, yh - 12, val, { align: 'center', ...o });
