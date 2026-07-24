@@ -48,3 +48,28 @@ export async function savePlacementFields(fields) {
   }));
   return patchConfig({ placementFields: clean });
 }
+
+// ---- Page cutting (split the signed contract into separate files) ------------
+// pageCuts = 0-based page indices where a NEW file begins (page 0 is always a
+// start). downloadGroups is the "1-4 ; 5-10 ; …" string the signing app reads.
+export async function loadPageCuts() {
+  const cfg = await readConfig();
+  return Array.isArray(cfg.pageCuts) ? cfg.pageCuts : [];
+}
+export async function loadDownloadGroups() {
+  const cfg = await readConfig();
+  return typeof cfg.downloadGroups === 'string' ? cfg.downloadGroups : '';
+}
+
+// Save the whole signing setup (positions + where to cut the file) at once.
+export async function saveSignSetup({ fields, pageCuts, downloadGroups }) {
+  const cleanFields = (fields || []).map((f) => ({
+    type: f.type || 'signature', pageIndex: f.pageIndex, signer: f.signer,
+    xPct: f.xPct, yPct: f.yPct, wPct: f.wPct, hPct: f.hPct,
+  }));
+  return patchConfig({
+    placementFields: cleanFields,
+    pageCuts: pageCuts || [],
+    downloadGroups: downloadGroups || '',
+  });
+}

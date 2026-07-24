@@ -3,8 +3,22 @@ import { isAuthed, login } from './officeAuth.js';
 import { recordsFromChat } from './chatRecords.js';
 import { buildFilledContract } from './filledContract.js';
 import { placementSignatureFields } from './signingBridge.js';
-import { loadPlacementFields, savePlacementFields } from './officeConfig.js';
+import { loadPlacementFields, loadPageCuts, saveSignSetup } from './officeConfig.js';
 import { renderPdfPages } from '../lib/pdfUtils.js';
+
+// Turn the set of "new file starts here" page indices into the "1-4 ; 5-10 …"
+// spec the signing app uses to split the signed contract into separate files.
+function cutsToGroups(cutSet, totalPages) {
+  const starts = [...new Set([0, ...cutSet])].filter((p) => p >= 0 && p < totalPages).sort((a, b) => a - b);
+  if (starts.length <= 1) return '';
+  const out = [];
+  for (let i = 0; i < starts.length; i++) {
+    const from = starts[i] + 1;
+    const to = i + 1 < starts.length ? starts[i + 1] : totalPages;
+    out.push(from === to ? `${from}` : `${from}-${to}`);
+  }
+  return out.join(' ; ');
+}
 
 const COLOR = ['#047857', '#2563eb']; // 0 = employer, 1 = caregiver
 const SIZE = { signature: { w: 0.2, h: 0.06 }, date: { w: 0.17, h: 0.03 } };
@@ -57,6 +71,7 @@ export default function SignFields() {
   const [fields, setFields] = useState([]);
   const [tool, setTool] = useState(null);       // {type, signer} to add on next page tap
   const [selected, setSelected] = useState(null); // id of selected field
+  const [cuts, setCuts] = useState(() => new Set()); // page indices where a new file starts
   const [err, setErr] = useState('');
   const [savedMsg, setSavedMsg] = useState('');
   const [busy, setBusy] = useState(false);
@@ -86,6 +101,10 @@ export default function SignFields() {
           const saved = await loadPlacementFields();
           if (alive && saved && saved.length) setFields(mapF(saved));
         } catch { /* keep defaults */ }
+        try {
+          const savedCuts = await loadPageCuts();
+          if (alive && savedCuts.length) setCuts(new Set(savedCuts));
+        } catch { /* no cuts */ }
       } catch (e) { if (alive) setErr(e?.message || String(e)); }
     })();
     return () => { alive = false; };
@@ -140,11 +159,16 @@ export default function SignFields() {
   const nudge = (id, dx, dy) => setFields((prev) => prev.map((f) => (f.id === id
     ? { ...f, xPct: clamp(f.xPct + dx, 0, 1 - f.wPct), yPct: clamp(f.yPct + dy, 0, 1 - f.hPct) } : f)));
   const remove = (id) => { setFields((prev) => prev.filter((f) => f.id !== id)); setSelected(null); };
+  const toggleCut = (pi) => setCuts((prev) => { const n = new Set(prev); if (n.has(pi)) n.delete(pi); else n.add(pi); return n; });
 
   async function save() {
     setBusy(true);
-    try { await savePlacementFields(fields); setSavedMsg('✓ נשמר! מעכשיו כל חוזה חדש ישתמש במיקומים האלה.'); setTimeout(() => setSavedMsg(''), 4000); }
-    catch (e) { alert('שמירה נכשלה: ' + (e?.message || e)); }
+    try {
+      const downloadGroups = cutsToGroups(cuts, pages.length);
+      await saveSignSetup({ fields, pageCuts: [...cuts], downloadGroups });
+      setSavedMsg('✓ נשמר! מעכשיו כל חוזה חדש ישתמש במיקומים ובחיתוך האלה.');
+      setTimeout(() => setSavedMsg(''), 4000);
+    } catch (e) { alert('שמירה נכשלה: ' + (e?.message || e)); }
     finally { setBusy(false); }
   }
 
@@ -155,7 +179,7 @@ export default function SignFields() {
       <div className="sf-head">
         <div>
           <h1>✒️ מיקום החתימות והתאריכים</h1>
-          <p>בחרו מה להוסיף, לחצו על המקום בעמוד, וגררו לדיוק. אפשר להוסיף כמה שצריך. שומרים פעם אחת — וכל חוזה חדש ישתמש בזה.</p>
+          <p>בחרו מה להוסיף, לחצו על המקום בעמוד, וגררו לדיוק. אפשר גם לחתוך את החוזה לקבצים נפרדים עם הכפתור ✂️ שמעל כל עמוד. שומרים פעם אחת — וכל חוזה חדש ישתמש בזה.</p>
         </div>
         <button className="board-toapp" onClick={() => { location.hash = 'board'; location.reload(); }}>← חזרה</button>
       </div>
@@ -179,7 +203,15 @@ export default function SignFields() {
 
       {pages && pages.map((pg, pi) => (
         <div key={pi} className="sf-pagewrap">
-          <div className="sf-pagenum">עמוד {pi + 1}</div>
+          <div className="sf-pagehead">
+            <span className="sf-pagenum">עמוד {pi + 1}</span>
+            <span className="sf-fileno">קובץ {1 + [...cuts].filter((s) => s <= pi).length}</span>
+            {pi > 0 && (
+              <button className={`sf-cut${cuts.has(pi) ? ' on' : ''}`} onClick={() => toggleCut(pi)}>
+                {cuts.has(pi) ? '✂️ קובץ חדש מכאן ✓' : '✂️ קובץ חדש מכאן'}
+              </button>
+            )}
+          </div>
           <div className="sf-page" ref={(el) => { pageRefs.current[pi] = el; }} onClick={(e) => onPageClick(e, pi)}>
             <img src={pg.url} alt={`page ${pi + 1}`} draggable={false} />
             {fields.filter((f) => f.pageIndex === pi).map((f) => (
@@ -216,7 +248,7 @@ export default function SignFields() {
       {pages && (
         <div className="sf-actions">
           {savedMsg && <div className="sf-saved">{savedMsg}</div>}
-          <div className="sf-count">{fields.length} שדות מוגדרים</div>
+          <div className="sf-count">{fields.length} שדות · {cuts.size + 1} קבצים בהורדה</div>
           <button className="btn-primary full" disabled={busy} onClick={save}>{busy ? 'שומר…' : '💾 שמור מיקום החתימות'}</button>
         </div>
       )}

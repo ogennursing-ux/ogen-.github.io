@@ -7,7 +7,7 @@
 // Only the contract-to-sign travels to the cloud; the worker files themselves
 // stay local in IndexedDB.
 import { createClient } from '@supabase/supabase-js';
-import { loadPlacementFields } from './officeConfig.js';
+import { loadPlacementFields, loadDownloadGroups } from './officeConfig.js';
 
 // Public anon key — safe to ship (protected by Row Level Security), same one the
 // signing app uses so the request it creates is readable there.
@@ -139,12 +139,14 @@ export async function createPlacementSigning({ pdfBytes, employerName, workerNam
     { name: employerName || 'המעסיק', email: null, color: '#1f7a53', signed: false, signedAt: null },
     { name: workerName || 'העובד/ת', email: null, color: '#2563eb', signed: false, signedAt: null },
   ];
+  let downloadGroups = '';
+  try { downloadGroups = (await loadDownloadGroups()) || ''; } catch { /* none set */ }
   const { error } = await sb().from('sign_requests').insert({
     id,
     title: title || 'חוזה השמה — חתימת מעסיק ועובד/ת',
     pdf_path: path,
     fields: await resolvePlacementFields(),
-    signers: { current: 0, list, note: '', downloadGroups: '' },
+    signers: { current: 0, list, note: '', downloadGroups },
     status: 'sent',
     signer_email: null, owner_email: null, webhook_url: null,
   });
