@@ -6,11 +6,19 @@ import { placementSignatureFields } from './signingBridge.js';
 import { loadPlacementFields, savePlacementFields } from './officeConfig.js';
 import { renderPdfPages } from '../lib/pdfUtils.js';
 
-const SIGNER_LABEL = ['חתימת מעסיק', 'חתימת מטפל/ת'];
-const SIGNER_COLOR = ['#047857', '#2563eb'];
+const COLOR = ['#047857', '#2563eb']; // 0 = employer, 1 = caregiver
+const SIZE = { signature: { w: 0.2, h: 0.06 }, date: { w: 0.17, h: 0.03 } };
+const labelOf = (f) =>
+  (f.type === 'date' ? '📅 תאריך ' : '✒️ חתימת ') + (f.signer === 0 ? 'מעסיק' : 'מטפל/ת');
 
-// A representative case, only so the contract has something to draw. The office
-// never sends this — it is just the backdrop for placing the signature boxes.
+const TOOLS = [
+  { type: 'signature', signer: 0, label: '✒️ חתימת מעסיק' },
+  { type: 'signature', signer: 1, label: '✒️ חתימת מטפל/ת' },
+  { type: 'date', signer: 0, label: '📅 תאריך מעסיק' },
+  { type: 'date', signer: 1, label: '📅 תאריך מטפל/ת' },
+];
+
+// A representative case, only so the contract has something to draw.
 const SAMPLE = {
   employerName: 'ישראל ישראלי', idNumber: '312345678', contactPhone: '0500000000',
   contactName: 'משפחה', street: 'הרצל 1', city: 'תל אביב', zip: '0000000',
@@ -18,6 +26,9 @@ const SAMPLE = {
   nameEn: 'WORKER NAME', nameHe: 'עובד/ת', passportNo: 'P0000000', nationality: 'Philippines',
   dob: '1990-01-01', gender: 'F', languages: 'אנגלית',
 };
+
+let _seq = 1;
+const nextId = () => `f${_seq++}`;
 
 function Login({ onIn }) {
   const [user, setUser] = useState('');
@@ -44,28 +55,37 @@ export default function SignFields() {
   const [authed, setAuthed] = useState(isAuthed());
   const [pages, setPages] = useState(null);
   const [fields, setFields] = useState([]);
+  const [tool, setTool] = useState(null);       // {type, signer} to add on next page tap
+  const [selected, setSelected] = useState(null); // id of selected field
   const [err, setErr] = useState('');
   const [savedMsg, setSavedMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const pageRefs = useRef({});
   const drag = useRef(null);
+  const moved = useRef(false);
 
   useEffect(() => {
-    if (!authed) return;
+    if (!authed) return undefined;
     let alive = true;
     (async () => {
       try {
         const { worker, family } = recordsFromChat(SAMPLE);
         const bytes = await buildFilledContract(family, worker, {});
-        const imgs = await renderPdfPages(new Uint8Array(bytes.slice(0)), { baseScale: 1.3 });
+        const imgs = await renderPdfPages(new Uint8Array(bytes.slice(0)), { baseScale: 1.1 });
         if (!alive) return;
         setPages(imgs);
-        const saved = await loadPlacementFields();
-        const base = (saved && saved.length ? saved : placementSignatureFields());
-        setFields(base.map((f, i) => ({
-          id: i, pageIndex: f.pageIndex, signer: f.signer,
-          xPct: f.xPct, yPct: f.yPct, wPct: f.wPct ?? 0.2, hPct: f.hPct ?? 0.07,
-        })));
+        const mapF = (arr) => arr.map((f) => ({
+          id: nextId(), type: f.type || 'signature', signer: f.signer, pageIndex: f.pageIndex,
+          xPct: f.xPct, yPct: f.yPct,
+          wPct: f.wPct ?? SIZE[f.type || 'signature'].w, hPct: f.hPct ?? SIZE[f.type || 'signature'].h,
+        }));
+        // Show the built-in defaults right away, then swap in the saved layout
+        // if one exists (so a slow network never leaves the page empty).
+        setFields(mapF(placementSignatureFields()));
+        try {
+          const saved = await loadPlacementFields();
+          if (alive && saved && saved.length) setFields(mapF(saved));
+        } catch { /* keep defaults */ }
       } catch (e) { if (alive) setErr(e?.message || String(e)); }
     })();
     return () => { alive = false; };
@@ -73,8 +93,28 @@ export default function SignFields() {
 
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
+  function placeAt(pageIndex, xPct, yPct) {
+    if (!tool) return;
+    const sz = SIZE[tool.type];
+    const f = {
+      id: nextId(), type: tool.type, signer: tool.signer, pageIndex,
+      xPct: clamp(xPct - sz.w / 2, 0, 1 - sz.w), yPct: clamp(yPct - sz.h / 2, 0, 1 - sz.h),
+      wPct: sz.w, hPct: sz.h,
+    };
+    setFields((prev) => [...prev, f]);
+    setSelected(f.id);
+    setTool(null);
+  }
+  function onPageClick(e, pageIndex) {
+    if (e.target.closest('.sf-box')) return;
+    const r = pageRefs.current[pageIndex].getBoundingClientRect();
+    if (tool) placeAt(pageIndex, (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height);
+    else setSelected(null);
+  }
+
   function onMove(e) {
     const d = drag.current; if (!d) return;
+    moved.current = true;
     const el = pageRefs.current[d.pageIndex]; if (!el) return;
     const r = el.getBoundingClientRect();
     const cx = (e.clientX - r.left) / r.width;
@@ -90,6 +130,8 @@ export default function SignFields() {
   }
   function startDrag(e, f) {
     e.preventDefault();
+    setSelected(f.id);
+    moved.current = false;
     drag.current = { id: f.id, pageIndex: f.pageIndex };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', endDrag);
@@ -97,64 +139,74 @@ export default function SignFields() {
 
   const nudge = (id, dx, dy) => setFields((prev) => prev.map((f) => (f.id === id
     ? { ...f, xPct: clamp(f.xPct + dx, 0, 1 - f.wPct), yPct: clamp(f.yPct + dy, 0, 1 - f.hPct) } : f)));
+  const remove = (id) => { setFields((prev) => prev.filter((f) => f.id !== id)); setSelected(null); };
 
   async function save() {
     setBusy(true);
-    try { await savePlacementFields(fields); setSavedMsg('✓ נשמר! מעכשיו כל חוזה חדש ישתמש במיקום הזה.'); setTimeout(() => setSavedMsg(''), 4000); }
+    try { await savePlacementFields(fields); setSavedMsg('✓ נשמר! מעכשיו כל חוזה חדש ישתמש במיקומים האלה.'); setTimeout(() => setSavedMsg(''), 4000); }
     catch (e) { alert('שמירה נכשלה: ' + (e?.message || e)); }
     finally { setBusy(false); }
   }
-  function resetDefaults() {
-    const base = placementSignatureFields();
-    setFields(base.map((f, i) => ({ id: i, pageIndex: f.pageIndex, signer: f.signer, xPct: f.xPct, yPct: f.yPct, wPct: f.wPct ?? 0.2, hPct: f.hPct ?? 0.07 })));
-  }
 
   if (!authed) return <Login onIn={() => setAuthed(true)} />;
-
-  const pageIdxs = [...new Set(fields.map((f) => f.pageIndex))].sort((a, b) => a - b);
 
   return (
     <div className="sf-wrap">
       <div className="sf-head">
         <div>
-          <h1>✒️ מיקום החתימות</h1>
-          <p>גררו כל תיבה למקום שבו צריכה להיות החתימה. שומרים פעם אחת — וכל חוזה חדש ישתמש בזה.</p>
+          <h1>✒️ מיקום החתימות והתאריכים</h1>
+          <p>בחרו מה להוסיף, לחצו על המקום בעמוד, וגררו לדיוק. אפשר להוסיף כמה שצריך. שומרים פעם אחת — וכל חוזה חדש ישתמש בזה.</p>
         </div>
-        <button className="board-toapp" onClick={() => { location.hash = ''; location.reload(); }}>המשרד ←</button>
+        <button className="board-toapp" onClick={() => { location.hash = 'board'; location.reload(); }}>← חזרה</button>
       </div>
 
-      <div className="sf-legend">
-        <span><i style={{ background: SIGNER_COLOR[0] }} /> מעסיק</span>
-        <span><i style={{ background: SIGNER_COLOR[1] }} /> מטפל/ת</span>
+      <div className="sf-tools">
+        {TOOLS.map((tt) => {
+          const on = tool && tool.type === tt.type && tool.signer === tt.signer;
+          return (
+            <button key={tt.label} className={`sf-tool${on ? ' on' : ''}`}
+              style={{ borderColor: COLOR[tt.signer], color: on ? '#fff' : COLOR[tt.signer], background: on ? COLOR[tt.signer] : '#fff' }}
+              onClick={() => setTool(on ? null : { type: tt.type, signer: tt.signer })}>
+              {tt.label}
+            </button>
+          );
+        })}
       </div>
+      <div className="sf-hint">{tool ? '👆 עכשיו לחצו על המקום בעמוד שבו זה צריך להיות' : 'טיפ: לחצו על תיבה כדי לבחור, לגרור, או למחוק (✕).'}</div>
 
       {err && <p className="board-err">שגיאה: {err}</p>}
-      {!pages && !err && <p className="board-empty">טוען תצוגה של החוזה… (רגע אחד)</p>}
+      {!pages && !err && <p className="board-empty">טוען את החוזה המלא… (רגע אחד, זה 26 עמודים)</p>}
 
-      {pages && pageIdxs.map((pi) => (
+      {pages && pages.map((pg, pi) => (
         <div key={pi} className="sf-pagewrap">
           <div className="sf-pagenum">עמוד {pi + 1}</div>
-          <div className="sf-page" ref={(el) => { pageRefs.current[pi] = el; }}>
-            <img src={pages[pi]?.url} alt={`page ${pi + 1}`} draggable={false} />
+          <div className="sf-page" ref={(el) => { pageRefs.current[pi] = el; }} onClick={(e) => onPageClick(e, pi)}>
+            <img src={pg.url} alt={`page ${pi + 1}`} draggable={false} />
             {fields.filter((f) => f.pageIndex === pi).map((f) => (
               <div
                 key={f.id}
-                className="sf-box"
+                className={`sf-box${f.type === 'date' ? ' date' : ''}${selected === f.id ? ' sel' : ''}`}
                 onPointerDown={(e) => startDrag(e, f)}
+                onClick={(e) => { e.stopPropagation(); if (!moved.current) setSelected(f.id); }}
                 style={{
                   left: `${f.xPct * 100}%`, top: `${f.yPct * 100}%`,
                   width: `${f.wPct * 100}%`, height: `${f.hPct * 100}%`,
-                  borderColor: SIGNER_COLOR[f.signer], color: SIGNER_COLOR[f.signer],
-                  background: `${SIGNER_COLOR[f.signer]}1a`,
+                  borderColor: COLOR[f.signer], color: COLOR[f.signer],
+                  background: `${COLOR[f.signer]}1a`,
                 }}
               >
-                <span>{SIGNER_LABEL[f.signer]}</span>
-                <div className="sf-nudge">
-                  <button onPointerDown={(e) => e.stopPropagation()} onClick={() => nudge(f.id, 0, -0.004)}>▲</button>
-                  <button onPointerDown={(e) => e.stopPropagation()} onClick={() => nudge(f.id, 0, 0.004)}>▼</button>
-                  <button onPointerDown={(e) => e.stopPropagation()} onClick={() => nudge(f.id, 0.004, 0)}>▶</button>
-                  <button onPointerDown={(e) => e.stopPropagation()} onClick={() => nudge(f.id, -0.004, 0)}>◀</button>
-                </div>
+                <span>{labelOf(f)}</span>
+                {selected === f.id && (
+                  <>
+                    <button className="sf-del" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); remove(f.id); }}>✕</button>
+                    <div className="sf-nudge">
+                      <button onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); nudge(f.id, 0, -0.003); }}>▲</button>
+                      <button onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); nudge(f.id, 0, 0.003); }}>▼</button>
+                      <button onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); nudge(f.id, 0.003, 0); }}>▶</button>
+                      <button onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); nudge(f.id, -0.003, 0); }}>◀</button>
+                    </div>
+                  </>
+                )}
               </div>
             ))}
           </div>
@@ -164,8 +216,8 @@ export default function SignFields() {
       {pages && (
         <div className="sf-actions">
           {savedMsg && <div className="sf-saved">{savedMsg}</div>}
+          <div className="sf-count">{fields.length} שדות מוגדרים</div>
           <button className="btn-primary full" disabled={busy} onClick={save}>{busy ? 'שומר…' : '💾 שמור מיקום החתימות'}</button>
-          <button className="sf-reset" onClick={resetDefaults}>אפס לברירת מחדל</button>
         </div>
       )}
     </div>

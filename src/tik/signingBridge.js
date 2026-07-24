@@ -115,7 +115,7 @@ export async function resolvePlacementFields() {
     const saved = await loadPlacementFields();
     if (saved && saved.length) {
       return saved.map((f) => ({
-        id: uid(), type: 'signature', value: '',
+        id: uid(), type: f.type || 'signature', value: '',
         pageIndex: f.pageIndex, signer: f.signer,
         xPct: f.xPct, yPct: f.yPct, wPct: f.wPct ?? 0.2, hPct: f.hPct ?? 0.07,
       }));

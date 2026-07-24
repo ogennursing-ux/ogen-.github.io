@@ -43,7 +43,7 @@ export async function loadPlacementFields() {
 
 export async function savePlacementFields(fields) {
   const clean = (fields || []).map((f) => ({
-    pageIndex: f.pageIndex, signer: f.signer,
+    type: f.type || 'signature', pageIndex: f.pageIndex, signer: f.signer,
     xPct: f.xPct, yPct: f.yPct, wPct: f.wPct, hPct: f.hPct,
   }));
   return patchConfig({ placementFields: clean });

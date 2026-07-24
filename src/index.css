@@ -2062,9 +2062,15 @@ textarea.gov-input { resize: vertical; }
 .sf-nudge button:nth-child(2) { bottom: -11px; left: 50%; transform: translateX(-50%); }
 .sf-nudge button:nth-child(3) { left: -11px; top: 50%; transform: translateY(-50%); }
 .sf-nudge button:nth-child(4) { right: -11px; top: 50%; transform: translateY(-50%); }
+.sf-tools { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 0; background: #f5f8f8; }
+.sf-tool { border: 1.5px solid; border-radius: 999px; padding: 8px 12px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.sf-hint { font-size: 12.5px; color: #5b7079; margin: 2px 2px 6px; }
+.sf-del { position: absolute; top: -10px; right: -10px; width: 22px; height: 22px; border: 0; border-radius: 50%; background: #dc2626; color: #fff; font-size: 12px; line-height: 1; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+.sf-box.sel { box-shadow: 0 0 0 2px #fff, 0 0 0 4px currentColor; z-index: 3; }
+.sf-box.date { border-style: dashed; }
+.sf-count { text-align: center; color: #64748b; font-size: 12.5px; }
 .sf-actions { position: sticky; bottom: 0; background: linear-gradient(180deg, rgba(255,255,255,0), #fff 30%); padding: 14px 0 4px; display: flex; flex-direction: column; gap: 8px; }
 .sf-saved { text-align: center; color: #047857; font-weight: 700; font-size: 13.5px; }
-.sf-reset { background: none; border: 0; color: #64748b; font-size: 13px; text-decoration: underline; cursor: pointer; padding: 4px; }
 .board-ready { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 10px; padding: 12px; text-align: center; }
 .board-ready .t { color: #075985; font-weight: 800; font-size: 14px; margin-bottom: 10px; }
 .board-linkrow { display: flex; gap: 6px; }
