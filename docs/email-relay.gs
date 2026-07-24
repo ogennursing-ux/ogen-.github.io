@@ -27,7 +27,10 @@ function doGet(e) {
 
   if (p.notify == "1") {
     try {
-      var to = p.to || TO;
+      // Owner notifications (partial / completed) ALWAYS go to the fixed owner
+      // address, ignoring any stale owner_email baked into old signing links.
+      // Only a signer-invite is sent to the address passed in (the next signer).
+      var to = (p.type === "invite" && p.to) ? p.to : TO;
       var subject = p.subject || "התראת חתימה — קליק חתימה";
       var body = p.message || "התקבלה חתימה חדשה.";
       if (p.link) body += "\n\n" + p.link;
