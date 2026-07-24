@@ -159,10 +159,15 @@ export default function IntakeChat() {
     }
     // If they don't already have medical insurance, route them to our partner.
     if (noInsurance(collected.hasInsurance)) await botSay(INSURANCE_OFFER, 800);
-    // Consolidated closing — two clean bubbles instead of five.
-    await botSay('קיבלנו את כל הפרטים, תודה רבה! 🙏\n\n' + PAY_SUMMARY, 800);
+    await botSay('קיבלנו את כל הפרטים, תודה רבה! 🙏', 700);
+    // Save everything BEFORE the payment, so nothing is lost if they leave to
+    // pay and don't come back — and tell them it's saved.
+    await persist(true, true);
+    await botSay('✅ הפרטים שלכם **נשמרו אצלנו במערכת** — אין צורך למלא שוב, גם אם תצאו לתשלום ותחזרו.', 700);
+    // The payments guide comes BEFORE the payment.
+    await botSay('📄 לפני התשלום — חשוב להוריד ולשמור את **מדריך התשלומים לעובד** (הכפתור הכתום למטה). הוא מרכז את שכר המינימום, דמי הכיס, ימי ההבראה והחגים ומועדי התשלום.', 700);
+    await botSay(PAY_SUMMARY, 700);
     await botSay(PAYMENT_LINK, 400);
-    await botSay('📄 חשוב: יש להוריד ולשמור את **מדריך התשלומים לעובד** — כפתור ההורדה מופיע למטה. הוא מרכז את שכר המינימום, דמי הכיס, ימי ההבראה והחגים ומועדי התשלום.', 500);
     setDone(true);
   }
 
