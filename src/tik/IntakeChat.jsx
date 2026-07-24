@@ -9,6 +9,9 @@ import {
 } from './intakeChat.js';
 import { LANGS, RTL_LANGS, t } from './chatI18n.js';
 import { extractDocument, extractFamilyDocument, hasAI } from './gemini.js';
+import paymentGuideUrl from './assets/payment-guide.pdf?url';
+
+const GUIDE_NAME = 'הדרכה תשלומים לעובד.pdf';
 
 // Render **bold** and links inside a chat bubble.
 function renderText(text) {
@@ -159,6 +162,7 @@ export default function IntakeChat() {
     // Consolidated closing — two clean bubbles instead of five.
     await botSay('קיבלנו את כל הפרטים, תודה רבה! 🙏\n\n' + PAY_SUMMARY, 800);
     await botSay(PAYMENT_LINK, 400);
+    await botSay('📄 חשוב: יש להוריד ולשמור את **מדריך התשלומים לעובד** — כפתור ההורדה מופיע למטה. הוא מרכז את שכר המינימום, דמי הכיס, ימי ההבראה והחגים ומועדי התשלום.', 500);
     setDone(true);
   }
 
@@ -448,6 +452,11 @@ export default function IntakeChat() {
             <input ref={camInput} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { onFiles(e.target.files); e.target.value = ''; }} />
           </div>
         </div>
+      )}
+      {done && role !== 'worker' && (
+        <a className="btn-guide full" href={paymentGuideUrl} download={GUIDE_NAME}>
+          📄 חובה להוריד: מדריך תשלומים לעובד
+        </a>
       )}
       {done && role !== 'worker' && !couponOk && (
         <div className="chat-done">

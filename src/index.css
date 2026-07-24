@@ -2259,6 +2259,8 @@ body {
 .chat-send { flex: 0 0 auto; padding: 13px 22px; border-radius: 24px; font-weight: 800; font-size: 17px; color: #fff;
   background: linear-gradient(135deg, #0369a1, #075985); }
 .chat-send:disabled { opacity: .5; }
+.btn-guide { display: block; margin: 0; padding: 15px 14px; background: #b45309; color: #fff; font-weight: 800; font-size: 15px; text-align: center; text-decoration: none; border-top: 1px solid #e6ebf3; }
+.btn-guide:active { background: #92400e; }
 .chat-done { padding: 14px; background: #fff; border-top: 1px solid #e6ebf3; }
 .chat-coupon { display: flex; gap: 8px; margin-top: 10px; }
 .chat-coupon .chat-text { font-size: 16px; padding: 12px 14px; }
