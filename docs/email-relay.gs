@@ -1,75 +1,89 @@
-/**
- * Ogen — email relay for the digital-signature app (Google Apps Script).
- *
- * WHY THIS EXISTS
- * The app is a static site (GitHub Pages) that runs entirely in the browser.
- * A browser cannot open an SMTP connection, and putting a Gmail App Password in
- * client-side JavaScript would expose it to every visitor. So the app POSTs the
- * signed PDF to this tiny Google-hosted script, which sends the email from your
- * own Gmail — no SMTP, no App Password, nothing secret in the website.
- *
- * SETUP (one time)
- * 1. Go to https://script.google.com  →  New project.
- * 2. Delete the sample code, paste THIS file, and Save.
- * 3. Set FALLBACK_TO below to your email.
- * 4. Deploy ▸ New deployment ▸ type "Web app".
- *      - Execute as: Me
- *      - Who has access: Anyone        <-- must be "Anyone", NOT "Anyone with Google account"
- *    Click Deploy, authorize with your Google account, and copy the
- *    "Web app URL" (ends with /exec).
- * 5. In the app: ⚙ הגדרות → paste that URL into "כתובת שירות שליחת המייל",
- *    enter your email, Save. Then create a NEW signing link and sign to test.
- *
- * QUICK SELF-TEST (no app involved)
- *   Open this in a browser:   <your /exec URL>?test=1
- *   You should get a test email at FALLBACK_TO within a minute.
- */
+// קליק חתימה — Google Apps Script email relay (v7)
+//
+// Deploy: paste into a Google Apps Script project → Save → Deploy ▸ Manage
+// deployments ▸ New version, with "Execute as: Me" and "Who has access: Anyone".
+//
+// v7 changes (robust multi-signer + attachment delivery):
+//   - retries the file fetch (handles storage propagation lag after signing)
+//   - muteHttpExceptions so a not-yet-ready file never aborts the send
+//   - ALWAYS sends the email; on attachment failure it falls back to a link
+//   - guards the Gmail daily-quota error and reports it in the response
+//   - ?quota=1 endpoint to instantly see remaining daily emails
 
-// The address that receives the signed documents.
-var FALLBACK_TO = 'ogen.manpower@gmail.com';
+var TO = "ogen.manpower@gmail.com";
+var VERSION = "v7";
 
-function doPost(e) {
-  try {
-    var data = JSON.parse((e && e.postData && e.postData.contents) || '{}');
-    var to = (data.to || FALLBACK_TO || '').trim();
-    if (!to) return _ok('no recipient');
-
-    var subject = data.subject || (data.title ? ('מסמך: ' + data.title) : 'התראת חתימה');
-    var body = data.message || 'התקבלה חתימה חדשה.';
-    if (data.link) body += '\n\n' + data.link;
-
-    var options = { name: 'עוגן — חתימה דיגיטלית' };
-    if (data.fileBase64) { // attached only on completion
-      var bytes = Utilities.base64Decode(data.fileBase64);
-      options.attachments = [Utilities.newBlob(bytes, 'application/pdf', data.fileName || 'signed.pdf')];
-    }
-
-    GmailApp.sendEmail(to, subject, body, options);
-    return _ok('sent to ' + to);
-  } catch (err) {
-    return _ok('error: ' + err);
-  }
-}
-
-// Open <url>/exec        -> confirms the app is deployed.
-// Open <url>/exec?test=1 -> sends a test email to FALLBACK_TO.
 function doGet(e) {
-  if (e && e.parameter && e.parameter.test) {
+  var p = (e && e.parameter) || {};
+
+  if (p.quota == "1") {
+    return _out("remaining daily emails: " + MailApp.getRemainingDailyQuota() + " (" + VERSION + ")");
+  }
+
+  if (p.test == "1") {
+    MailApp.sendEmail({ to: TO, subject: "בדיקת שליחה — קליק חתימה", body: "עובד ✅ (" + VERSION + ")" });
+    return _out("Test email sent ✅ (" + VERSION + ")");
+  }
+
+  if (p.notify == "1") {
     try {
-      GmailApp.sendEmail(FALLBACK_TO, 'בדיקת שליחה — עוגן', 'זהו מייל בדיקה. אם קיבלת אותו, השירות עובד ✅');
-      return _ok('test email sent to ' + FALLBACK_TO);
+      var to = p.to || TO;
+      var subject = p.subject || "התראת חתימה — קליק חתימה";
+      var body = p.message || "התקבלה חתימה חדשה.";
+      if (p.link) body += "\n\n" + p.link;
+      var options = { name: "קליק חתימה" };
+
+      var urls = [];
+      var names = [];
+      if (p.fileUrls) {
+        urls = p.fileUrls.split("|");
+        names = (p.fileNames || "").split("|");
+      } else if (p.fileUrl) {
+        urls = [p.fileUrl];
+        names = [p.fileName || "signed.pdf"];
+      }
+
+      var attachments = [];
+      for (var i = 0; i < urls.length; i++) {
+        var blob = fetchWithRetry(urls[i]);
+        if (blob) {
+          attachments.push(blob.setName(names[i] || "signed-" + (i + 1) + ".pdf"));
+        } else {
+          body += "\n\nלהורדת הקובץ:\n" + urls[i]; // fallback link if fetch failed
+        }
+      }
+      if (attachments.length) options.attachments = attachments;
+
+      // Guard the daily-quota error so we can report it clearly.
+      if (MailApp.getRemainingDailyQuota() < 1) {
+        return _out("error: daily email quota reached - try again tomorrow");
+      }
+      MailApp.sendEmail(to, subject, body, options);
+      return _out("sent to " + to + " (" + attachments.length + " files, quota left " +
+        MailApp.getRemainingDailyQuota() + ")");
     } catch (err) {
-      return _ok('error: ' + err);
+      return _out("error: " + err);
     }
   }
-  return _ok('Ogen email relay is running.');
+
+  return _out("קליק חתימה relay " + VERSION + " - running.");
 }
 
-// Run this from the Apps Script editor (Run ▸ sendTest) to check permissions.
-function sendTest() {
-  GmailApp.sendEmail(FALLBACK_TO, 'בדיקת שליחה — עוגן', 'בדיקה מעורך הסקריפט ✅');
+// Fetch a file, retrying a few times so a file still propagating in storage
+// right after signing gets attached rather than dropped.
+function fetchWithRetry(url) {
+  for (var attempt = 0; attempt < 3; attempt++) {
+    try {
+      var res = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
+      if (res.getResponseCode() === 200) return res.getBlob();
+    } catch (e) {
+      // network hiccup - fall through to retry
+    }
+    Utilities.sleep(1500); // wait for storage to catch up, then retry
+  }
+  return null;
 }
 
-function _ok(msg) {
-  return ContentService.createTextOutput(msg).setMimeType(ContentService.MimeType.TEXT);
+function _out(s) {
+  return ContentService.createTextOutput(s);
 }
