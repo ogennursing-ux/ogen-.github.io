@@ -5,7 +5,7 @@ import {
   loadLeads, createLead, convertLeadToCase, dismissLead,
 } from './registry.js';
 import { getOrAssignCaseNumber, payments } from './caseDetail.js';
-import CaseDetail from './CaseDetail.jsx';
+import RecordPage from './RecordPage.jsx';
 
 function Login({ onIn }) {
   const [user, setUser] = useState('');
@@ -28,13 +28,14 @@ function Login({ onIn }) {
   );
 }
 
-function fmtDate(d) {
+const fmtDate = (d) => {
   if (!d) return '';
+  const x = d instanceof Date ? d : new Date(d);
+  if (Number.isNaN(x.getTime())) return '';
   const p = (n) => String(n).padStart(2, '0');
-  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
-}
+  return `${p(x.getDate())}/${p(x.getMonth() + 1)}/${x.getFullYear()}`;
+};
 
-// Download a UTF-8 CSV (BOM so Hebrew opens correctly in Excel).
 function downloadCsv(filename, header, rows) {
   const esc = (s) => `"${String(s ?? '').replace(/"/g, '""')}"`;
   const body = [header.map(esc).join(','), ...rows.map((r) => r.map(esc).join(','))].join('\r\n');
@@ -46,90 +47,23 @@ function downloadCsv(filename, header, rows) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
-function StatDot({ stage }) {
-  const map = { signed: '✅', missing: '🟡', ready: '🔵', sent: '✍️', partial: '✍️' };
-  return <span className="reg-badge">{map[stage] || '🔵'}</span>;
+const STAGE_PILL = {
+  signed: ['חתום', 'ok'], ready: ['מוכן', 'info'], missing: ['חסר', 'warn'],
+  sent: ['נשלח', 'info'], partial: ['נחתם חלקית', 'info'],
+};
+function Pill({ stage }) {
+  const [label, tone] = STAGE_PILL[stage] || ['—', 'muted'];
+  return <span className={`rg-pill ${tone}`}>{label}</span>;
 }
 
-function FamilyCard({ c, onOpen }) {
-  const f = c.family || {};
-  const paid = payments(c).reduce((s, p) => s + (Number(p.amount) || 0), 0);
-  return (
-    <div className="reg-card reg-clickable" onClick={() => onOpen(c)}>
-      <div className="reg-card-top">
-        <b>{f.fullName || 'ללא שם'}</b>
-        <StatDot stage={c.stage} />
-      </div>
-      <div className="reg-line">{[f.idNumber && `ת״ז ${f.idNumber}`, f.phone].filter(Boolean).join(' · ')}</div>
-      {(f.street || f.city) && <div className="reg-line muted">{[f.street, f.city].filter(Boolean).join(', ')}</div>}
-      {(c.worker?.nameHe || c.worker?.nameEn) && <div className="reg-line muted">👷 {c.worker.nameHe || c.worker.nameEn}</div>}
-      <div className="reg-chips">
-        {c.data?.fields?.caseNumber && <span className="reg-chip">תיק #{c.data.fields.caseNumber}</span>}
-        {c.data?.fields?.assignedTo && <span className="reg-chip">רכז/ת: {c.data.fields.assignedTo}</span>}
-        {paid > 0 && <span className="reg-chip paid">שולם {paid.toLocaleString('he-IL')} ₪</span>}
-      </div>
-    </div>
-  );
-}
-
-function WorkerCard({ c, onOpen }) {
-  const w = c.worker || {};
-  return (
-    <div className="reg-card reg-clickable" onClick={() => onOpen(c)}>
-      <div className="reg-card-top">
-        <b>{w.nameHe || w.nameEn || 'ללא שם'}</b>
-        <StatDot stage={c.stage} />
-      </div>
-      <div className="reg-line">{[w.passportNo && `דרכון ${w.passportNo}`, w.nationality, w.phone].filter(Boolean).join(' · ')}</div>
-      {c.family?.fullName && <div className="reg-line muted">🏠 {c.family.fullName}</div>}
-      <div className="reg-chips">
-        {c.data?.fields?.caseNumber && <span className="reg-chip">תיק #{c.data.fields.caseNumber}</span>}
-        {c.data?.fields?.assignedTo && <span className="reg-chip">רכז/ת: {c.data.fields.assignedTo}</span>}
-      </div>
-    </div>
-  );
-}
-
-function RenewalRow({ row, onSaved, onOpen }) {
-  const [editing, setEditing] = useState(false);
-  const [val, setVal] = useState(row.raw ? row.raw.slice(0, 10) : '');
-  const [busy, setBusy] = useState(false);
-  const cls = row.overdue ? 'overdue' : row.urgent ? 'urgent' : row.due ? 'ok' : 'missing';
-
-  async function save() {
-    if (!val) return;
-    setBusy(true);
-    try { await saveRenewalDate(row.caseObj, row.type.key, val); onSaved(); }
-    catch (e) { alert('שמירה נכשלה: ' + (e?.message || e)); }
-    finally { setBusy(false); setEditing(false); }
-  }
-
-  return (
-    <div className={`reg-renew-row ${cls}`}>
-      <div className="reg-renew-icon">{row.type.icon}</div>
-      <div className="reg-renew-mid reg-clickable" onClick={() => onOpen(row.caseObj)}>
-        <div className="reg-renew-name">{row.name}</div>
-        <div className="reg-renew-type">{row.type.label}</div>
-      </div>
-      <div className="reg-renew-right">
-        {row.due ? (
-          <>
-            <div className="reg-renew-date">{fmtDate(row.due)}</div>
-            <div className="reg-renew-days">
-              {row.daysLeft >= 0 ? `בעוד ${row.daysLeft} ימים` : `עבר לפני ${-row.daysLeft} ימים`}
-            </div>
-          </>
-        ) : editing ? (
-          <div className="reg-renew-edit">
-            <input type="date" value={val} onChange={(e) => setVal(e.target.value)} />
-            <button disabled={busy || !val} onClick={save}>{busy ? '…' : 'שמור'}</button>
-          </div>
-        ) : (
-          <button className="reg-renew-add" onClick={() => setEditing(true)}>+ הזן תאריך</button>
-        )}
-      </div>
-    </div>
-  );
+// Days-until badge for a renewal date shown inside the directory table.
+function DateCell({ value }) {
+  if (!value) return <span className="rg-muted">—</span>;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return <span className="rg-muted">—</span>;
+  const days = Math.round((d - new Date().setHours(0, 0, 0, 0)) / 86400000);
+  const tone = days < 0 ? 'bad' : days < 60 ? 'warn' : 'ok';
+  return <span className={`rg-date ${tone}`}>{fmtDate(d)}</span>;
 }
 
 function LeadsTab({ leads, onChanged }) {
@@ -142,41 +76,37 @@ function LeadsTab({ leads, onChanged }) {
     catch (e) { alert('שמירה נכשלה: ' + (e?.message || e)); }
     finally { setBusy(false); }
   };
-  const convert = async (l) => {
-    if (!confirm('להפוך את הפנייה לתיק פעיל?')) return;
-    try { await convertLeadToCase(l); onChanged(); } catch (e) { alert(e?.message || e); }
-  };
-  const drop = async (l) => {
-    if (!confirm('להסיר את הפנייה?')) return;
-    try { await dismissLead(l); onChanged(); } catch (e) { alert(e?.message || e); }
-  };
   return (
     <>
-      <div className="cd-doc-form" style={{ marginBottom: 14 }}>
+      <div className="rp-inline-form" style={{ marginBottom: 16 }}>
         <input placeholder="שם" value={form.name || ''} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         <input placeholder="טלפון" dir="ltr" value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-        <input placeholder="מקור (המלצה/גוגל…)" value={form.referrer || ''} onChange={(e) => setForm({ ...form, referrer: e.target.value })} />
+        <input placeholder="מקור" value={form.referrer || ''} onChange={(e) => setForm({ ...form, referrer: e.target.value })} />
         <input placeholder="הערה" value={form.note || ''} onChange={(e) => setForm({ ...form, note: e.target.value })} />
-        <button className="cd-save-btn" disabled={busy || (!form.name && !form.phone)} onClick={add}>+ הוסף פנייה</button>
+        <button className="rp-btn" disabled={busy || (!form.name && !form.phone)} onClick={add}>+ הוסף פנייה</button>
       </div>
       {leads.length ? (
-        <div className="board-list">
-          {leads.map((l) => {
-            const f = l.data?.fields || {};
-            return (
-              <div key={l.id} className="reg-card">
-                <div className="reg-card-top"><b>{f.name || 'ללא שם'}</b><span className="reg-badge">📞</span></div>
-                <div className="reg-line">{[f.phone, f.referrer].filter(Boolean).join(' · ')}</div>
-                {f.note && <div className="reg-line muted">{f.note}</div>}
-                <div className="cd-toolbar" style={{ marginTop: 8 }}>
-                  <button className="cd-mini-btn" onClick={() => convert(l)}>➡️ הפוך לתיק</button>
-                  <button className="cd-mini-btn" onClick={() => drop(l)}>✕ הסר</button>
-                </div>
-              </div>
-            );
-          })}
+        <div className="rg-tablewrap">
+          <table className="rg-table">
+            <thead><tr><th>שם</th><th>טלפון</th><th>מקור</th><th>הערה</th><th></th></tr></thead>
+            <tbody>{leads.map((l) => {
+              const f = l.data?.fields || {};
+              return (
+                <tr key={l.id}>
+                  <td><b>{f.name || '—'}</b></td>
+                  <td dir="ltr">{f.phone || '—'}</td>
+                  <td>{f.referrer || '—'}</td>
+                  <td className="rg-muted">{f.note || '—'}</td>
+                  <td className="rg-row-actions">
+                    <button className="rp-btn ghost sm" onClick={async () => { if (confirm('להפוך לתיק פעיל?')) { await convertLeadToCase(l); onChanged(); } }}>➡️ לתיק</button>
+                    <button className="rp-btn ghost sm" onClick={async () => { if (confirm('להסיר?')) { await dismissLead(l); onChanged(); } }}>✕</button>
+                  </td>
+                </tr>
+              );
+            })}</tbody>
+          </table>
         </div>
-      ) : <p className="board-empty">אין פניות פתוחות.</p>}
+      ) : <p className="rg-empty">אין פניות פתוחות.</p>}
     </>
   );
 }
@@ -190,21 +120,19 @@ export default function RegistryApp() {
   const [q, setQ] = useState('');
   const [renewFilter, setRenewFilter] = useState('all');
   const [rakazFilter, setRakazFilter] = useState('');
-  const [detail, setDetail] = useState(null);
+  const [route, setRoute] = useState(() => location.hash.replace(/^#\/?/, ''));
+
+  useEffect(() => {
+    const onHash = () => setRoute(location.hash.replace(/^#\/?/, ''));
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
   const reload = () => Promise.all([
     loadRegistry().then((r) => { setCases(r); setErr(''); }).catch((e) => { setCases([]); setErr(e?.message || String(e)); }),
     loadLeads().then(setLeads).catch(() => setLeads([])),
   ]);
   useEffect(() => { if (authed) reload(); }, [authed]);
-
-  // Keep the open detail view in sync with freshly-loaded data.
-  useEffect(() => {
-    if (detail && cases) {
-      const next = cases.find((c) => c.id === detail.id);
-      if (next && next !== detail) setDetail(next);
-    }
-  }, [cases]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const rakazim = useMemo(() => {
     const s = new Set();
@@ -227,117 +155,196 @@ export default function RegistryApp() {
     if (renewFilter === 'missing') return renewals.filter((r) => !r.due);
     return renewals;
   }, [renewals, renewFilter]);
-
-  // Revenue across every case (what was actually recorded as paid).
   const revenue = useMemo(
     () => (cases || []).reduce((s, c) => s + payments(c).reduce((t, p) => t + (Number(p.amount) || 0), 0), 0),
     [cases],
   );
 
-  async function openCase(c) {
-    setDetail(c);
-    try { await getOrAssignCaseNumber(c, cases || []); } catch { /* numbering is best-effort */ }
+  // ---- record page routing (#registry/f/<id> | #registry/w/<id>) ----
+  const m = /^registry\/(f|w)\/(.+)$/.exec(route);
+  const openRecord = m && cases ? cases.find((c) => c.id === m[2]) : null;
+  const openKind = m && m[1] === 'w' ? 'worker' : 'family';
+
+  async function goRecord(c, kind) {
+    try { await getOrAssignCaseNumber(c, cases || []); } catch { /* best effort */ }
+    location.hash = `registry/${kind === 'worker' ? 'w' : 'f'}/${c.id}`;
+    window.scrollTo(0, 0);
   }
+  const goList = () => { location.hash = 'registry'; window.scrollTo(0, 0); };
 
   function exportCsv() {
     if (tab === 'workers') {
       downloadCsv('ogen-workers.csv',
-        ['מס׳ תיק', 'שם עובד/ת', 'דרכון', 'אזרחות', 'טלפון', 'משפחה', 'רכז/ת'],
-        workers.map((c) => [c.data?.fields?.caseNumber || '', c.worker?.nameHe || c.worker?.nameEn || '',
+        ['מס׳ תיק', 'שם עובד/ת', 'דרכון', 'אזרחות', 'טלפון', 'תוקף אשרה', 'תוקף דרכון', 'משפחה', 'רכז/ת'],
+        workers.map((c) => { const f = c.data?.fields || {}; return [f.caseNumber || '', c.worker?.nameHe || c.worker?.nameEn || '',
           c.worker?.passportNo || '', c.worker?.nationality || '', c.worker?.phone || '',
-          c.family?.fullName || '', c.data?.fields?.assignedTo || '']));
+          fmtDate(f.visaExpiry), fmtDate(f.passportExpiry), c.family?.fullName || '', f.assignedTo || '']; }));
     } else if (tab === 'renewals') {
-      downloadCsv('ogen-renewals.csv',
-        ['שם', 'סוג', 'תאריך', 'ימים שנותרו', 'סטטוס'],
-        shownRenewals.map((r) => [r.name, r.type.label, r.due ? fmtDate(r.due) : '',
-          r.daysLeft ?? '', r.overdue ? 'עבר תוקף' : r.urgent ? 'דחוף' : r.due ? 'תקין' : 'חסר תאריך']));
+      downloadCsv('ogen-renewals.csv', ['שם', 'סוג', 'תאריך', 'ימים שנותרו', 'סטטוס'],
+        shownRenewals.map((r) => [r.name, r.type.label, r.due ? fmtDate(r.due) : '', r.daysLeft ?? '',
+          r.overdue ? 'עבר תוקף' : r.urgent ? 'דחוף' : r.due ? 'תקין' : 'חסר תאריך']));
     } else {
       downloadCsv('ogen-families.csv',
-        ['מס׳ תיק', 'שם משפחה/מטופל', 'ת״ז', 'טלפון', 'כתובת', 'עובד/ת', 'רכז/ת', 'סה״כ שולם'],
-        families.map((c) => [c.data?.fields?.caseNumber || '', c.family?.fullName || '', c.family?.idNumber || '',
-          c.family?.phone || '', [c.family?.street, c.family?.city].filter(Boolean).join(', '),
-          c.worker?.nameHe || c.worker?.nameEn || '', c.data?.fields?.assignedTo || '',
-          payments(c).reduce((s, p) => s + (Number(p.amount) || 0), 0)]));
+        ['מס׳ תיק', 'שם', 'ת״ז', 'טלפון', 'ישוב', 'עובד/ת', 'רכז/ת', 'סה״כ שולם'],
+        families.map((c) => { const f = c.data?.fields || {}; return [f.caseNumber || '', c.family?.fullName || '',
+          c.family?.idNumber || '', c.family?.phone || '', c.family?.city || '',
+          c.worker?.nameHe || c.worker?.nameEn || '', f.assignedTo || '',
+          payments(c).reduce((s, p) => s + (Number(p.amount) || 0), 0)]; }));
     }
   }
 
   if (!authed) return <Login onIn={() => setAuthed(true)} />;
 
-  return (
-    <div className="board-wrap">
-      <div className="board-head">
-        <div>
-          <h1>🗂️ מערכת הרישום — עוגן סיעוד</h1>
-          <p>{err ? '🔴 לא מחובר למסד הנתונים' : cases === null ? 'מתחבר…' : `🟢 מחובר · ${cases.length} מקרים`}</p>
-        </div>
-        <button className="board-refresh" onClick={reload} title="רענן">↻</button>
+  if (openRecord) {
+    return (
+      <div className="rg-shell">
+        <RecordPage caseObj={openRecord} kind={openKind} onBack={goList} onChanged={reload} />
       </div>
+    );
+  }
+
+  return (
+    <div className="rg-shell">
+      <header className="rg-header">
+        <div className="rg-brand">
+          <span className="rg-logo">⚓</span>
+          <div>
+            <h1>מערכת הרישום</h1>
+            <p>{err ? '🔴 לא מחובר' : cases === null ? 'מתחבר…' : `🟢 מחובר · ${cases.length} תיקים`}</p>
+          </div>
+        </div>
+        <div className="rg-header-actions">
+          <button className="rp-btn ghost" onClick={reload}>↻ רענן</button>
+          <button className="rp-btn ghost" onClick={() => { location.hash = 'board'; location.reload(); }}>מערכת החוזים ←</button>
+        </div>
+      </header>
 
       {cases && (
-        <div className="reg-kpis">
-          <div className="reg-kpi"><span>{families.length}</span><small>משפחות</small></div>
-          <div className="reg-kpi"><span>{workers.length}</span><small>עובדים</small></div>
-          <div className={`reg-kpi${renewCounts.overdue + renewCounts.urgent ? ' alert' : ''}`}>
-            <span>{renewCounts.overdue + renewCounts.urgent}</span><small>חידושים דחופים</small>
-          </div>
-          <div className="reg-kpi"><span>{revenue.toLocaleString('he-IL')} ₪</span><small>סה״כ נגבה</small></div>
+        <div className="rg-kpis">
+          <div className="rg-kpi"><b>{families.length}</b><span>משפחות</span></div>
+          <div className="rg-kpi"><b>{workers.length}</b><span>עובדים</span></div>
+          <div className={`rg-kpi${renewCounts.overdue + renewCounts.urgent ? ' alert' : ''}`}><b>{renewCounts.overdue + renewCounts.urgent}</b><span>חידושים דחופים</span></div>
+          <div className="rg-kpi"><b>{leads.length}</b><span>פניות פתוחות</span></div>
+          <div className="rg-kpi"><b>{revenue.toLocaleString('he-IL')} ₪</b><span>סה״כ נגבה</span></div>
         </div>
       )}
 
-      <div className="board-tabs">
-        <button className={`board-tab${tab === 'families' ? ' on' : ''}`} onClick={() => setTab('families')}>👨‍👩‍👧 משפחות ({families.length})</button>
-        <button className={`board-tab${tab === 'workers' ? ' on' : ''}`} onClick={() => setTab('workers')}>👷 עובדים ({workers.length})</button>
-        <button className={`board-tab${tab === 'renewals' ? ' on' : ''}`} onClick={() => setTab('renewals')}>
-          🔔 דוח חידושים {renewCounts.overdue + renewCounts.urgent > 0 && <span className="reg-alert-dot">{renewCounts.overdue + renewCounts.urgent}</span>}
+      <nav className="rg-tabs">
+        <button className={`rg-tab${tab === 'families' ? ' on' : ''}`} onClick={() => setTab('families')}>👨‍👩‍👧 משפחות <em>{families.length}</em></button>
+        <button className={`rg-tab${tab === 'workers' ? ' on' : ''}`} onClick={() => setTab('workers')}>👷 עובדים <em>{workers.length}</em></button>
+        <button className={`rg-tab${tab === 'renewals' ? ' on' : ''}`} onClick={() => setTab('renewals')}>
+          🔔 דוח חידושים {renewCounts.overdue + renewCounts.urgent > 0 && <em className="alert">{renewCounts.overdue + renewCounts.urgent}</em>}
         </button>
-        <button className={`board-tab${tab === 'leads' ? ' on' : ''}`} onClick={() => setTab('leads')}>📞 פניות ({leads.length})</button>
-      </div>
+        <button className={`rg-tab${tab === 'leads' ? ' on' : ''}`} onClick={() => setTab('leads')}>📞 פניות <em>{leads.length}</em></button>
+      </nav>
 
-      <div className="board-search">
+      <div className="rg-toolbar">
         {tab !== 'renewals' && tab !== 'leads' && (
-          <input className="text-input" placeholder="🔍 חיפוש לפי שם / ת״ז / דרכון / טלפון…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="rg-search" placeholder="🔍 חיפוש לפי שם / ת״ז / דרכון / טלפון…" value={q} onChange={(e) => setQ(e.target.value)} />
         )}
         {rakazim.length > 0 && tab !== 'leads' && (
-          <select className="reg-select" value={rakazFilter} onChange={(e) => setRakazFilter(e.target.value)}>
+          <select className="rg-select" value={rakazFilter} onChange={(e) => setRakazFilter(e.target.value)}>
             <option value="">כל הרכזים</option>
             {rakazim.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         )}
-        {tab !== 'leads' && <button className="board-toapp" onClick={exportCsv}>⬇️ ייצוא Excel</button>}
-        <button className="board-toapp" onClick={() => { location.hash = 'board'; location.reload(); }}>מערכת החוזים ←</button>
+        {tab !== 'leads' && <button className="rp-btn ghost" onClick={exportCsv}>⬇️ ייצוא Excel</button>}
       </div>
 
-      {err && <p className="board-err">{err}</p>}
-      {cases === null && !err && <p className="board-empty">טוען…</p>}
+      {err && <p className="rg-err">{err}</p>}
+      {cases === null && !err && <p className="rg-empty">טוען…</p>}
 
       {cases && tab === 'families' && (
-        families.length ? <div className="board-list">{families.map((c) => <FamilyCard key={c.id} c={c} onOpen={openCase} />)}</div>
-          : <p className="board-empty">לא נמצאו משפחות.</p>
+        families.length ? (
+          <div className="rg-tablewrap">
+            <table className="rg-table">
+              <thead><tr><th>#</th><th>שם המטופל / מעסיק</th><th>ת״ז</th><th>טלפון</th><th>ישוב</th><th>עובד/ת</th><th>רכז/ת</th><th>תוקף היתר</th><th>סטטוס</th></tr></thead>
+              <tbody>{families.map((c) => { const f = c.data?.fields || {}; return (
+                <tr key={c.id} onClick={() => goRecord(c, 'family')}>
+                  <td className="rg-num">{f.caseNumber || '—'}</td>
+                  <td><b>{c.family?.fullName || 'ללא שם'}</b></td>
+                  <td dir="ltr">{c.family?.idNumber || '—'}</td>
+                  <td dir="ltr">{c.family?.phone || '—'}</td>
+                  <td>{c.family?.city || '—'}</td>
+                  <td className="rg-muted">{c.worker?.nameHe || c.worker?.nameEn || '—'}</td>
+                  <td>{f.assignedTo || '—'}</td>
+                  <td><DateCell value={f.permitExpiry} /></td>
+                  <td><Pill stage={c.stage} /></td>
+                </tr>
+              ); })}</tbody>
+            </table>
+          </div>
+        ) : <p className="rg-empty">לא נמצאו משפחות.</p>
       )}
+
       {cases && tab === 'workers' && (
-        workers.length ? <div className="board-list">{workers.map((c) => <WorkerCard key={c.id} c={c} onOpen={openCase} />)}</div>
-          : <p className="board-empty">לא נמצאו עובדים.</p>
+        workers.length ? (
+          <div className="rg-tablewrap">
+            <table className="rg-table">
+              <thead><tr><th>#</th><th>שם העובד/ת</th><th>דרכון</th><th>אזרחות</th><th>טלפון</th><th>תוקף אשרה</th><th>תוקף דרכון</th><th>משפחה</th><th>סטטוס</th></tr></thead>
+              <tbody>{workers.map((c) => { const f = c.data?.fields || {}; return (
+                <tr key={c.id} onClick={() => goRecord(c, 'worker')}>
+                  <td className="rg-num">{f.caseNumber || '—'}</td>
+                  <td><b>{c.worker?.nameHe || c.worker?.nameEn || 'ללא שם'}</b></td>
+                  <td dir="ltr">{c.worker?.passportNo || '—'}</td>
+                  <td>{c.worker?.nationality || '—'}</td>
+                  <td dir="ltr">{c.worker?.phone || '—'}</td>
+                  <td><DateCell value={f.visaExpiry} /></td>
+                  <td><DateCell value={f.passportExpiry} /></td>
+                  <td className="rg-muted">{c.family?.fullName || '—'}</td>
+                  <td><Pill stage={c.stage} /></td>
+                </tr>
+              ); })}</tbody>
+            </table>
+          </div>
+        ) : <p className="rg-empty">לא נמצאו עובדים.</p>
       )}
+
       {cases && tab === 'renewals' && (
         <>
-          <div className="reg-renew-filters">
-            <button className={`reg-rf${renewFilter === 'all' ? ' on' : ''}`} onClick={() => setRenewFilter('all')}>הכל ({renewals.length})</button>
-            <button className={`reg-rf overdue${renewFilter === 'overdue' ? ' on' : ''}`} onClick={() => setRenewFilter('overdue')}>🔴 עבר תוקף ({renewCounts.overdue})</button>
-            <button className={`reg-rf urgent${renewFilter === 'urgent' ? ' on' : ''}`} onClick={() => setRenewFilter('urgent')}>🟠 דחוף ({renewCounts.urgent})</button>
-            <button className={`reg-rf missing${renewFilter === 'missing' ? ' on' : ''}`} onClick={() => setRenewFilter('missing')}>⚪ חסר תאריך ({renewCounts.missing})</button>
+          <div className="rg-filters">
+            <button className={`rg-chip${renewFilter === 'all' ? ' on' : ''}`} onClick={() => setRenewFilter('all')}>הכל ({renewals.length})</button>
+            <button className={`rg-chip bad${renewFilter === 'overdue' ? ' on' : ''}`} onClick={() => setRenewFilter('overdue')}>עבר תוקף ({renewCounts.overdue})</button>
+            <button className={`rg-chip warn${renewFilter === 'urgent' ? ' on' : ''}`} onClick={() => setRenewFilter('urgent')}>דחוף ({renewCounts.urgent})</button>
+            <button className={`rg-chip${renewFilter === 'missing' ? ' on' : ''}`} onClick={() => setRenewFilter('missing')}>חסר תאריך ({renewCounts.missing})</button>
           </div>
           {shownRenewals.length ? (
-            <div className="reg-renew-list">
-              {shownRenewals.map((r) => <RenewalRow key={r.id} row={r} onSaved={reload} onOpen={openCase} />)}
+            <div className="rg-tablewrap">
+              <table className="rg-table">
+                <thead><tr><th>שם</th><th>סוג החידוש</th><th>תאריך</th><th>מצב</th><th></th></tr></thead>
+                <tbody>{shownRenewals.map((r) => (
+                  <tr key={r.id} className={r.overdue ? 'rg-row-bad' : r.urgent ? 'rg-row-warn' : ''}>
+                    <td onClick={() => goRecord(r.caseObj, 'family')} className="rg-link"><b>{r.name}</b></td>
+                    <td>{r.type.icon} {r.type.label}</td>
+                    <td>{r.due ? fmtDate(r.due) : <RenewalDateInput row={r} onSaved={reload} />}</td>
+                    <td>{r.due ? (r.daysLeft >= 0 ? `בעוד ${r.daysLeft} ימים` : `עבר לפני ${-r.daysLeft} ימים`) : <span className="rg-muted">—</span>}</td>
+                    <td>{r.overdue ? <span className="rg-pill bad">עבר תוקף</span> : r.urgent ? <span className="rg-pill warn">דחוף</span> : r.due ? <span className="rg-pill ok">תקין</span> : ''}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
             </div>
-          ) : <p className="board-empty">אין פריטים בקטגוריה הזו.</p>}
+          ) : <p className="rg-empty">אין פריטים בקטגוריה הזו.</p>}
         </>
       )}
+
       {tab === 'leads' && <LeadsTab leads={leads} onChanged={reload} />}
 
-      {detail && <CaseDetail caseObj={detail} onClose={() => setDetail(null)} onChanged={reload} />}
-
-      <div className="board-legal"><a href="privacy.html" target="_blank" rel="noreferrer">🔒 מדיניות פרטיות ותנאי שימוש</a></div>
+      <footer className="rg-foot"><a href="privacy.html" target="_blank" rel="noreferrer">🔒 מדיניות פרטיות ותנאי שימוש</a></footer>
     </div>
+  );
+}
+
+function RenewalDateInput({ row, onSaved }) {
+  const [val, setVal] = useState('');
+  const [busy, setBusy] = useState(false);
+  return (
+    <span className="rg-inline-date">
+      <input type="date" value={val} onChange={(e) => setVal(e.target.value)} />
+      <button className="rp-btn sm" disabled={!val || busy} onClick={async () => {
+        setBusy(true);
+        try { await saveRenewalDate(row.caseObj, row.type.key, val); onSaved(); }
+        catch (e) { alert(e?.message || e); } finally { setBusy(false); }
+      }}>שמור</button>
+    </span>
   );
 }
