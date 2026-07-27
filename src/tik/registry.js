@@ -117,3 +117,40 @@ export async function saveRenewalDate(caseObj, key, value) {
     await sb().from('agent_submissions').update({ data: newData }).eq('id', id);
   }
 }
+
+// ---- Leads (inquiries that haven't become an active case yet) ----------------
+// Kept separate from agent_submissions "family" cases (kind:'lead'), so the
+// leads report doesn't clutter the cases board / registry search.
+export async function loadLeads() {
+  const { data, error } = await sb()
+    .from('agent_submissions').select('*').eq('kind', 'lead')
+    .order('created_at', { ascending: false }).limit(300);
+  if (error) throw new Error('טעינת הפניות נכשלה: ' + error.message);
+  return data || [];
+}
+
+export async function createLead({ name, phone, referrer, note }) {
+  const id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`;
+  const { error } = await sb().from('agent_submissions').insert({
+    id, kind: 'lead', source: 'office', status: 'new',
+    data: { fields: { name, phone, referrer, note }, createdAt: new Date().toISOString() },
+  });
+  if (error) throw new Error(error.message);
+  return id;
+}
+
+// Convert a lead into a real case (kind:'family') so it flows into the normal
+// registry/cases-board pipeline, seeding whatever fields the lead already had.
+export async function convertLeadToCase(lead) {
+  const f = lead.data?.fields || {};
+  const { error } = await sb().from('agent_submissions').update({
+    kind: 'family',
+    data: { ...lead.data, fields: { ...f, employerName: f.employerName || f.name, contactPhone: f.contactPhone || f.phone } },
+  }).eq('id', lead.id);
+  if (error) throw new Error(error.message);
+}
+
+export async function dismissLead(lead) {
+  const { error } = await sb().from('agent_submissions').update({ status: 'dismissed' }).eq('id', lead.id);
+  if (error) throw new Error(error.message);
+}
