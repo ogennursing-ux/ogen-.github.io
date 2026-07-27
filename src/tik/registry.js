@@ -56,7 +56,7 @@ export function searchWorkers(cases, q) {
 export const RENEWAL_TYPES = [
   { key: 'permitExpiry', label: 'תוקף היתר העסקה', icon: '📋', months: 3 },
   { key: 'visaExpiry', label: 'תוקף ויזה / אשרה', icon: '🛂', months: 2 },
-  { key: 'passportExpiry', label: 'תוקף דרכון', icon: '📕', months: 2 },
+  { key: 'passportExpiry', label: 'תוקף דרכון', icon: '📕', years: 2 },
   { key: 'insuranceExpiry', label: 'תוקף ביטוח רפואי', icon: '🏥', days: 10, manual: true },
   { key: 'companyFeeRenewalDate', label: 'חידוש דמי תאגיד', icon: '💳', days: 10, manual: true },
 ];
@@ -67,6 +67,7 @@ function parseDate(v) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 function addMonths(d, n) { const c = new Date(d); c.setMonth(c.getMonth() - n); return c; }
+function addYears(d, n) { const c = new Date(d); c.setFullYear(c.getFullYear() - n); return c; }
 function addDays(d, n) { const c = new Date(d); c.setDate(c.getDate() - n); return c; }
 const DAY = 24 * 60 * 60 * 1000;
 const todayStart = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
@@ -83,7 +84,10 @@ export function computeRenewals(cases) {
       const raw = f[type.key];
       const due = parseDate(raw);
       if (!due && !type.manual) continue; // nothing collected yet, and not editable here
-      const alertFrom = due ? (type.months ? addMonths(due, type.months) : addDays(due, type.days)) : null;
+      const alertFrom = !due ? null
+        : type.years ? addYears(due, type.years)
+        : type.months ? addMonths(due, type.months)
+        : addDays(due, type.days);
       const daysLeft = due ? Math.round((due - today) / DAY) : null;
       rows.push({
         id: `${c.id}-${type.key}`, caseObj: c, type, name, due, raw: raw || '',
