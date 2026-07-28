@@ -11,6 +11,7 @@ import { REPORT_GROUPS } from './reports.js';
 import { openRecordTab } from './recordLink.js';
 import { seedDemoData, clearDemoData } from './demoData.js';
 import { buildVisitReport } from './socialWorker.js';
+import { buildAgenda, BUCKETS } from './agenda.js';
 
 function Login({ onIn }) {
   const [user, setUser] = useState('');
@@ -121,17 +122,78 @@ function LeadsTab({ leads, onChanged }) {
   );
 }
 
+// The home screen: today's date, who is connected, and the to-do list grouped
+// into overdue / today / this-week / this-month. Every item opens its file.
+function HomeAgenda({ agenda, me, rakazim, onMe, onOpen }) {
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const dueLabel = (item) => {
+    if (item.days < 0) return `לפני ${Math.abs(item.days)} ימים`;
+    if (item.days === 0) return 'היום';
+    if (item.days === 1) return 'מחר';
+    return `בעוד ${item.days} ימים`;
+  };
+  return (
+    <div className="home">
+      <div className="home-head">
+        <div>
+          <h2>שלום 👋</h2>
+          <p className="home-date">{dateStr}</p>
+        </div>
+        <label className="home-me">
+          מחובר/ת כ־
+          <select value={me} onChange={(e) => onMe(e.target.value)}>
+            <option value="">כל המשרד</option>
+            {rakazim.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </label>
+      </div>
+
+      {agenda.total === 0 ? (
+        <div className="home-empty">
+          <span>✅</span>
+          <p>אין משימות פתוחות לתקופה הקרובה{me ? ` עבור ${me}` : ''}. יום טוב!</p>
+        </div>
+      ) : (
+        <div className="home-groups">
+          {agenda.groups.map((g) => (
+            <section key={g.key} className={`home-group ${g.tone}`}>
+              <h3>{g.label} <em>{g.items.length}</em></h3>
+              <ul>
+                {g.items.map((item) => (
+                  <li key={item.id}>
+                    <button className="home-task" onClick={() => onOpen(item)} disabled={!item.caseObj && !item.lead}>
+                      <span className="home-task-icon">{item.icon}</span>
+                      <span className="home-task-main">
+                        <b>{item.label}</b>
+                        <i>{item.who}</i>
+                      </span>
+                      <span className="home-task-when">{dueLabel(item)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function RegistryApp() {
   const [authed, setAuthed] = useState(isAuthed());
   const [cases, setCases] = useState(null);
   const [leads, setLeads] = useState([]);
   const [err, setErr] = useState('');
-  const [tab, setTab] = useState('families');
+  const [tab, setTab] = useState('home');
+  const [me, setMe] = useState(() => { try { return localStorage.getItem('ogen_me') || ''; } catch { return ''; } });
   const [q, setQ] = useState('');
   const [renewFilter, setRenewFilter] = useState('all');
   const [rakazFilter, setRakazFilter] = useState('');
   const [branchFilter, setBranchFilter] = useState('');
   const [route, setRoute] = useState(() => location.hash.replace(/^#\/?/, ''));
+  const setConnected = (v) => { setMe(v); try { localStorage.setItem('ogen_me', v); } catch { /* ignore */ } };
 
   useEffect(() => {
     const onHash = () => setRoute(location.hash.replace(/^#\/?/, ''));
@@ -183,6 +245,29 @@ export default function RegistryApp() {
     () => (cases ? buildVisitReport(activePlacements(cases)).filter((v) => v.overdue).length : 0),
     [cases],
   );
+
+  // The last file of each kind you opened — that is what "משפחות" / "עובדים"
+  // reopens. If you have not opened one yet, fall back to the newest registered.
+  const lastOpened = (kind, list) => {
+    let id = '';
+    try { id = localStorage.getItem(`ogen_last_${kind}`) || ''; } catch { /* ignore */ }
+    const found = id && list.find((c) => c.id === id || (c.ids || []).includes(id));
+    if (found) return found;
+    return [...list].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0] || null;
+  };
+  const allFamilies = useMemo(() => (cases ? cases.filter((c) => c.family?.fullName) : []), [cases]);
+  const allWorkers = useMemo(() => (cases ? cases.filter((c) => c.worker?.nameHe || c.worker?.nameEn) : []), [cases]);
+  const latestFamily = useMemo(() => lastOpened('family', allFamilies), [allFamilies, route]);
+  const latestWorker = useMemo(() => lastOpened('worker', allWorkers), [allWorkers, route]);
+
+  // The home screen's to-do list, for the connected coordinator (or everyone
+  // until one is chosen).
+  const agenda = useMemo(() => {
+    if (!cases) return { groups: [], total: 0 };
+    const mine = me ? cases.filter((c) => c.data?.fields?.assignedTo === me) : cases;
+    const myLeads = me ? leads.filter((l) => (l.data?.fields?.assignedTo || '') === me || !l.data?.fields?.assignedTo) : leads;
+    return buildAgenda(mine, myLeads);
+  }, [cases, leads, me]);
 
   // ---- record page routing (#registry/f/<id> | #registry/w/<id>) ----
   const m = /^registry\/(f|w)\/(.+)$/.exec(route);
@@ -278,8 +363,11 @@ export default function RegistryApp() {
       )}
 
       <nav className="rg-tabs">
-        <button className={`rg-tab${tab === 'families' ? ' on' : ''}`} onClick={() => setTab('families')}>👨‍👩‍👧 משפחות <em>{families.length}</em></button>
-        <button className={`rg-tab${tab === 'workers' ? ' on' : ''}`} onClick={() => setTab('workers')}>👷 עובדים <em>{workers.length}</em></button>
+        <button className={`rg-tab${tab === 'home' ? ' on' : ''}`} onClick={() => setTab('home')}>
+          🏠 בית {agenda.total > 0 && <em className={agenda.groups[0]?.key === 'overdue' ? 'alert' : ''}>{agenda.total}</em>}
+        </button>
+        <button className={`rg-tab${tab === 'families' ? ' on' : ''}`} onClick={() => setTab('families')}>👨‍👩‍👧 משפחות</button>
+        <button className={`rg-tab${tab === 'workers' ? ' on' : ''}`} onClick={() => setTab('workers')}>👷 עובדים</button>
         <button className={`rg-tab${tab === 'placements' ? ' on' : ''}`} onClick={() => setTab('placements')}>🤝 השמות פעילות <em>{placements.length}</em></button>
         <button className={`rg-tab${tab === 'renewals' ? ' on' : ''}`} onClick={() => setTab('renewals')}>
           🔔 דוח חידושים {renewCounts.overdue + renewCounts.urgent > 0 && <em className="alert">{renewCounts.overdue + renewCounts.urgent}</em>}
@@ -290,9 +378,10 @@ export default function RegistryApp() {
         <button className={`rg-tab${tab === 'leads' ? ' on' : ''}`} onClick={() => setTab('leads')}>📞 פניות <em>{leads.length}</em></button>
       </nav>
 
+      {tab !== 'home' && (
       <div className="rg-toolbar">
-        {tab !== 'renewals' && tab !== 'leads' && (
-          <input className="rg-search" placeholder="🔍 חיפוש לפי שם / ת״ז / דרכון / טלפון…" value={q} onChange={(e) => setQ(e.target.value)} />
+        {(tab === 'families' || tab === 'workers') && (
+          <input className="rg-search" placeholder="🔍 חיפוש לפתיחת תיק אחר — שם / ת״ז / דרכון / טלפון…" value={q} onChange={(e) => setQ(e.target.value)} />
         )}
         {rakazim.length > 0 && tab !== 'leads' && (
           <select className="rg-select" value={rakazFilter} onChange={(e) => setRakazFilter(e.target.value)}>
@@ -311,12 +400,22 @@ export default function RegistryApp() {
         {tab !== 'leads' && <button className="rp-btn ghost" onClick={exportCsv}>⬇️ ייצוא Excel</button>}
         <DemoDataButton cases={cases} onChanged={reload} />
       </div>
+      )}
 
       {err && <p className="rg-err">{err}</p>}
       {cases === null && !err && <p className="rg-empty">טוען…</p>}
 
+      {cases && tab === 'home' && (
+        <HomeAgenda agenda={agenda} me={me} rakazim={rakazim} onMe={setConnected}
+          onOpen={(item) => {
+            if (item.lead) { setTab('leads'); return; }
+            if (item.caseObj) openRecordTab(item.recordKind, item.caseObj.id);
+          }} />
+      )}
+
       {cases && tab === 'families' && (
-        families.length ? (
+        q ? (
+          families.length ? (
           <div className="rg-tablewrap">
             <table className="rg-table">
               <thead><tr><th>#</th><th>שם המטופל / מעסיק</th><th>ת״ז</th><th>טלפון</th><th>ישוב</th><th>עובד/ת</th><th>רכז/ת</th><th>תוקף היתר</th><th>סטטוס</th></tr></thead>
@@ -335,11 +434,15 @@ export default function RegistryApp() {
               ); })}</tbody>
             </table>
           </div>
-        ) : <p className="rg-empty">לא נמצאו משפחות.</p>
+          ) : <p className="rg-empty">לא נמצאו משפחות התואמות לחיפוש.</p>
+        ) : latestFamily ? (
+          <RecordPage caseObj={latestFamily} kind="family" onChanged={reload} />
+        ) : <p className="rg-empty">אין עדיין משפחות. הוסיפו לקוח חדש, או צרו נתוני הדגמה.</p>
       )}
 
       {cases && tab === 'workers' && (
-        workers.length ? (
+        q ? (
+          workers.length ? (
           <div className="rg-tablewrap">
             <table className="rg-table">
               <thead><tr><th>#</th><th>שם העובד/ת</th><th>דרכון</th><th>אזרחות</th><th>טלפון</th><th>תוקף אשרה</th><th>תוקף דרכון</th><th>משפחה</th><th>סטטוס</th></tr></thead>
@@ -358,7 +461,10 @@ export default function RegistryApp() {
               ); })}</tbody>
             </table>
           </div>
-        ) : <p className="rg-empty">לא נמצאו עובדים.</p>
+          ) : <p className="rg-empty">לא נמצאו עובדים התואמים לחיפוש.</p>
+        ) : latestWorker ? (
+          <RecordPage caseObj={latestWorker} kind="worker" onChanged={reload} />
+        ) : <p className="rg-empty">אין עדיין עובדים. הוסיפו עובד/ת חדש/ה, או צרו נתוני הדגמה.</p>
       )}
 
       {cases && tab === 'renewals' && (

@@ -487,6 +487,12 @@ export default function RecordPage({ caseObj, kind, siblings = [], onNavigate, o
 
   useEffect(() => { topRef.current?.scrollIntoView({ block: 'start' }); }, [caseObj?.id]);
 
+  // Remember this as the last file opened of its kind, so entering the registry
+  // and clicking "משפחות" / "עובדים" reopens exactly where you left off.
+  useEffect(() => {
+    try { if (caseObj?.id) localStorage.setItem(`ogen_last_${kind}`, caseObj.id); } catch { /* ignore */ }
+  }, [caseObj?.id, kind]);
+
   // A file gets its number the first time it is opened. The list used to do
   // this, but files now open in their own tab, so the number is assigned here.
   useEffect(() => {
@@ -547,7 +553,7 @@ export default function RecordPage({ caseObj, kind, siblings = [], onNavigate, o
     <div className="rp-page" ref={topRef}>
       <div className="rp-topbar">
         <div className="rp-nav">
-          <button className="rp-back" onClick={onBack}>→ חזרה לרשימה</button>
+          {onBack && <button className="rp-back" onClick={onBack}>→ חזרה</button>}
           {siblings.length > 1 && (
             <span className="rp-stepper">
               <button className="rp-btn ghost sm" disabled={!prev} onClick={() => prev && onNavigate(prev)} title="התיק הקודם">‹ הקודם</button>
