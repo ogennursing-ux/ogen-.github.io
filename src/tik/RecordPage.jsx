@@ -5,7 +5,7 @@ import {
   PAYMENT_METHODS, INSURANCE_COMPANIES, payments, addPayment, vatBreakdown,
   VISIT_TYPES, visits, addVisit, notes, addNote, patchCaseFields, duplicateCase,
   uploadCaseFile, fileUrl, contacts, addContact, removeContact, CONTACT_RELATIONS,
-  accountStatement, getOrAssignCaseNumber,
+  accountStatement, getOrAssignCaseNumber, removeDocumentEntry, eventsFor,
 } from './caseDetail.js';
 import { recordsFromChat } from './chatRecords.js';
 import { recordUrl, openRecordTab } from './recordLink.js';
@@ -86,73 +86,118 @@ function DocumentsPanel({ caseObj, onChanged }) {
   const [form, setForm] = useState({});
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
+  const today = () => new Date().toISOString().slice(0, 10);
 
   const save = async (docKey) => {
-    if (!form.expiry) return;
+    if (!form.expiry && !form.validFrom) return;
     setBusy(true);
     try {
       let attachment = null;
       if (file) attachment = await uploadCaseFile(caseObj, docKey, file);
       await addDocumentEntry(caseObj, docKey, {
-        event: form.event || EVENT_TYPES[0], number: form.number || '',
-        issued: form.issued || '', expiry: form.expiry, company: form.company || '',
+        event: form.event || eventsFor(docKey)[0],
+        regDate: form.regDate || today(),
+        by: form.by || '',
+        number: form.number || '',
+        issued: form.issued || '',
+        issuePlace: form.issuePlace || '',
+        validFrom: form.validFrom || '',
+        expiry: form.expiry || '',
+        company: form.company || '',
+        note: form.note || '',
         attachment,
       });
       setForm({}); setFile(null); setOpen(null); onChanged();
     } catch (e) { alert(e?.message || e); }
     finally { setBusy(false); }
   };
+
+  const remove = async (docKey, id) => {
+    if (!confirm('למחוק את הרשומה? תוקף המסמך יחושב מחדש מהרשומות שנשארו.')) return;
+    try { await removeDocumentEntry(caseObj, docKey, id); onChanged(); }
+    catch (e) { alert(e?.message || e); }
+  };
+
   return (
     <section className="rp-section">
       <h3><span>📁</span>מסמכים והיסטוריית חידושים</h3>
+      <p className="rp-hint">
+        לכל מסמך נשמרת שרשרת אירועים שלמה — מתי נרשם, מי ביצע, המספר החדש,
+        איפה הופק ולאיזו תקופה הוא בתוקף. התוקף שמופיע בדוחות הוא של הרשומה
+        האחרונה.
+      </p>
       {DOC_TYPES.map((t) => {
         const hist = documentHistory(caseObj, t.key);
+        const current = hist.map((h) => h.expiry).filter(Boolean).sort().pop();
         return (
           <div key={t.key} className="rp-doc">
             <div className="rp-doc-head">
-              <b>{t.label}</b>
-              <button className="rp-btn ghost" onClick={() => setOpen(open === t.key ? null : t.key)}>
+              <b>{t.icon} {t.label}</b>
+              {current && <span className="rp-doc-current">בתוקף עד {fmtDate(current)}</span>}
+              <button className="rp-btn ghost" onClick={() => { setOpen(open === t.key ? null : t.key); setForm({}); }}>
                 {open === t.key ? 'ביטול' : '+ רשומה חדשה'}
               </button>
             </div>
             {hist.length ? (
-              <table className="rp-table">
-                <thead><tr><th>אירוע</th>{t.hasNumber && <th>מספר</th>}{t.hasCompany && <th>חברה</th>}<th>הופק</th><th>בתוקף עד</th><th>קובץ</th></tr></thead>
-                <tbody>{hist.map((h) => (
-                  <tr key={h.id}>
-                    <td><span className="rp-tag">{h.event}</span></td>
-                    {t.hasNumber && <td dir="ltr">{h.number || '—'}</td>}
-                    {t.hasCompany && <td>{h.company || '—'}</td>}
-                    <td>{fmtDate(h.issued)}</td>
-                    <td><b>{fmtDate(h.expiry)}</b></td>
-                    <td>
-                      {h.attachment?.path
-                        ? <button className="rp-btn ghost sm" onClick={() => openAttachment(h.attachment.path)}>📎 צפייה</button>
-                        : <span className="rp-empty">—</span>}
-                    </td>
-                  </tr>
-                ))}</tbody>
-              </table>
+              <div className="rp-tablewrap">
+                <table className="rp-table">
+                  <thead><tr>
+                    <th>ת.רישום</th><th>סוג אירוע</th><th>בוצע ע״י</th>
+                    {t.hasNumber && <th>מספר</th>}
+                    {t.hasCompany && <th>חברה</th>}
+                    <th>ת.הנפקה</th>
+                    {t.hasIssuePlace && <th>מקום הנפקה</th>}
+                    <th>תוקף מ</th><th>תוקף עד</th><th>הערה</th><th>קובץ</th><th />
+                  </tr></thead>
+                  <tbody>{hist.map((h) => (
+                    <tr key={h.id}>
+                      <td>{fmtDate(h.regDate || h.addedAt)}</td>
+                      <td><span className="rp-tag">{h.event}</span></td>
+                      <td>{h.by || '—'}</td>
+                      {t.hasNumber && <td dir="ltr">{h.number || '—'}</td>}
+                      {t.hasCompany && <td>{h.company || '—'}</td>}
+                      <td>{fmtDate(h.issued)}</td>
+                      {t.hasIssuePlace && <td>{h.issuePlace || '—'}</td>}
+                      <td>{fmtDate(h.validFrom)}</td>
+                      <td><b>{fmtDate(h.expiry)}</b></td>
+                      <td className="rp-muted">{h.note || '—'}</td>
+                      <td>
+                        {h.attachment?.path
+                          ? <button className="rp-btn ghost sm" onClick={() => openAttachment(h.attachment.path)}>📎 צפייה</button>
+                          : <span className="rp-empty">—</span>}
+                      </td>
+                      <td><button className="rp-btn ghost sm" title="מחיקת הרשומה" onClick={() => remove(t.key, h.id)}>✕</button></td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
             ) : <p className="rp-empty">אין רשומות.</p>}
             {open === t.key && (
               <div className="rp-inline-form">
+                <input type="date" title="תאריך רישום" value={form.regDate || today()}
+                  onChange={(e) => setForm({ ...form, regDate: e.target.value })} />
                 <select value={form.event || ''} onChange={(e) => setForm({ ...form, event: e.target.value })}>
-                  <option value="">סוג אירוע…</option>{EVENT_TYPES.map((ev) => <option key={ev} value={ev}>{ev}</option>)}
+                  <option value="">סוג אירוע…</option>
+                  {eventsFor(t.key).map((ev) => <option key={ev} value={ev}>{ev}</option>)}
                 </select>
+                <input placeholder="בוצע ע״י" value={form.by || ''} onChange={(e) => setForm({ ...form, by: e.target.value })} />
                 {t.hasNumber && <input placeholder="מספר" dir="ltr" value={form.number || ''} onChange={(e) => setForm({ ...form, number: e.target.value })} />}
                 {t.hasCompany && (
                   <select value={form.company || ''} onChange={(e) => setForm({ ...form, company: e.target.value })}>
                     <option value="">חברת ביטוח…</option>{INSURANCE_COMPANIES.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
                 )}
-                <input type="date" title="הופק" value={form.issued || ''} onChange={(e) => setForm({ ...form, issued: e.target.value })} />
-                <input type="date" title="בתוקף עד" value={form.expiry || ''} onChange={(e) => setForm({ ...form, expiry: e.target.value })} />
+                <input type="date" title="תאריך הנפקה" value={form.issued || ''} onChange={(e) => setForm({ ...form, issued: e.target.value })} />
+                {t.hasIssuePlace && <input placeholder="מקום הנפקה" value={form.issuePlace || ''} onChange={(e) => setForm({ ...form, issuePlace: e.target.value })} />}
+                <input type="date" title="תוקף מ" value={form.validFrom || ''} onChange={(e) => setForm({ ...form, validFrom: e.target.value })} />
+                <input type="date" title="תוקף עד" value={form.expiry || ''} onChange={(e) => setForm({ ...form, expiry: e.target.value })} />
+                <input placeholder="הערה" value={form.note || ''} onChange={(e) => setForm({ ...form, note: e.target.value })} />
                 <label className="rp-file">
                   {file ? `📎 ${file.name}` : '📎 צרף סריקה / צילום'}
                   <input type="file" accept="image/*,application/pdf" hidden
                     onChange={(e) => setFile(e.target.files?.[0] || null)} />
                 </label>
-                <button className="rp-btn" disabled={!form.expiry || busy} onClick={() => save(t.key)}>
+                <button className="rp-btn" disabled={(!form.expiry && !form.validFrom) || busy} onClick={() => save(t.key)}>
                   {busy ? 'שומר…' : 'שמור'}
                 </button>
               </div>

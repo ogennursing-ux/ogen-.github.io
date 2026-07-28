@@ -260,6 +260,40 @@ const R = [
     },
   },
 
+  // ---- 9 · הפניות ---------------------------------------------------------
+  {
+    no: '9', group: 'workers', label: 'דוח הפניות',
+    desc: 'כל ההפניות — ההשמה עצמה: מי, אצל מי, מתי התחילה, מתי הסתיימה ולמה.',
+    params: ['range', 'rakaz'],
+    columns: [
+      { key: 'when', label: 'ת.הפניה', type: 'date', strong: true },
+      COL.worker, COL.family, COL.rakaz,
+      { key: 'rstatus', label: 'סטטוס', type: 'pill' },
+      { key: 'workStart', label: 'ת.עבודה', type: 'date' },
+      { key: 'workEnd', label: 'ס.עבודה', type: 'date' },
+      { key: 'visitBefore', label: 'ביקור־לפני', type: 'date' },
+      { key: 'visitAfter', label: 'ביקור אחרי', type: 'date' },
+      { key: 'ptype', label: 'סוג השמה' },
+      { key: 'reason', label: 'סיבת־סיום' },
+      { key: 'openBatch', label: 'מנת פתיחה' },
+      { key: 'closeBatch', label: 'מנת סגירה' },
+    ],
+    run: dateReport({
+      field: (c) => F(c).referralDate || F(c).startDate,
+      extra: [
+        { key: 'rstatus', get: (c) => F(c).referralStatus || F(c).caseStatus || '' },
+        { key: 'workStart', get: (c) => F(c).startDate || '' },
+        { key: 'workEnd', get: (c) => F(c).endDate || F(c).placementEndDate || '' },
+        { key: 'visitBefore', get: (c) => F(c).visitBefore || '' },
+        { key: 'visitAfter', get: (c) => F(c).visitAfter || '' },
+        { key: 'ptype', get: (c) => F(c).placementType || '' },
+        { key: 'reason', get: (c) => F(c).endReason || '' },
+        { key: 'openBatch', get: (c) => F(c).openBatch || '' },
+        { key: 'closeBatch', get: (c) => F(c).closeBatch || '' },
+      ],
+    }),
+  },
+
   // ---- 101–105 · לקוחות --------------------------------------------------
   {
     no: '101', group: 'clients', label: 'מעסיקים שמסתיים תש. חודשי',
@@ -301,7 +335,9 @@ const R = [
       { key: 'insurer', label: 'חברה' }, { key: 'plan', label: 'מסלול' },
       whenCol('ת. רישום'),
       { key: 'start', label: 'התחלה', type: 'date' }, { key: 'end', label: 'סיום', type: 'date' },
-      { key: 'premium', label: 'פרמיה', type: 'money' }, { key: 'pstatus', label: 'סטטוס', type: 'pill' }],
+      { key: 'days', label: 'ימים', type: 'num' }, { key: 'perDay', label: 'ש״ח ליום', type: 'money' },
+      { key: 'total', label: 'סך הכל', type: 'money', strong: true },
+      { key: 'agency', label: 'סוכנות' }, { key: 'pstatus', label: 'סטטוס', type: 'pill' }],
     run: dateReport({
       base: familyRow,
       field: 'policyRegDate',
@@ -311,7 +347,10 @@ const R = [
         { key: 'plan', get: (c) => F(c).policyPlan || '' },
         { key: 'start', get: (c) => F(c).policyStart || '' },
         { key: 'end', get: (c) => F(c).policyEnd || '' },
-        { key: 'premium', get: (c) => F(c).policyPremium || '' },
+        { key: 'days', get: (c) => F(c).policyDays || '' },
+        { key: 'perDay', get: (c) => F(c).policyPerDay || '' },
+        { key: 'total', get: (c) => (Number(F(c).policyDays) || 0) * (Number(F(c).policyPerDay) || 0) || F(c).policyPremium || '' },
+        { key: 'agency', get: (c) => F(c).policyAgency || F(c).policyAgent || '' },
         { key: 'pstatus', get: (c) => F(c).policyStatus || '' },
       ],
     }),
@@ -424,8 +463,31 @@ const R = [
   },
   {
     no: '251', group: 'visits', label: 'טפסים דיגיטלים',
-    desc: 'כל הטפסים הדיגיטליים — לא רק אלה שנשלחו לחתימה.',
-    params: ['range'], soon: 'צריך לעבור על רשימת הטפסים במשרד לפני שנבנה את הדוח.',
+    desc: 'כל טופס שנשלח לחתימה — מתי יצא, למי, ומתי חזר חתום.',
+    note: 'הרשימה מגיעה ממערכת החתימות עצמה, כך שאין מה לרשום פעמיים.',
+    params: ['range'], source: 'forms',
+    columns: [
+      { key: 'sentAt', label: 'ת.שליחה', type: 'date', strong: true },
+      { key: 'title', label: 'שם טופס', type: 'strong' },
+      { key: 'setName', label: 'שם סט' },
+      { key: 'sentTo', label: 'נשלח אל' },
+      { key: 'progress', label: 'חתימות' },
+      { key: 'stateLabel', label: 'מצב', type: 'pill' },
+      { key: 'signedAt', label: 'ת.החתימה', type: 'date' },
+      { key: 'note', label: 'הערה' },
+    ],
+    run: (_cases, params, extra) => {
+      const w = windowOf(params);
+      return (extra?.forms || [])
+        .filter((f) => w.has(parseDate(f.sentAt)))
+        .map((f) => ({
+          ...f,
+          progress: `${f.signedCount}/${f.signerCount}`,
+          stateLabel: f.state.label,
+          tone: f.state.tone,
+        }))
+        .sort((a, b) => parseDate(b.sentAt) - parseDate(a.sentAt));
+    },
   },
 
   // ---- 301–305 · רבעוניים -------------------------------------------------
@@ -723,11 +785,12 @@ function tally(items, keyOf2, { chronological = false } = {}) {
   return rows;
 }
 
+// The chart above the table already carries the magnitude, so the table stays
+// a table: the value, and what share of the whole it is.
 const STAT_COLUMNS = (label) => [
   { key: 'group', label, type: 'strong' },
   { key: 'count', label: 'כמות', type: 'num', strong: true },
   { key: 'pct', label: 'אחוז', type: 'pct' },
-  { key: 'bar', label: '', type: 'bar' },
 ];
 
 function statReport({ no, label, population, groupBy, groupLabel, chronological, desc }) {
@@ -740,10 +803,7 @@ function statReport({ no, label, population, groupBy, groupLabel, chronological,
     run: (cases, params) => {
       const w = windowOf(params);
       const items = POPULATIONS[population](byRakaz(cases, params.rakaz), w);
-      const rows = tally(items, groupBy, { chronological });
-      const max = Math.max(1, ...rows.map((r) => r.count));
-      for (const r of rows) r.bar = '█'.repeat(Math.max(1, Math.round((r.count / max) * 24)));
-      return rows;
+      return tally(items, groupBy, { chronological });
     },
   };
 }
@@ -775,12 +835,12 @@ const STATS = [
 
   // ---- 81–88 · הפניות ----------------------------------------------------
   statReport({ no: 81, label: 'ריכוז הפניות לפי סניף', population: 'referrals', groupLabel: 'סניף', groupBy: (c) => F(c).branch }),
-  statReport({ no: 82, label: 'ריכוז הפניות לפי סטטוס', population: 'referrals', groupLabel: 'סטטוס', groupBy: (c) => F(c).caseStatus }),
+  statReport({ no: 82, label: 'ריכוז הפניות לפי סטטוס', population: 'referrals', groupLabel: 'סטטוס', groupBy: (c) => F(c).referralStatus || F(c).caseStatus }),
   statReport({ no: 83, label: 'ריכוז הפניות לפי רכז/ת', population: 'referrals', groupLabel: 'רכז/ת', groupBy: (c) => F(c).assignedTo }),
-  statReport({ no: 84, label: 'ריכוז הפניות לפי סוג השמה', population: 'referrals', groupLabel: 'סוג השמה', groupBy: (c) => F(c).placementType || (F(c).placementFromIsrael === 'כן' ? 'השמה מהארץ' : '') }),
+  statReport({ no: 84, label: 'ריכוז הפניות לפי סוג השמה', population: 'referrals', groupLabel: 'סוג השמה', groupBy: (c) => F(c).placementType }),
   statReport({ no: 85, label: 'ריכוז הפניות לפי תאריך הפניה', population: 'referrals', groupLabel: 'חודש הפניה', chronological: true, groupBy: (c) => monthKey(F(c).referralDate || F(c).startDate) }),
   statReport({ no: 86, label: 'ריכוז הפניות לפי סיבת סיום', population: 'referrals', groupLabel: 'סיבת סיום', groupBy: (c) => F(c).endReason || F(c).closeReason }),
-  statReport({ no: 87, label: 'ריכוז הפניות לפי סניף מפורט', population: 'referrals', groupLabel: 'סניף · סטטוס', groupBy: (c) => `${F(c).branch || '—'} · ${F(c).caseStatus || '—'}` }),
+  statReport({ no: 87, label: 'ריכוז הפניות לפי סניף מפורט', population: 'referrals', groupLabel: 'סניף · סטטוס', groupBy: (c) => `${F(c).branch || '—'} · ${F(c).referralStatus || F(c).caseStatus || '—'}` }),
   statReport({ no: 88, label: 'ריכוז הפניות לפי סניף ורכז מפורט', population: 'referrals', groupLabel: 'סניף · רכז/ת', groupBy: (c) => `${F(c).branch || '—'} · ${F(c).assignedTo || '—'}` }),
 
   // ---- 931–935 · חשבוניות ------------------------------------------------
@@ -793,7 +853,13 @@ const STATS = [
   {
     no: '201', group: 'stats', label: 'ריכוז טפסים חתומים לפי חודש',
     desc: 'כמה טפסים נחתמו בכל חודש.',
-    params: ['range'], soon: 'ייבנה יחד עם מסך הטפסים הדיגיטליים (251).',
+    params: ['range'], source: 'forms',
+    columns: STAT_COLUMNS('חודש'),
+    run: (_cases, params, extra) => {
+      const w = windowOf(params);
+      const done = (extra?.forms || []).filter((f) => f.signedAt && w.has(parseDate(f.signedAt)));
+      return tally(done, (f) => monthKey(f.signedAt), { chronological: true });
+    },
   },
   {
     no: '202', group: 'stats', label: 'ריכוז SMS לפי רכז',
@@ -849,7 +915,7 @@ export const REPORTS = Object.fromEntries(
 
 // Run a report and hand back its rows. Quarter reports get the quarter's own
 // date range attached, so a report can be written against either shape.
-export function runReport(report, cases, params) {
+export function runReport(report, cases, params, extra) {
   if (!report.run) return [];
   const p = { ...params };
   if (p.quarter) {
@@ -860,7 +926,7 @@ export function runReport(report, cases, params) {
     p.to = p.to || range.to.toISOString().slice(0, 10);
   }
   if (report.channel) p.channel = report.channel;
-  return report.run(cases, p);
+  return report.run(cases, p, extra);
 }
 
 export { VISIT_CHANNELS };

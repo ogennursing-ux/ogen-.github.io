@@ -7,6 +7,7 @@ import {
 import { REPORTS, REPORT_GROUPS, runReport, coordinators } from './reports.js';
 import CalendarReport from './CalendarReport.jsx';
 import { openRecordTab } from './recordLink.js';
+import { loadDigitalForms } from './digitalForms.js';
 
 // Each report is a small wizard in its own browser tab:
 //   step 1 — pick the parameters (dates / quarter / coordinator)
@@ -157,6 +158,50 @@ function ParamsStep({ report, cases, onRun }) {
   );
 }
 
+// A tally reads as magnitude, so it gets the form magnitude asks for: a
+// horizontal bar chart on one hue, light→dark, with the table right underneath
+// it. The four teal steps were validated for monotone lightness, step spacing
+// and contrast against a white surface.
+const TALLY_RAMP = ['#06b6d4', '#0891b2', '#0e7490', '#164e63'];
+const CHART_ROWS = 15;
+
+function TallyChart({ rows, label }) {
+  const [hover, setHover] = useState(null);
+  if (!rows.length) return null;
+
+  const shown = rows.slice(0, CHART_ROWS);
+  const hidden = rows.length - shown.length;
+  const max = Math.max(1, ...shown.map((r) => r.count));
+  // Darker means more, so the ramp step follows the value, not the row order.
+  const stepOf = (n) => TALLY_RAMP[Math.min(TALLY_RAMP.length - 1,
+    Math.floor((n / max) * TALLY_RAMP.length - 1e-9))];
+
+  return (
+    <figure className="tly">
+      <figcaption className="tly-cap">{label} — {rows.length} ערכים</figcaption>
+      <div className="tly-rows">
+        {shown.map((r) => {
+          const pct = (r.count / max) * 100;
+          return (
+            <div key={r.id} className={`tly-row${hover === r.id ? ' on' : ''}`}
+              onMouseEnter={() => setHover(r.id)} onMouseLeave={() => setHover(null)}>
+              <span className="tly-label" title={r.group}>{r.group}</span>
+              <span className="tly-track">
+                <span className="tly-bar" style={{ width: `${pct}%`, background: stepOf(r.count) }} />
+                {hover === r.id && (
+                  <span className="tly-tip" role="status">{r.group}: {r.count} · {r.pct}%</span>
+                )}
+              </span>
+              <span className="tly-val">{r.count}</span>
+            </div>
+          );
+        })}
+      </div>
+      {hidden > 0 && <p className="tly-more">ועוד {hidden} ערכים — בטבלה שלמטה.</p>}
+    </figure>
+  );
+}
+
 // --- generic result table ------------------------------------------------------
 const cellText = (row, col) => {
   const v = row[col.key];
@@ -193,6 +238,7 @@ function TableResult({ report, rows }) {
         })}
       </div>
       <button className="rp-btn ghost" onClick={exportCsv} disabled={!rows.length}>⬇️ ייצוא Excel</button>
+      {report.group === 'stats' && <TallyChart rows={rows} label={cols[0]?.label || ''} />}
       {rows.length ? (
         <div className="rg-tablewrap" style={{ marginTop: 14 }}>
           <table className="rg-table">
@@ -208,8 +254,7 @@ function TableResult({ report, rows }) {
                     <td key={c.key} className={cls || undefined} dir={c.ltr ? 'ltr' : undefined}
                       onClick={clickable ? () => openRecordTab(c.link, r.caseObj.id) : undefined}
                       title={clickable ? 'פתיחת התיק בלשונית חדשה' : undefined}>
-                      {c.type === 'bar' ? <span className="rg-bar" aria-hidden="true">{txt}</span>
-                        : c.type === 'pill' && txt
+                      {c.type === 'pill' && txt
                         ? <span className={`rg-pill ${r.tone || 'info'}`}>{txt}</span>
                         : (c.type === 'strong' || c.strong) ? <b>{txt || '—'}</b> : (txt || '—')}
                     </td>
@@ -223,6 +268,7 @@ function TableResult({ report, rows }) {
     </>
   );
 }
+
 
 // A report whose rules the office still has to explain. The card, the number
 // and the parameters page exist; only the calculation is missing.
@@ -444,6 +490,7 @@ function PlacementsResult({ cases }) {
 export default function ReportPage() {
   const [authed, setAuthed] = useState(isAuthed());
   const [cases, setCases] = useState(null);
+  const [forms, setForms] = useState(null);
   const [err, setErr] = useState('');
   const [route, setRoute] = useState(() => location.hash.replace(/^#\/?/, ''));
 
@@ -458,6 +505,13 @@ export default function ReportPage() {
     .catch((e) => { setCases([]); setErr(e?.message || String(e)); });
   useEffect(() => { if (authed) reload(); }, [authed]);
 
+  // Reports about the digital forms read the signing system, not the case rows.
+  const needsForms = REPORTS[(/^report\/([^?]+)/.exec(route) || [])[1]]?.source === 'forms';
+  useEffect(() => {
+    if (!authed || !needsForms || forms !== null) return;
+    loadDigitalForms().then(setForms).catch((e) => { setForms([]); setErr(e?.message || String(e)); });
+  }, [authed, needsForms, forms]);
+
   // #report/<key>              → parameters
   // #report/<key>?run=1&…      → results
   const [, key = ''] = /^report\/([^?]+)/.exec(route) || [];
@@ -469,8 +523,9 @@ export default function ReportPage() {
   const hasParams = !!report && query.run === '1';
 
   const rows = useMemo(
-    () => (report && hasParams && cases && report.run ? runReport(report, cases, query) : []),
-    [report, hasParams, cases, query],
+    () => (report && hasParams && cases && report.run
+      ? runReport(report, cases, query, { forms: forms || [] }) : []),
+    [report, hasParams, cases, forms, query],
   );
 
   if (!authed) return <Login onIn={() => setAuthed(true)} />;
@@ -512,10 +567,10 @@ export default function ReportPage() {
       </header>
 
       {err && <p className="rg-err">{err}</p>}
-      {cases === null && !err && <p className="rg-empty">טוען…</p>}
+      {(cases === null || (needsForms && forms === null)) && !err && <p className="rg-empty">טוען…</p>}
 
       {cases && !hasParams && <ParamsStep report={report} cases={cases} onRun={run} />}
-      {cases && hasParams && (
+      {cases && hasParams && (!needsForms || forms !== null) && (
         report.soon ? <SoonResult report={report} />
           : report.render === 'social' ? <SocialResult report={report} cases={cases} params={query} onChanged={reload} />
           : report.render === 'income' ? <IncomeResult cases={cases} params={query} />

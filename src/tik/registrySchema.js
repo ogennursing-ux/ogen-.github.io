@@ -39,6 +39,19 @@ export const WORKER_STATUSES = [
         'פנוי בחופש', 'פנוי/להזמנה', 'בילטראלי', 'שימוע/ערר', 'אישור בלמ״ס',
       ];
 
+// A referral ("הפניה") is the placement record itself — the office tracks its
+// status, how the placement came about, and why it ended.
+export const REFERRAL_STATUSES = [
+  'הפניה', 'התקבל', 'בטיפול', 'ממתין לאישור', 'הושמה', 'בוטל', 'לא רלוונטי',
+];
+export const PLACEMENT_TYPES = [
+  'השמה מהארץ', 'השמה מחו״ל', 'החלפה', 'הארכה', 'העברה מלשכה אחרת',
+];
+export const END_REASONS = [
+  'סיום חוזה', 'פטירה', 'מעבר למוסד', 'החלפת עובד/ת', 'עזיבה', 'פיטורים',
+  'חזרה לארץ המוצא', 'אחר',
+];
+
 export const YES_NO = ['כן', 'לא'];
 export const GENDERS = ['זכר', 'נקבה'];
 export const MARITAL = ['רווק/ה', 'נשוי/אה', 'גרוש/ה', 'אלמן/ה'];
@@ -109,6 +122,22 @@ export const FAMILY_SECTIONS = [
     ],
   },
   {
+    // The referral record: how this placement came about and where it stands.
+    title: 'הפניה / עמדה',
+    icon: '📨',
+    fields: [
+      { key: 'referralDate', label: 'ת. ההפניה', type: 'date' },
+      { key: 'referralStatus', label: 'סטטוס ההפניה', type: 'select', options: REFERRAL_STATUSES },
+      { key: 'placementType', label: 'סוג השמה', type: 'select', options: PLACEMENT_TYPES },
+      { key: 'referrer', label: 'גורם מפנה', type: 'text' },
+      { key: 'visitBefore', label: 'ביקור־לפני', type: 'date', hint: 'ביקור לפני תחילת ההשמה' },
+      { key: 'visitAfter', label: 'ביקור אחרי', type: 'date', hint: 'ביקור אחרי תחילת ההשמה' },
+      { key: 'endReason', label: 'סיבת סיום', type: 'select', options: END_REASONS },
+      { key: 'openBatch', label: 'מנת פתיחה', type: 'text', ltr: true },
+      { key: 'closeBatch', label: 'מנת סגירה', type: 'text', ltr: true },
+    ],
+  },
+  {
     title: 'השמה נוכחית',
     icon: '🤝',
     fields: [
@@ -140,9 +169,13 @@ export const FAMILY_SECTIONS = [
       { key: 'policyRegDate', label: 'תאריך רישום', type: 'date' },
       { key: 'policyStart', label: 'תחילת הפוליסה', type: 'date' },
       { key: 'policyEnd', label: 'סיום הפוליסה', type: 'date' },
+      { key: 'policyDays', label: 'ימים', type: 'number' },
+      { key: 'policyPerDay', label: 'ש״ח ליום', type: 'number' },
+      { key: 'policyTotal', label: 'סך הכל', type: 'number', readOnly: true, computed: 'policyTotal' },
       { key: 'policyPremium', label: 'פרמיה חודשית', type: 'number' },
       { key: 'policyStatus', label: 'סטטוס פוליסה', type: 'select', options: POLICY_STATUS },
-      { key: 'policyAgent', label: 'סוכן/סוכנות', type: 'text' },
+      { key: 'policyAgency', label: 'סוכנות', type: 'text' },
+      { key: 'policyAgent', label: 'סוכן', type: 'text' },
       { key: 'policyNotes', label: 'הערות לפוליסה', type: 'textarea', width: 3 },
     ],
   },
@@ -388,6 +421,22 @@ export const WORKER_SECTIONS = [
 
 // ---- computed helpers --------------------------------------------------------
 export function computeValue(name, fields) {
+  // The caregiver's age comes from the caregiver's own date of birth, not the
+  // patient's — the two used to share one field.
+  if (name === 'workerAgeFromDob') {
+    const dob = fields.workerDob || fields.dob;
+    if (!dob) return '';
+    const d = new Date(dob);
+    if (Number.isNaN(d.getTime())) return '';
+    return Math.floor((Date.now() - d.getTime()) / 3.15576e10);
+  }
+  // An insurance policy is priced per day, the way the office's own tab shows it.
+  if (name === 'policyTotal') {
+    const days = Number(fields.policyDays) || 0;
+    const perDay = Number(fields.policyPerDay) || 0;
+    if (!days || !perDay) return '';
+    return Math.round(days * perDay * 100) / 100;
+  }
   if (name === 'ageFromDob') {
     const dob = fields.dob;
     if (!dob) return '';

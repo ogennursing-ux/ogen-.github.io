@@ -33,13 +33,27 @@ export const INSURANCE_COMPANIES = ['מגדל', 'כלל', 'מנורה', 'הרא�
 // דרכון") AND mirrors its latest expiry onto the flat field the renewals
 // report and the contract already read (e.g. passportExpiry) — so nothing
 // else needs to change.
+// Each document keeps the full chain of events — first issue, renewal,
+// replacement — the way the office's own דרכונים / ויזות / ביטוח / היתרים
+// tabs do: who registered it, when, the new number, where it was issued and
+// the window it is valid for.
 export const DOC_TYPES = [
-  { key: 'passport', label: 'דרכון', expiryField: 'passportExpiry', numberField: 'passportNo', hasNumber: true },
-  { key: 'visa', label: 'ויזה / אשרה', expiryField: 'visaExpiry', hasNumber: false },
-  { key: 'permit', label: 'היתר העסקה', expiryField: 'permitExpiry', numberField: 'permitNumber', hasNumber: true },
-  { key: 'insurance', label: 'ביטוח רפואי', expiryField: 'insuranceExpiry', hasNumber: false, hasCompany: true },
+  { key: 'passport', label: 'דרכון', icon: '📕', expiryField: 'passportExpiry', numberField: 'passportNo',
+    hasNumber: true, hasIssuePlace: true, events: ['דרכון ראשון', 'החלפת דרכון', 'חידוש דרכון', 'דרכון אבד'] },
+  { key: 'visa', label: 'ויזה / אשרה', icon: '🛂', expiryField: 'visaExpiry', numberField: 'visaNumber',
+    hasNumber: true, events: ['אשרה ראשונה', 'חידוש אשרה', 'שינוי מעסיק', 'הארכה'] },
+  { key: 'permit', label: 'היתר העסקה', icon: '🗂️', expiryField: 'permitExpiry', numberField: 'permitNumber',
+    hasNumber: true, events: ['היתר ראשון', 'חידוש היתר', 'הארכה', 'ביטול'] },
+  { key: 'insurance', label: 'ביטוח רפואי', icon: '🏥', expiryField: 'insuranceExpiry',
+    hasCompany: true, events: ['פוליסה חדשה', 'חידוש', 'החלפת חברה', 'ביטול'] },
+  { key: 'intervisa', label: 'אינטרויזה', icon: '✈️', expiryField: 'interVisaBack',
+    events: ['יציאה לחו״ל', 'חזרה לארץ', 'הארכת שהות'] },
 ];
+// Kept for older entries saved before each document had its own event list.
 export const EVENT_TYPES = ['ראשון', 'חידוש', 'החלפה'];
+
+export const eventsFor = (docKey) =>
+  DOC_TYPES.find((t) => t.key === docKey)?.events || EVENT_TYPES;
 
 // ---- File attachments ---------------------------------------------------------
 // Scans/photos are uploaded to the same Supabase storage bucket the signing
@@ -69,7 +83,26 @@ export async function removeCaseFile(path) {
 
 export function documentHistory(caseObj, docKey) {
   const arr = caseObj.data?.fields?.documents?.[docKey];
-  return Array.isArray(arr) ? [...arr].sort((a, b) => new Date(b.expiry || 0) - new Date(a.expiry || 0)) : [];
+  if (!Array.isArray(arr)) return [];
+  // Newest first, by when it was registered — the order the office reads them in.
+  return [...arr].sort((a, b) =>
+    new Date(b.regDate || b.addedAt || b.expiry || 0) - new Date(a.regDate || a.addedAt || a.expiry || 0));
+}
+
+// Remove one history entry. The mirrored expiry is recomputed from whatever
+// entries are left, so deleting the newest passport falls back to the one
+// before it instead of leaving a date that no record supports.
+export async function removeDocumentEntry(caseObj, docKey, entryId) {
+  const type = DOC_TYPES.find((t) => t.key === docKey);
+  const current = caseObj.data?.fields?.documents || {};
+  const list = (Array.isArray(current[docKey]) ? current[docKey] : []).filter((r) => r.id !== entryId);
+  const documents = { ...current, [docKey]: list };
+  const patch = { documents };
+  if (type?.expiryField) {
+    const latest = list.map((r) => r.expiry).filter(Boolean).sort().pop();
+    patch[type.expiryField] = latest || '';
+  }
+  await patchCaseFields(caseObj, patch);
 }
 
 // Add a document-history entry and update the mirrored flat expiry field.
@@ -77,11 +110,23 @@ export async function addDocumentEntry(caseObj, docKey, entry) {
   const type = DOC_TYPES.find((t) => t.key === docKey);
   const current = caseObj.data?.fields?.documents || {};
   const list = Array.isArray(current[docKey]) ? current[docKey] : [];
-  const row = { id: uid(), addedAt: new Date().toISOString(), ...entry };
+  const row = {
+    id: uid(), addedAt: new Date().toISOString(),
+    regDate: entry.regDate || new Date().toISOString().slice(0, 10),
+    ...entry,
+  };
   const documents = { ...current, [docKey]: [...list, row] };
   const patch = { documents };
-  if (type?.expiryField && entry.expiry) patch[type.expiryField] = entry.expiry;
+  // Mirror onto the flat fields the renewals report and the contract read, but
+  // only when this entry really is the latest — a back-dated record shouldn't
+  // pull a live expiry backwards.
+  const latest = [...list, row].map((r) => r.expiry).filter(Boolean).sort().pop();
+  if (type?.expiryField && latest) patch[type.expiryField] = latest;
   if (type?.numberField && entry.number) patch[type.numberField] = entry.number;
+  if (type?.hasCompany && entry.company) {
+    patch.insuranceCompany = entry.company;
+    patch.policyInsurer = entry.company;
+  }
   await patchCaseFields(caseObj, patch);
 }
 
