@@ -2291,6 +2291,21 @@ textarea.gov-input { resize: vertical; }
 .tly-val { font-size: 13px; font-weight: 700; color: #0b0b0b; font-variant-numeric: tabular-nums; text-align: start; }
 .tly-more { margin: 10px 0 0; font-size: 12px; color: #898781; }
 
+/* Two sides on the reports screen: general vs statistical */
+.rpt-sides { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+.rpt-side {
+  font: inherit; font-size: 14.5px; font-weight: 600; color: #475569; cursor: pointer;
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 11px 20px;
+  display: flex; align-items: center; gap: 8px; transition: all .12s;
+}
+.rpt-side em {
+  font-style: normal; font-size: 12px; background: #f1f5f9; color: #64748b;
+  border-radius: 999px; padding: 1px 9px;
+}
+.rpt-side:hover { border-color: #0e7490; }
+.rpt-side.on { background: #0e7490; color: #fff; border-color: #0e7490; }
+.rpt-side.on em { background: rgba(255,255,255,.25); color: #fff; }
+
 /* The document-history tables inside a file */
 .rp-hint { margin: -4px 0 14px; font-size: 12.5px; color: #64748b; line-height: 1.55; }
 .rp-doc-current {

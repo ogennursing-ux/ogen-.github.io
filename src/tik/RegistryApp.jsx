@@ -578,30 +578,48 @@ export default function RegistryApp() {
 // quarter / coordinator), then the results — so a report you ran stays open
 // next to the record you are working on.
 function ReportsTab() {
+  // Two sides, like the office's own reports screen: the everyday reports on
+  // one side, the statistical roll-ups on the other.
+  const [side, setSide] = useState('general');
   const href = (key) => `${location.pathname}${location.search}#report/${key}`;
+  const groups = REPORT_GROUPS.filter((g) => (side === 'stats' ? g.id === 'stats' : g.id !== 'stats'));
+  const statsCount = REPORT_GROUPS.find((g) => g.id === 'stats')?.reports.length || 0;
+  const genCount = REPORT_GROUPS.filter((g) => g.id !== 'stats').reduce((n, g) => n + g.reports.length, 0);
+
   return (
-    <div className="rpt-catalog">
-      {REPORT_GROUPS.map((g) => (
-        <section key={g.id} className="rpt-group">
-          <h3>{g.icon} {g.title} <em>{g.scope}</em></h3>
-          <ul>
-            {g.reports.map((r) => (
-              <li key={r.key}>
-                <a href={href(r.key)} target="_blank" rel="noreferrer"
-                  className={r.soon ? 'soon' : undefined} title={r.soon || r.desc}>
-                  <span className="rpt-rowno">{r.no}</span>
-                  <span className="rpt-rowlabel">{r.label}</span>
-                  {r.soon && <span className="rpt-rowtag">בהמתנה</span>}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
-      <p className="rpt-legend">
-        כל דוח נפתח בלשונית חדשה ↗ · דוח מסומן <span className="rpt-rowtag">בהמתנה</span> שמור במקומו,
-        השדות שלו כבר נאספים והוא יחושב ברגע שנסגור את הכללים.
-      </p>
+    <div>
+      <div className="rpt-sides">
+        <button className={`rpt-side${side === 'general' ? ' on' : ''}`} onClick={() => setSide('general')}>
+          📋 דוחות כלליים ואישיים <em>{genCount}</em>
+        </button>
+        <button className={`rpt-side${side === 'stats' ? ' on' : ''}`} onClick={() => setSide('stats')}>
+          📈 דוחות סטטיסטיים <em>{statsCount}</em>
+        </button>
+      </div>
+
+      <div className="rpt-catalog">
+        {groups.map((g) => (
+          <section key={g.id} className="rpt-group">
+            <h3>{g.icon} {g.title} <em>{g.scope}</em></h3>
+            <ul>
+              {g.reports.map((r) => (
+                <li key={r.key}>
+                  <a href={href(r.key)} target="_blank" rel="noreferrer"
+                    className={r.soon ? 'soon' : undefined} title={r.soon || r.desc}>
+                    <span className="rpt-rowno">{r.no}</span>
+                    <span className="rpt-rowlabel">{r.label}</span>
+                    {r.soon && <span className="rpt-rowtag">בהמתנה</span>}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+        <p className="rpt-legend">
+          כל דוח נפתח בלשונית חדשה ↗ · דוח מסומן <span className="rpt-rowtag">בהמתנה</span> שמור במקומו,
+          השדות שלו כבר נאספים והוא יחושב ברגע שנסגור את הכללים.
+        </p>
+      </div>
     </div>
   );
 }
