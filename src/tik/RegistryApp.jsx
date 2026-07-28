@@ -3,6 +3,7 @@ import { isAuthed, login } from './officeAuth.js';
 import {
   loadRegistry, searchFamilies, searchWorkers, computeRenewalRows, saveRenewalDate,
   loadLeads, createLead, convertLeadToCase, dismissLead, RENEWAL_TYPES,
+  WORKER_PAYMENTS, activePlacements, buildReport, setWorkerPaymentDone,
 } from './registry.js';
 import { getOrAssignCaseNumber, payments } from './caseDetail.js';
 import RecordPage from './RecordPage.jsx';
@@ -155,10 +156,7 @@ export default function RegistryApp() {
     if (renewFilter === 'missing') return renewals.filter((r) => r.anyMissing);
     return renewals;
   }, [renewals, renewFilter]);
-  const revenue = useMemo(
-    () => (cases || []).reduce((s, c) => s + payments(c).reduce((t, p) => t + (Number(p.amount) || 0), 0), 0),
-    [cases],
-  );
+  const placements = useMemo(() => (cases ? byRakaz(activePlacements(cases)) : []), [cases, rakazFilter]);
 
   // ---- record page routing (#registry/f/<id> | #registry/w/<id>) ----
   const m = /^registry\/(f|w)\/(.+)$/.exec(route);
@@ -226,18 +224,20 @@ export default function RegistryApp() {
         <div className="rg-kpis">
           <div className="rg-kpi"><b>{families.length}</b><span>משפחות</span></div>
           <div className="rg-kpi"><b>{workers.length}</b><span>עובדים</span></div>
+          <div className="rg-kpi"><b>{placements.length}</b><span>השמות פעילות</span></div>
           <div className={`rg-kpi${renewCounts.overdue + renewCounts.urgent ? ' alert' : ''}`}><b>{renewCounts.overdue + renewCounts.urgent}</b><span>חידושים דחופים</span></div>
           <div className="rg-kpi"><b>{leads.length}</b><span>פניות פתוחות</span></div>
-          <div className="rg-kpi"><b>{revenue.toLocaleString('he-IL')} ₪</b><span>סה״כ נגבה</span></div>
         </div>
       )}
 
       <nav className="rg-tabs">
         <button className={`rg-tab${tab === 'families' ? ' on' : ''}`} onClick={() => setTab('families')}>👨‍👩‍👧 משפחות <em>{families.length}</em></button>
         <button className={`rg-tab${tab === 'workers' ? ' on' : ''}`} onClick={() => setTab('workers')}>👷 עובדים <em>{workers.length}</em></button>
+        <button className={`rg-tab${tab === 'placements' ? ' on' : ''}`} onClick={() => setTab('placements')}>🤝 השמות פעילות <em>{placements.length}</em></button>
         <button className={`rg-tab${tab === 'renewals' ? ' on' : ''}`} onClick={() => setTab('renewals')}>
           🔔 דוח חידושים {renewCounts.overdue + renewCounts.urgent > 0 && <em className="alert">{renewCounts.overdue + renewCounts.urgent}</em>}
         </button>
+        <button className={`rg-tab${tab === 'reports' ? ' on' : ''}`} onClick={() => setTab('reports')}>📊 דוחות</button>
         <button className={`rg-tab${tab === 'leads' ? ' on' : ''}`} onClick={() => setTab('leads')}>📞 פניות <em>{leads.length}</em></button>
       </nav>
 
@@ -319,6 +319,7 @@ export default function RegistryApp() {
                     <th>#</th><th>שם העובד/ת</th><th>מס׳ דרכון</th><th>ת. כניסה</th>
                     <th>טל׳ עובד/ת</th><th>מעסיק</th><th>טל׳ מעסיק</th>
                     {RENEWAL_TYPES.map((t) => <th key={t.key} className="rg-renew-col" title={t.label}>{t.short}</th>)}
+                    {WORKER_PAYMENTS.map((t) => <th key={t.key} className="rg-renew-col wpay" title={t.label}>{t.short}</th>)}
                   </tr>
                 </thead>
                 <tbody>{shownRenewals.map((r) => (
@@ -341,6 +342,25 @@ export default function RegistryApp() {
                         </td>
                       );
                     })}
+                    {WORKER_PAYMENTS.map((t) => {
+                      const cell = r.cells[t.key];
+                      const cls = cell.paid ? 'rg-cell-paid'
+                        : cell.overdue ? 'rg-cell-bad'
+                        : cell.thisWeek ? 'rg-cell-week'
+                        : cell.urgent ? 'rg-cell-warn'
+                        : cell.due ? '' : 'rg-cell-empty';
+                      return (
+                        <td key={t.key} className={`rg-renew-col wpay ${cls}`}
+                            title={cell.due ? `${t.label} — ${cell.paid ? 'שולם' : cell.daysLeft >= 0 ? `בעוד ${cell.daysLeft} ימים` : `עבר לפני ${-cell.daysLeft} ימים`}` : `${t.label} — חסר תאריך הגעה`}>
+                          {cell.due ? (
+                            <button className="rg-wpay-btn" title="סמן כשולם / לא שולם"
+                              onClick={async (e) => { e.stopPropagation(); await setWorkerPaymentDone(r.caseObj, t.key, !cell.paid); reload(); }}>
+                              {cell.paid ? '✓ ' : ''}{fmtDate(cell.due)}
+                            </button>
+                          ) : <span className="rg-muted">—</span>}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}</tbody>
               </table>
@@ -348,16 +368,153 @@ export default function RegistryApp() {
           ) : <p className="rg-empty">אין פריטים בקטגוריה הזו.</p>}
           <p className="rg-legend">
             <span className="rg-cell-bad">עבר תוקף</span>
-            <span className="rg-cell-warn">מתקרב לסיום</span>
-            <span className="rg-muted">לחיצה על שם פותחת את התיק</span>
+            <span className="rg-cell-week">השבוע</span>
+            <span className="rg-cell-warn">בחודש הקרוב</span>
+            <span className="rg-cell-paid">שולם</span>
+            <span className="rg-muted">תשלומי העובד/ת מחושבים מתאריך ההגעה (בהגעה · 26 חודשים · 38 חודשים) — לחיצה מסמנת כשולם</span>
           </p>
         </>
       )}
+
+      {cases && tab === 'placements' && (
+        placements.length ? (
+          <div className="rg-tablewrap">
+            <table className="rg-table">
+              <thead><tr><th>#</th><th>עובד/ת</th><th>דרכון</th><th>אזרחות</th><th>מעסיק / מטופל</th><th>ישוב</th><th>תחילת העסקה</th><th>שכר</th><th>רכז/ת</th></tr></thead>
+              <tbody>{placements.map((c) => { const f = c.data?.fields || {}; return (
+                <tr key={c.id} onClick={() => goRecord(c, 'worker')}>
+                  <td className="rg-num">{f.caseNumber || '—'}</td>
+                  <td><b>{c.worker?.nameHe || c.worker?.nameEn}</b></td>
+                  <td dir="ltr">{c.worker?.passportNo || '—'}</td>
+                  <td>{c.worker?.nationality || '—'}</td>
+                  <td>{c.family?.fullName || '—'}</td>
+                  <td>{c.family?.city || '—'}</td>
+                  <td>{f.startDate ? fmtDate(f.startDate) : '—'}</td>
+                  <td>{f.salary ? `${Number(f.salary).toLocaleString('he-IL')} ₪` : '—'}</td>
+                  <td>{f.assignedTo || '—'}</td>
+                </tr>
+              ); })}</tbody>
+            </table>
+          </div>
+        ) : <p className="rg-empty">אין השמות פעילות.</p>
+      )}
+
+      {cases && tab === 'reports' && <ReportsTab cases={cases} onOpen={goRecord} />}
 
       {tab === 'leads' && <LeadsTab leads={leads} onChanged={reload} />}
 
       <footer className="rg-foot"><a href="privacy.html" target="_blank" rel="noreferrer">🔒 מדיניות פרטיות ותנאי שימוש</a></footer>
     </div>
+  );
+}
+
+// Quick presets so the office doesn't have to type dates for the common cases.
+function rangePreset(which) {
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const start = new Date(t); const end = new Date(t);
+  if (which === 'month') { start.setDate(1); end.setMonth(end.getMonth() + 1, 0); }
+  if (which === 'nextMonth') { end.setMonth(end.getMonth() + 1); }
+  if (which === 'nextWeek') { end.setDate(end.getDate() + 7); }
+  if (which === 'year') { start.setMonth(0, 1); end.setMonth(11, 31); }
+  if (which === 'lastYear') { start.setFullYear(start.getFullYear() - 1, 0, 1); end.setFullYear(end.getFullYear() - 1, 11, 31); }
+  return { from: iso(start), to: iso(end) };
+}
+
+function ReportsTab({ cases, onOpen }) {
+  const init = rangePreset('month');
+  const [from, setFrom] = useState(init.from);
+  const [to, setTo] = useState(init.to);
+  const [kind, setKind] = useState('all'); // all | income | due
+  const report = useMemo(() => buildReport(cases, from, to), [cases, from, to]);
+  const preset = (w) => { const r = rangePreset(w); setFrom(r.from); setTo(r.to); };
+
+  const exportIncome = () => downloadCsv('ogen-income.csv',
+    ['תאריך', 'שם', 'סכום', 'אמצעי תשלום'],
+    report.income.map((i) => [fmtDate(i.date), i.who, i.amount, i.method]));
+  const exportDue = () => downloadCsv('ogen-due.csv',
+    ['תאריך', 'שם', 'סוג', 'מצב'],
+    report.due.map((d) => [fmtDate(d.cell.due), d.who, d.type.label,
+      d.cell.paid ? 'שולם' : d.cell.overdue ? 'עבר' : 'ממתין']));
+
+  return (
+    <>
+      <div className="rg-report-bar">
+        <label>מתאריך <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+        <label>עד תאריך <input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+        <div className="rg-presets">
+          <button className="rg-chip" onClick={() => preset('nextWeek')}>השבוע הקרוב</button>
+          <button className="rg-chip" onClick={() => preset('month')}>החודש</button>
+          <button className="rg-chip" onClick={() => preset('nextMonth')}>החודש הקרוב</button>
+          <button className="rg-chip" onClick={() => preset('year')}>השנה</button>
+          <button className="rg-chip" onClick={() => preset('lastYear')}>שנה שעברה</button>
+        </div>
+      </div>
+
+      <div className="rg-kpis">
+        <div className="rg-kpi"><b>{report.total.toLocaleString('he-IL')} ₪</b><span>סה״כ נגבה בתקופה</span></div>
+        <div className="rg-kpi"><b>{report.net.toLocaleString('he-IL')} ₪</b><span>לפני מע״מ</span></div>
+        <div className="rg-kpi"><b>{report.vat.toLocaleString('he-IL')} ₪</b><span>מע״מ (17%)</span></div>
+        <div className="rg-kpi"><b>{report.income.length}</b><span>תשלומים</span></div>
+        <div className={`rg-kpi${report.due.length ? ' alert' : ''}`}><b>{report.due.length}</b><span>חידושים בתקופה</span></div>
+      </div>
+
+      <div className="rg-filters">
+        <button className={`rg-chip${kind === 'all' ? ' on' : ''}`} onClick={() => setKind('all')}>הכל</button>
+        <button className={`rg-chip${kind === 'income' ? ' on' : ''}`} onClick={() => setKind('income')}>💰 הכנסות ({report.income.length})</button>
+        <button className={`rg-chip${kind === 'due' ? ' on' : ''}`} onClick={() => setKind('due')}>🔔 חידושים ותשלומים ({report.due.length})</button>
+      </div>
+
+      {(kind === 'all' || kind === 'income') && (
+        <section className="rg-report-block">
+          <h3>💰 כסף שנכנס בתקופה
+            <button className="rp-btn ghost sm" onClick={exportIncome}>⬇️ ייצוא</button>
+          </h3>
+          {report.income.length ? (
+            <div className="rg-tablewrap">
+              <table className="rg-table">
+                <thead><tr><th>תאריך</th><th>שם</th><th>סכום</th><th>אמצעי תשלום</th></tr></thead>
+                <tbody>{report.income.map((i) => (
+                  <tr key={i.id} onClick={() => onOpen(i.caseObj, 'family')}>
+                    <td>{fmtDate(i.date)}</td>
+                    <td><b>{i.who || '—'}</b></td>
+                    <td><b>{i.amount.toLocaleString('he-IL')} ₪</b></td>
+                    <td><span className="rg-pill info">{i.method || '—'}</span></td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          ) : <p className="rg-empty">לא נרשמו תשלומים בתקופה הזו.</p>}
+        </section>
+      )}
+
+      {(kind === 'all' || kind === 'due') && (
+        <section className="rg-report-block">
+          <h3>🔔 מה צריך חידוש / תשלום בתקופה
+            <button className="rp-btn ghost sm" onClick={exportDue}>⬇️ ייצוא</button>
+          </h3>
+          {report.due.length ? (
+            <div className="rg-tablewrap">
+              <table className="rg-table">
+                <thead><tr><th>תאריך</th><th>שם</th><th>סוג</th><th>מצב</th></tr></thead>
+                <tbody>{report.due.map((d) => (
+                  <tr key={d.id} onClick={() => onOpen(d.caseObj, 'worker')}>
+                    <td>{fmtDate(d.cell.due)}</td>
+                    <td><b>{d.who || '—'}</b></td>
+                    <td>{d.type.icon ? d.type.icon + ' ' : '💵 '}{d.type.label}</td>
+                    <td>
+                      {d.cell.paid ? <span className="rg-pill ok">שולם</span>
+                        : d.cell.overdue ? <span className="rg-pill bad">עבר</span>
+                        : <span className="rg-pill warn">ממתין</span>}
+                    </td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          ) : <p className="rg-empty">אין חידושים או תשלומים בתקופה הזו.</p>}
+        </section>
+      )}
+    </>
   );
 }
 

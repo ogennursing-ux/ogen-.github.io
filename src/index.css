@@ -2165,6 +2165,22 @@ textarea.gov-input { resize: vertical; }
 .rg-cell-date:hover { border-color: #0e7490; color: #0f172a; }
 .rg-legend { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-top: 12px; font-size: 12.5px; color: #64748b; }
 .rg-legend span { padding: 3px 10px; border-radius: 6px; }
+/* Worker instalments (derived from the arrival date) */
+.rg-renew-col.wpay { background: #fbfdfe; }
+.rg-renew-table thead th.rg-renew-col.wpay { background: #e8f0f4; color: #155e75; }
+.rg-cell-week { background: #fca5a5; color: #7f1d1d; font-weight: 800; }
+.rg-cell-paid { background: #dcfce7; color: #15803d; font-weight: 700; }
+.rg-wpay-btn { border: 0; background: none; font: inherit; font-size: 13px; font-weight: inherit; color: inherit; cursor: pointer; padding: 2px 4px; border-radius: 5px; }
+.rg-wpay-btn:hover { background: rgba(15,23,42,.08); }
+
+/* Reports */
+.rg-report-bar { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px 18px; margin-bottom: 4px; }
+.rg-report-bar label { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #475569; }
+.rg-report-bar input { border: 1px solid #cbd5e1; border-radius: 8px; padding: 7px 10px; font: inherit; font-size: 13px; }
+.rg-presets { display: flex; gap: 6px; flex-wrap: wrap; margin-inline-start: auto; }
+.rg-report-block { margin-top: 22px; }
+.rg-report-block h3 { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 800; color: #0f172a; margin: 0 0 12px; }
+.rg-report-block h3 button { margin-inline-start: auto; }
 
 /* Pills, chips, dates */
 .rg-pill { display: inline-block; font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 3px 10px; }
