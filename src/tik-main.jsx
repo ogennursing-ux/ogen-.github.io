@@ -6,6 +6,7 @@ import IntakeChat from './tik/IntakeChat.jsx';
 import CasesBoard from './tik/CasesBoard.jsx';
 import SignFields from './tik/SignFields.jsx';
 import RegistryApp from './tik/RegistryApp.jsx';
+import ReportPage from './tik/ReportPage.jsx';
 import './index.css';
 
 // RTL Hebrew — this standalone module has no language toggle.
@@ -15,17 +16,20 @@ document.documentElement.dir = 'rtl';
 // Routing by hash:
 //   …/#chat   → the public customer chat (no login)
 //   …/#board  → the cases control room (office login)
+//   …/#report/<key> → one report, in its own browser tab
 //   anything else → the full office app (TikApp)
 const route = location.hash.replace(/^#\/?/, '').toLowerCase();
 const isChat = route.startsWith('chat');
 const isBoard = route.startsWith('board');
 const isSignFields = route.startsWith('signfields');
 const isRegistry = route.startsWith('registry');
+const isReport = route.startsWith('report');
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     {isChat ? <IntakeChat />
       : isSignFields ? <SignFields />
+      : isReport ? <ReportPage />
       : isRegistry ? <RegistryApp />
       : isBoard ? <CasesBoard />
       : <TikApp />}

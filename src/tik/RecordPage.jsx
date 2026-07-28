@@ -8,6 +8,7 @@ import {
   accountStatement,
 } from './caseDetail.js';
 import { recordsFromChat } from './chatRecords.js';
+import { recordUrl } from './recordLink.js';
 import { buildFilledContract } from './filledContract.js';
 import { COMPANY_NAME } from '../lib/workerPortal.js';
 
@@ -397,6 +398,32 @@ function FormsPanel({ caseObj, kind }) {
 }
 
 // ---- the page -----------------------------------------------------------------
+// The other side of the placement. A family file always names the worker it
+// employs and a worker file names the family — one click moves between them,
+// and it opens in a new tab so you keep both files in front of you.
+function CounterpartCard({ caseObj, kind }) {
+  const f = caseObj.data?.fields || {};
+  const other = kind === 'worker' ? 'family' : 'worker';
+  const name = other === 'worker'
+    ? (f.nameHe || f.nameEn || '')
+    : (f.employerName || f.fullName || '');
+  if (!name) return null;
+  const detail = other === 'worker'
+    ? [f.passportNo && `דרכון ${f.passportNo}`, f.nationality].filter(Boolean).join(' · ')
+    : [f.idNumber && `ת״ז ${f.idNumber}`, f.city].filter(Boolean).join(' · ');
+  return (
+    <a className="rp-counterpart" href={recordUrl(other, caseObj.id)} target="_blank" rel="noreferrer">
+      <span className="rp-counterpart-icon">{other === 'worker' ? '👷' : '🏠'}</span>
+      <span className="rp-counterpart-txt">
+        <em>{other === 'worker' ? 'העובד/ת המועסק/ת' : 'המשפחה המעסיקה'}</em>
+        <b>{name}</b>
+        {detail && <i dir={other === 'worker' ? 'ltr' : undefined}>{detail}</i>}
+      </span>
+      <span className="rp-counterpart-go">לתיק המלא ↗</span>
+    </a>
+  );
+}
+
 export default function RecordPage({ caseObj, kind, siblings = [], onNavigate, onBack, onChanged }) {
   const sections = kind === 'worker' ? WORKER_SECTIONS : FAMILY_SECTIONS;
   const [editing, setEditing] = useState(false);
@@ -499,6 +526,8 @@ export default function RecordPage({ caseObj, kind, siblings = [], onNavigate, o
           <div><span>שולם</span><b>{fmtMoney(payments(caseObj).reduce((s, p) => s + (Number(p.amount) || 0), 0))}</b></div>
         </div>
       </header>
+
+      <CounterpartCard caseObj={caseObj} kind={kind} />
 
       <nav className="rp-tabs">
         {TABS.map(([k, label]) => (

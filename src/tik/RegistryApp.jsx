@@ -3,11 +3,12 @@ import { isAuthed, login } from './officeAuth.js';
 import {
   loadRegistry, searchFamilies, searchWorkers, computeRenewalRows, saveRenewalDate,
   loadLeads, createLead, convertLeadToCase, dismissLead, RENEWAL_TYPES, createCase,
-  WORKER_PAYMENTS, activePlacements, buildReport, setWorkerPaymentDone,
+  WORKER_PAYMENTS, activePlacements, setWorkerPaymentDone,
 } from './registry.js';
 import { getOrAssignCaseNumber, payments } from './caseDetail.js';
 import RecordPage from './RecordPage.jsx';
-import SocialWorkerTab from './SocialWorkerTab.jsx';
+import { REPORTS } from './ReportPage.jsx';
+import { openRecordTab } from './recordLink.js';
 import { buildVisitReport } from './socialWorker.js';
 
 function Login({ onIn }) {
@@ -317,7 +318,7 @@ export default function RegistryApp() {
               <tbody>{families.map((c) => { const f = c.data?.fields || {}; return (
                 <tr key={c.id} onClick={() => goRecord(c, 'family')}>
                   <td className="rg-num">{f.caseNumber || '—'}</td>
-                  <td><b>{c.family?.fullName || 'ללא שם'}</b></td>
+                  <td><b>{c.family?.fullName || 'ללא שם'}</b><MergedTag c={c} /></td>
                   <td dir="ltr">{c.family?.idNumber || '—'}</td>
                   <td dir="ltr">{c.family?.phone || '—'}</td>
                   <td>{c.family?.city || '—'}</td>
@@ -340,7 +341,7 @@ export default function RegistryApp() {
               <tbody>{workers.map((c) => { const f = c.data?.fields || {}; return (
                 <tr key={c.id} onClick={() => goRecord(c, 'worker')}>
                   <td className="rg-num">{f.caseNumber || '—'}</td>
-                  <td><b>{c.worker?.nameHe || c.worker?.nameEn || 'ללא שם'}</b></td>
+                  <td><b>{c.worker?.nameHe || c.worker?.nameEn || 'ללא שם'}</b><MergedTag c={c} /></td>
                   <td dir="ltr">{c.worker?.passportNo || '—'}</td>
                   <td>{c.worker?.nationality || '—'}</td>
                   <td dir="ltr">{c.worker?.phone || '—'}</td>
@@ -377,11 +378,11 @@ export default function RegistryApp() {
                 <tbody>{shownRenewals.map((r) => (
                   <tr key={r.id}>
                     <td className="rg-num">{r.caseNumber || '—'}</td>
-                    <td className="rg-link" onClick={() => goRecord(r.caseObj, 'worker')}><b>{r.workerName || '—'}</b></td>
+                    <td className="rg-link" onClick={() => openRecordTab('worker', r.caseObj.id)} title="פתיחת תיק העובד/ת בלשונית חדשה"><b>{r.workerName || '—'}</b></td>
                     <td dir="ltr">{r.passportNo || '—'}</td>
                     <td>{r.arrivalDate ? fmtDate(r.arrivalDate) : '—'}</td>
                     <td dir="ltr">{r.workerPhone || '—'}</td>
-                    <td className="rg-link" onClick={() => goRecord(r.caseObj, 'family')}>{r.employerName || '—'}</td>
+                    <td className="rg-link" onClick={() => openRecordTab('family', r.caseObj.id)} title="פתיחת תיק המשפחה בלשונית חדשה">{r.employerName || '—'}</td>
                     <td dir="ltr">{r.employerPhone || '—'}</td>
                     {RENEWAL_TYPES.map((t) => {
                       const cell = r.cells[t.key];
@@ -451,9 +452,7 @@ export default function RegistryApp() {
         ) : <p className="rg-empty">אין השמות פעילות.</p>
       )}
 
-      {cases && tab === 'reports' && (
-        <ReportsTab cases={cases} placements={placements} onOpen={goRecord} onChanged={reload} />
-      )}
+      {tab === 'reports' && <ReportsTab />}
 
       {tab === 'leads' && <LeadsTab leads={leads} onChanged={reload} />}
 
@@ -462,224 +461,33 @@ export default function RegistryApp() {
   );
 }
 
-// Quick presets so the office doesn't have to type dates for the common cases.
-function rangePreset(which) {
-  const t = new Date(); t.setHours(0, 0, 0, 0);
-  const iso = (d) => d.toISOString().slice(0, 10);
-  const start = new Date(t); const end = new Date(t);
-  if (which === 'month') { start.setDate(1); end.setMonth(end.getMonth() + 1, 0); }
-  if (which === 'nextMonth') { end.setMonth(end.getMonth() + 1); }
-  if (which === 'nextWeek') { end.setDate(end.getDate() + 7); }
-  if (which === 'year') { start.setMonth(0, 1); end.setMonth(11, 31); }
-  if (which === 'lastYear') { start.setFullYear(start.getFullYear() - 1, 0, 1); end.setFullYear(end.getFullYear() - 1, 11, 31); }
-  return { from: iso(start), to: iso(end) };
-}
-
-// Every report lives here, one click each, instead of scattered top-level tabs.
-const REPORT_LIST = [
-  { key: 'income', label: '💰 הכנסות', desc: 'כמה כסף נכנס בתקופה' },
-  { key: 'due', label: '🔔 חידושים ותשלומים', desc: 'ויזה, דרכון, ביטוח, היתר, תאגיד ותשלומי העובד/ת' },
-  { key: 'social', label: '🧑‍⚕️ ביקורי עובד/ת סוציאלי/ת', desc: 'ביקורי השמה, 30 יום ושוטף לפי רבעון' },
-  { key: 'calendar', label: '📅 יומן פגישות', desc: 'כל הביקורים והפגישות בחודש, על לוח שנה' },
-];
-
-function ReportsTab({ cases, placements, onOpen, onChanged }) {
-  const [report, setReport] = useState('income');
+// Reports are cards. Clicking one opens a fresh browser tab: first the
+// parameters page (dates / quarter), then the results — so a report you ran
+// stays open next to the record you are working on.
+// The same person used to appear once per submission. They are merged now by
+// passport (or ID); this marks the merged rows so nothing looks lost.
+function MergedTag({ c }) {
+  if (!(c.duplicateOf > 1)) return null;
   return (
-    <>
-      <div className="rg-reportnav">
-        {REPORT_LIST.map((r) => (
-          <button key={r.key} className={`rg-reportcard${report === r.key ? ' on' : ''}`} onClick={() => setReport(r.key)}>
-            <b>{r.label}</b><span>{r.desc}</span>
-          </button>
-        ))}
-      </div>
-      {report === 'social' ? <SocialWorkerTab cases={placements} onOpen={onOpen} onChanged={onChanged} />
-        : report === 'calendar' ? <CalendarReport cases={cases} placements={placements} onOpen={onOpen} />
-        : <MoneyReport cases={cases} onOpen={onOpen} only={report} />}
-    </>
+    <span className="rg-merged" title={`${c.duplicateOf} רשומות של אותו אדם אוחדו לתיק אחד`}>
+      אוחד ×{c.duplicateOf}
+    </span>
   );
 }
 
-function MoneyReport({ cases, onOpen, only }) {
-  const init = rangePreset('month');
-  const [from, setFrom] = useState(init.from);
-  const [to, setTo] = useState(init.to);
-  const kind = only; // 'income' | 'due'
-  const report = useMemo(() => buildReport(cases, from, to), [cases, from, to]);
-  const preset = (w) => { const r = rangePreset(w); setFrom(r.from); setTo(r.to); };
-
-  const exportIncome = () => downloadCsv('ogen-income.csv',
-    ['תאריך', 'שם', 'סכום', 'אמצעי תשלום'],
-    report.income.map((i) => [fmtDate(i.date), i.who, i.amount, i.method]));
-  const exportDue = () => downloadCsv('ogen-due.csv',
-    ['תאריך', 'שם', 'סוג', 'מצב'],
-    report.due.map((d) => [fmtDate(d.cell.due), d.who, d.type.label,
-      d.cell.paid ? 'שולם' : d.cell.overdue ? 'עבר' : 'ממתין']));
-
+function ReportsTab() {
+  const href = (key) => `${location.pathname}${location.search}#report/${key}`;
   return (
-    <>
-      <div className="rg-report-bar">
-        <label>מתאריך <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
-        <label>עד תאריך <input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
-        <div className="rg-presets">
-          <button className="rg-chip" onClick={() => preset('nextWeek')}>השבוע הקרוב</button>
-          <button className="rg-chip" onClick={() => preset('month')}>החודש</button>
-          <button className="rg-chip" onClick={() => preset('nextMonth')}>החודש הקרוב</button>
-          <button className="rg-chip" onClick={() => preset('year')}>השנה</button>
-          <button className="rg-chip" onClick={() => preset('lastYear')}>שנה שעברה</button>
-        </div>
-      </div>
-
-      <div className="rg-kpis">
-        <div className="rg-kpi"><b>{report.total.toLocaleString('he-IL')} ₪</b><span>סה״כ נגבה בתקופה</span></div>
-        <div className="rg-kpi"><b>{report.net.toLocaleString('he-IL')} ₪</b><span>לפני מע״מ</span></div>
-        <div className="rg-kpi"><b>{report.vat.toLocaleString('he-IL')} ₪</b><span>מע״מ (17%)</span></div>
-        <div className="rg-kpi"><b>{report.income.length}</b><span>תשלומים</span></div>
-        <div className={`rg-kpi${report.due.length ? ' alert' : ''}`}><b>{report.due.length}</b><span>חידושים בתקופה</span></div>
-      </div>
-
-      {kind === 'income' && (
-        <section className="rg-report-block">
-          <h3>💰 כסף שנכנס בתקופה
-            <button className="rp-btn ghost sm" onClick={exportIncome}>⬇️ ייצוא</button>
-          </h3>
-          {report.income.length ? (
-            <div className="rg-tablewrap">
-              <table className="rg-table">
-                <thead><tr><th>תאריך</th><th>שם</th><th>סכום</th><th>אמצעי תשלום</th></tr></thead>
-                <tbody>{report.income.map((i) => (
-                  <tr key={i.id} onClick={() => onOpen(i.caseObj, 'family')}>
-                    <td>{fmtDate(i.date)}</td>
-                    <td><b>{i.who || '—'}</b></td>
-                    <td><b>{i.amount.toLocaleString('he-IL')} ₪</b></td>
-                    <td><span className="rg-pill info">{i.method || '—'}</span></td>
-                  </tr>
-                ))}</tbody>
-              </table>
-            </div>
-          ) : <p className="rg-empty">לא נרשמו תשלומים בתקופה הזו.</p>}
-        </section>
-      )}
-
-      {kind === 'due' && (
-        <section className="rg-report-block">
-          <h3>🔔 מה צריך חידוש / תשלום בתקופה
-            <button className="rp-btn ghost sm" onClick={exportDue}>⬇️ ייצוא</button>
-          </h3>
-          {report.due.length ? (
-            <div className="rg-tablewrap">
-              <table className="rg-table">
-                <thead><tr><th>תאריך</th><th>שם</th><th>סוג</th><th>מצב</th></tr></thead>
-                <tbody>{report.due.map((d) => (
-                  <tr key={d.id} onClick={() => onOpen(d.caseObj, 'worker')}>
-                    <td>{fmtDate(d.cell.due)}</td>
-                    <td><b>{d.who || '—'}</b></td>
-                    <td>{d.type.icon ? d.type.icon + ' ' : '💵 '}{d.type.label}</td>
-                    <td>
-                      {d.cell.paid ? <span className="rg-pill ok">שולם</span>
-                        : d.cell.overdue ? <span className="rg-pill bad">עבר</span>
-                        : <span className="rg-pill warn">ממתין</span>}
-                    </td>
-                  </tr>
-                ))}</tbody>
-              </table>
-            </div>
-          ) : <p className="rg-empty">אין חידושים או תשלומים בתקופה הזו.</p>}
-        </section>
-      )}
-    </>
-  );
-}
-
-// Month calendar of everything scheduled: recorded visits, required social-worker
-// visits, and renewals falling due.
-function CalendarReport({ cases, placements, onOpen }) {
-  const [cursor, setCursor] = useState(() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d; });
-  const monthStart = cursor;
-  const monthEnd = useMemo(() => new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0, 23, 59, 59, 999), [cursor]);
-
-  const events = useMemo(() => {
-    const out = [];
-    const add = (date, kind, label, who, caseObj, tone) => {
-      const d = date instanceof Date ? date : new Date(date);
-      if (Number.isNaN(d.getTime()) || d < monthStart || d > monthEnd) return;
-      out.push({ id: `${kind}-${who}-${d.getTime()}-${label}`, date: d, kind, label, who, caseObj, tone });
-    };
-    for (const c of cases) {
-      const f = c.data?.fields || {};
-      const who = c.family?.fullName || f.employerName || c.worker?.nameHe || '';
-      for (const v of (f.visits || [])) add(v.date, 'visit', v.type || 'ביקור', who, c, 'ok');
-      for (const t of RENEWAL_TYPES) if (f[t.key]) add(f[t.key], 'renew', t.short, who, c, 'warn');
-    }
-    for (const v of buildVisitReport(placements)) {
-      if (v.done) continue;
-      add(v.due, 'sw', `עו״ס — ${v.kind.short}`, v.workerName || v.familyName, v.caseObj, v.overdue ? 'bad' : 'info');
-    }
-    return out.sort((a, b) => a.date - b.date);
-  }, [cases, placements, monthStart, monthEnd]);
-
-  const cells = useMemo(() => {
-    const lead = monthStart.getDay();
-    const days = monthEnd.getDate();
-    const out = [];
-    for (let i = 0; i < lead; i++) out.push(null);
-    for (let d = 1; d <= days; d++) out.push(new Date(cursor.getFullYear(), cursor.getMonth(), d));
-    while (out.length % 7) out.push(null);
-    return out;
-  }, [cursor, monthStart, monthEnd]);
-
-  const byDay = useMemo(() => {
-    const m = new Map();
-    for (const e of events) {
-      const k = e.date.getDate();
-      if (!m.has(k)) m.set(k, []);
-      m.get(k).push(e);
-    }
-    return m;
-  }, [events]);
-
-  const monthName = cursor.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const step = (n) => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + n, 1));
-
-  return (
-    <>
-      <div className="rg-report-bar">
-        <button className="rp-btn ghost sm" onClick={() => step(-1)}>&lsaquo; חודש קודם</button>
-        <b className="cal-month">{monthName}</b>
-        <button className="rp-btn ghost sm" onClick={() => step(1)}>חודש הבא &rsaquo;</button>
-        <div className="rg-presets">
-          <button className="rg-chip" onClick={() => { const d = new Date(); d.setDate(1); d.setHours(0,0,0,0); setCursor(d); }}>החודש</button>
-          <span className="rg-muted">{events.length} אירועים</span>
-        </div>
-      </div>
-      <div className="cal-grid">
-        {['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'].map((d) => <div key={d} className="cal-head">{d}</div>)}
-        {cells.map((d, i) => {
-          if (!d) return <div key={`e${i}`} className="cal-cell empty" />;
-          const list = byDay.get(d.getDate()) || [];
-          const isToday = d.getTime() === today.getTime();
-          return (
-            <div key={d.getTime()} className={`cal-cell${isToday ? ' today' : ''}`}>
-              <div className="cal-day">{d.getDate()}</div>
-              {list.slice(0, 4).map((e) => (
-                <button key={e.id} className={`cal-ev ${e.tone}`} onClick={() => onOpen(e.caseObj, 'family')} title={`${e.label} — ${e.who}`}>
-                  {e.label} · {e.who}
-                </button>
-              ))}
-              {list.length > 4 && <div className="cal-more">ועוד {list.length - 4}…</div>}
-            </div>
-          );
-        })}
-      </div>
-      <p className="rg-legend">
-        <span className="rg-pill ok">ביקור שבוצע</span>
-        <span className="rg-pill info">ביקור עו״ס מתוכנן</span>
-        <span className="rg-pill bad">ביקור עו״ס באיחור</span>
-        <span className="rg-pill warn">חידוש</span>
-      </p>
-    </>
+    <div className="rg-reportnav">
+      {Object.entries(REPORTS).map(([key, r]) => (
+        <a key={key} className="rg-reportcard" href={href(key)} target="_blank" rel="noreferrer">
+          <span className="rg-reportcard-icon">{r.icon}</span>
+          <b>{r.label}</b>
+          <span>{r.desc}</span>
+          <em>נפתח בלשונית חדשה ↗</em>
+        </a>
+      ))}
+    </div>
   );
 }
 

@@ -13,9 +13,54 @@ const SUPABASE_ANON_KEY =
 let _sb;
 const sb = () => (_sb || (_sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)));
 
+// mergeHalves only joins the two halves of a split link. Two *full* submissions
+// for the same person (same passport, e.g. the name typed slightly differently
+// each time) both survive it, so the same worker shows up twice. Fold those
+// together here: newest row wins, older rows fill in whatever it is missing.
+const dedupeKey = (c) => {
+  const f = c.data?.fields || {};
+  const pass = String(f.passportNo || '').replace(/\s/g, '').toUpperCase();
+  if (pass) return `p:${pass}`;
+  const id = String(f.idNumber || '').replace(/\D/g, '');
+  if (id) return `i:${id}`;
+  return null;
+};
+
+export function dedupeCases(cases) {
+  const byKey = new Map();
+  const out = [];
+  for (const c of cases) {
+    const key = dedupeKey(c);
+    if (!key) { out.push(c); continue; }
+    if (!byKey.has(key)) { byKey.set(key, [c]); out.push(c); }
+    else byKey.get(key).push(c);
+  }
+  return out.map((c) => {
+    const key = dedupeKey(c);
+    const group = key ? byKey.get(key) : [c];
+    if (!group || group.length < 2) return c;
+    // Newest first; earlier rows only fill blanks so nothing already known is lost.
+    const ordered = [...group].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    const fields = {};
+    for (const r of [...ordered].reverse()) {
+      for (const [k, v] of Object.entries(r.data?.fields || {})) {
+        if (v != null && v !== '') fields[k] = v;
+      }
+    }
+    const files = ordered.flatMap((r) => r.data?.files || []);
+    const primary = ordered[0];
+    return {
+      ...primary,
+      ids: [...new Set(ordered.flatMap((r) => r.ids || [r.id]))],
+      duplicateOf: group.length,
+      data: { ...primary.data, fields, files },
+    };
+  });
+}
+
 // Load every case and attach the ready-to-display family/worker records.
 export async function loadRegistry() {
-  const cases = await loadCases();
+  const cases = dedupeCases(await loadCases());
   for (const c of cases) {
     const { worker, family } = recordsFromChat(c.data?.fields || {});
     c.worker = worker;
