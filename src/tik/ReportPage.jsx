@@ -358,21 +358,26 @@ function DueResult({ cases, params }) {
 // הפנים's own quarterly Excel template with the quarter's visits and downloads it.
 function InteriorButton({ quarter, rows }) {
   const [busy, setBusy] = useState(false);
+  // The government report lists visits that were actually carried out, so only
+  // visits with a recorded date go in — a planned visit is not a reportable one.
+  const done = rows.filter((v) => v.done);
   const go = async () => {
+    if (!done.length) { alert('אין ברבעון זה ביקורים שבוצעו (עם תאריך). עדכנו את תאריכי הביקורים ונסו שוב.'); return; }
     setBusy(true);
     try {
       await downloadInteriorReport({
         agency: COMPANY_NAME,
         year: String(quarter.year),
-        quarter: `Q${quarter.q}`,
-        visits: [...rows].sort((a, b) => (b.done ? 1 : 0) - (a.done ? 1 : 0)),
+        quarter: String(quarter.q),
+        visits: done,
       });
     } catch (e) { alert('הפקת הדוח למשרד הפנים נכשלה: ' + (e?.message || e)); }
     finally { setBusy(false); }
   };
   return (
-    <button className="rp-btn matash" disabled={busy || !rows.length} onClick={go} style={{ marginInlineStart: 8 }}>
-      {busy ? 'מפיק…' : '📤 הורד דוח רבעוני למשרד הפנים'}
+    <button className="rp-btn matash" disabled={busy || !done.length} onClick={go} style={{ marginInlineStart: 8 }}
+      title={done.length ? `${done.length} ביקורים שבוצעו` : 'אין ביקורים שבוצעו ברבעון'}>
+      {busy ? 'מפיק…' : `📤 הורד דוח רבעוני למשרד הפנים${done.length ? ` (${done.length})` : ''}`}
     </button>
   );
 }
