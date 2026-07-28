@@ -7,6 +7,8 @@ import {
 } from './registry.js';
 import { getOrAssignCaseNumber, payments } from './caseDetail.js';
 import RecordPage from './RecordPage.jsx';
+import SocialWorkerTab from './SocialWorkerTab.jsx';
+import { buildVisitReport } from './socialWorker.js';
 
 function Login({ onIn }) {
   const [user, setUser] = useState('');
@@ -157,6 +159,10 @@ export default function RegistryApp() {
     return renewals;
   }, [renewals, renewFilter]);
   const placements = useMemo(() => (cases ? byRakaz(activePlacements(cases)) : []), [cases, rakazFilter]);
+  const socialOverdue = useMemo(
+    () => (cases ? buildVisitReport(activePlacements(cases)).filter((v) => v.overdue).length : 0),
+    [cases],
+  );
 
   // ---- record page routing (#registry/f/<id> | #registry/w/<id>) ----
   const m = /^registry\/(f|w)\/(.+)$/.exec(route);
@@ -236,6 +242,9 @@ export default function RegistryApp() {
         <button className={`rg-tab${tab === 'placements' ? ' on' : ''}`} onClick={() => setTab('placements')}>🤝 השמות פעילות <em>{placements.length}</em></button>
         <button className={`rg-tab${tab === 'renewals' ? ' on' : ''}`} onClick={() => setTab('renewals')}>
           🔔 דוח חידושים {renewCounts.overdue + renewCounts.urgent > 0 && <em className="alert">{renewCounts.overdue + renewCounts.urgent}</em>}
+        </button>
+        <button className={`rg-tab${tab === 'social' ? ' on' : ''}`} onClick={() => setTab('social')}>
+          🧑‍⚕️ עובד/ת סוציאלי/ת {socialOverdue > 0 && <em className="alert">{socialOverdue}</em>}
         </button>
         <button className={`rg-tab${tab === 'reports' ? ' on' : ''}`} onClick={() => setTab('reports')}>📊 דוחות</button>
         <button className={`rg-tab${tab === 'leads' ? ' on' : ''}`} onClick={() => setTab('leads')}>📞 פניות <em>{leads.length}</em></button>
@@ -397,6 +406,10 @@ export default function RegistryApp() {
             </table>
           </div>
         ) : <p className="rg-empty">אין השמות פעילות.</p>
+      )}
+
+      {cases && tab === 'social' && (
+        <SocialWorkerTab cases={activePlacements(byRakaz(cases))} onOpen={goRecord} onChanged={reload} />
       )}
 
       {cases && tab === 'reports' && <ReportsTab cases={cases} onOpen={goRecord} />}
