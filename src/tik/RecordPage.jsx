@@ -5,10 +5,10 @@ import {
   PAYMENT_METHODS, INSURANCE_COMPANIES, payments, addPayment, vatBreakdown,
   VISIT_TYPES, visits, addVisit, notes, addNote, patchCaseFields, duplicateCase,
   uploadCaseFile, fileUrl, contacts, addContact, removeContact, CONTACT_RELATIONS,
-  accountStatement,
+  accountStatement, getOrAssignCaseNumber,
 } from './caseDetail.js';
 import { recordsFromChat } from './chatRecords.js';
-import { recordUrl } from './recordLink.js';
+import { recordUrl, openRecordTab } from './recordLink.js';
 import { buildFilledContract } from './filledContract.js';
 import { COMPANY_NAME } from '../lib/workerPortal.js';
 
@@ -442,6 +442,17 @@ export default function RecordPage({ caseObj, kind, siblings = [], onNavigate, o
 
   useEffect(() => { topRef.current?.scrollIntoView({ block: 'start' }); }, [caseObj?.id]);
 
+  // A file gets its number the first time it is opened. The list used to do
+  // this, but files now open in their own tab, so the number is assigned here.
+  useEffect(() => {
+    if (caseObj?.data?.fields?.caseNumber || !siblings.length) return;
+    let alive = true;
+    getOrAssignCaseNumber(caseObj, siblings)
+      .then(() => { if (alive) onChanged(); })
+      .catch(() => { /* a missing number is not worth an alert */ });
+    return () => { alive = false; };
+  }, [caseObj?.id]);
+
   const title = kind === 'worker'
     ? (stored.nameHe || stored.nameEn || 'עובד/ת ללא שם')
     : (stored.employerName || stored.fullName || 'תיק ללא שם');
@@ -474,8 +485,11 @@ export default function RecordPage({ caseObj, kind, siblings = [], onNavigate, o
   }
   async function onDuplicate() {
     if (!confirm('ליצור עותק של התיק?')) return;
-    try { await duplicateCase(caseObj); onChanged(); alert('נוצר תיק חדש (עותק).'); }
-    catch (e) { alert('שכפול נכשל: ' + (e?.message || e)); }
+    try {
+      const id = await duplicateCase(caseObj);
+      onChanged();
+      openRecordTab(kind, id); // the copy opens in its own tab, like every file
+    } catch (e) { alert('שכפול נכשל: ' + (e?.message || e)); }
   }
 
   const TABS = [

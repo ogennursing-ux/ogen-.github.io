@@ -5,7 +5,7 @@ import {
   loadLeads, createLead, convertLeadToCase, dismissLead, RENEWAL_TYPES, createCase,
   WORKER_PAYMENTS, activePlacements, setWorkerPaymentDone,
 } from './registry.js';
-import { getOrAssignCaseNumber, payments } from './caseDetail.js';
+import { payments } from './caseDetail.js';
 import RecordPage from './RecordPage.jsx';
 import { REPORT_GROUPS } from './reports.js';
 import { openRecordTab } from './recordLink.js';
@@ -103,7 +103,12 @@ function LeadsTab({ leads, onChanged }) {
                   <td>{f.referrer || '—'}</td>
                   <td className="rg-muted">{f.note || '—'}</td>
                   <td className="rg-row-actions">
-                    <button className="rp-btn ghost sm" onClick={async () => { if (confirm('להפוך לתיק פעיל?')) { await convertLeadToCase(l); onChanged(); } }}>➡️ לתיק</button>
+                    <button className="rp-btn ghost sm" onClick={async () => {
+                      if (!confirm('להפוך לתיק פעיל?')) return;
+                      const id = await convertLeadToCase(l);
+                      onChanged();
+                      if (id) openRecordTab('family', id);
+                    }}>➡️ לתיק</button>
                     <button className="rp-btn ghost sm" onClick={async () => { if (confirm('להסיר?')) { await dismissLead(l); onChanged(); } }}>✕</button>
                   </td>
                 </tr>
@@ -184,11 +189,10 @@ export default function RegistryApp() {
   const openRecord = m && cases ? cases.find((c) => c.id === m[2]) : null;
   const openKind = m && m[1] === 'w' ? 'worker' : 'family';
 
-  async function goRecord(c, kind) {
-    try { await getOrAssignCaseNumber(c, cases || []); } catch { /* best effort */ }
-    location.hash = `registry/${kind === 'worker' ? 'w' : 'f'}/${c.id}`;
-    window.scrollTo(0, 0);
-  }
+  // Opening a file always opens a browser tab, so the list you were reading
+  // stays exactly where it was. The tab is opened straight from the click —
+  // no await in front of it — or the browser would block it as a popup.
+  const goRecord = (c, kind) => openRecordTab(kind, c.id);
   const goList = () => { location.hash = 'registry'; window.scrollTo(0, 0); };
 
   // "לקוח חדש" — create an empty case from the office and open it.
@@ -199,8 +203,7 @@ export default function RegistryApp() {
       const seed = kind === 'worker' ? { nameHe: name.trim() } : { employerName: name.trim() };
       const id = await createCase(seed);
       await reload();
-      location.hash = `registry/${kind === 'worker' ? 'w' : 'f'}/${id}`;
-      window.scrollTo(0, 0);
+      openRecordTab(kind, id);
     } catch (e) { alert(e?.message || e); }
   }
 
@@ -318,7 +321,7 @@ export default function RegistryApp() {
             <table className="rg-table">
               <thead><tr><th>#</th><th>שם המטופל / מעסיק</th><th>ת״ז</th><th>טלפון</th><th>ישוב</th><th>עובד/ת</th><th>רכז/ת</th><th>תוקף היתר</th><th>סטטוס</th></tr></thead>
               <tbody>{families.map((c) => { const f = c.data?.fields || {}; return (
-                <tr key={c.id} onClick={() => goRecord(c, 'family')}>
+                <tr key={c.id} className="rg-clickrow" title="פתיחת התיק בלשונית חדשה" onClick={() => goRecord(c, 'family')}>
                   <td className="rg-num">{f.caseNumber || '—'}</td>
                   <td><b>{c.family?.fullName || 'ללא שם'}</b><MergedTag c={c} /></td>
                   <td dir="ltr">{c.family?.idNumber || '—'}</td>
@@ -341,7 +344,7 @@ export default function RegistryApp() {
             <table className="rg-table">
               <thead><tr><th>#</th><th>שם העובד/ת</th><th>דרכון</th><th>אזרחות</th><th>טלפון</th><th>תוקף אשרה</th><th>תוקף דרכון</th><th>משפחה</th><th>סטטוס</th></tr></thead>
               <tbody>{workers.map((c) => { const f = c.data?.fields || {}; return (
-                <tr key={c.id} onClick={() => goRecord(c, 'worker')}>
+                <tr key={c.id} className="rg-clickrow" title="פתיחת התיק בלשונית חדשה" onClick={() => goRecord(c, 'worker')}>
                   <td className="rg-num">{f.caseNumber || '—'}</td>
                   <td><b>{c.worker?.nameHe || c.worker?.nameEn || 'ללא שם'}</b><MergedTag c={c} /></td>
                   <td dir="ltr">{c.worker?.passportNo || '—'}</td>
@@ -437,7 +440,7 @@ export default function RegistryApp() {
             <table className="rg-table">
               <thead><tr><th>#</th><th>עובד/ת</th><th>דרכון</th><th>אזרחות</th><th>מעסיק / מטופל</th><th>ישוב</th><th>תחילת העסקה</th><th>שכר</th><th>רכז/ת</th></tr></thead>
               <tbody>{placements.map((c) => { const f = c.data?.fields || {}; return (
-                <tr key={c.id} onClick={() => goRecord(c, 'worker')}>
+                <tr key={c.id} className="rg-clickrow" title="פתיחת התיק בלשונית חדשה" onClick={() => goRecord(c, 'worker')}>
                   <td className="rg-num">{f.caseNumber || '—'}</td>
                   <td><b>{c.worker?.nameHe || c.worker?.nameEn}</b></td>
                   <td dir="ltr">{c.worker?.passportNo || '—'}</td>

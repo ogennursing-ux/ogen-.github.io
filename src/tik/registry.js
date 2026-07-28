@@ -329,6 +329,7 @@ export async function convertLeadToCase(lead) {
     data: { ...lead.data, fields: { ...f, employerName: f.employerName || f.name, contactPhone: f.contactPhone || f.phone } },
   }).eq('id', lead.id);
   if (error) throw new Error(error.message);
+  return lead.id; // the caller opens the new file
 }
 
 export async function dismissLead(lead) {
