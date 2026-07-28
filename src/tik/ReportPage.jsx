@@ -8,6 +8,8 @@ import { REPORTS, REPORT_GROUPS, runReport, coordinators } from './reports.js';
 import CalendarReport from './CalendarReport.jsx';
 import { openRecordTab } from './recordLink.js';
 import { loadDigitalForms } from './digitalForms.js';
+import { downloadMatashReport } from './matashExport.js';
+import { COMPANY_NAME } from '../lib/workerPortal.js';
 
 // Each report is a small wizard in its own browser tab:
 //   step 1 — pick the parameters (dates / quarter / coordinator)
@@ -352,6 +354,29 @@ function DueResult({ cases, params }) {
 
 // The social-worker quarter: the only report the office also *writes* into,
 // because the visit dates are filled in by hand from what really happened.
+// The one report that produces the official government file: it fills מת״ש's
+// own quarterly Excel template with the quarter's visits and downloads it.
+function MatashButton({ quarter, rows }) {
+  const [busy, setBusy] = useState(false);
+  const go = async () => {
+    setBusy(true);
+    try {
+      await downloadMatashReport({
+        agency: COMPANY_NAME,
+        year: String(quarter.year),
+        quarter: `Q${quarter.q}`,
+        visits: [...rows].sort((a, b) => (b.done ? 1 : 0) - (a.done ? 1 : 0)),
+      });
+    } catch (e) { alert('הפקת קובץ מת״ש נכשלה: ' + (e?.message || e)); }
+    finally { setBusy(false); }
+  };
+  return (
+    <button className="rp-btn matash" disabled={busy || !rows.length} onClick={go} style={{ marginInlineStart: 8 }}>
+      {busy ? 'מפיק…' : '📤 הורד קובץ למת״ש (דוח רבעוני רשמי)'}
+    </button>
+  );
+}
+
 function SocialResult({ report, cases, params, onChanged }) {
   const quarters = useMemo(() => quarterOptions(4, 2), []);
   const quarter = quarters.find((q) => q.id === params.quarter) || quarters.find((q) => q.current);
@@ -407,6 +432,7 @@ function SocialResult({ report, cases, params, onChanged }) {
         rows.map((v) => [v.caseNumber, v.workerName, v.familyName, v.city, v.kind.label, v.channel.label,
           fmtDate(v.due), v.doneDate ? fmtDate(v.doneDate) : '',
           v.done ? 'בוצע' : v.overdue ? 'באיחור' : 'ממתין', v.socialWorker]))}>⬇️ ייצוא Excel</button>
+      {report.matash && <MatashButton quarter={quarter} rows={rows} />}
 
       {rows.length ? (
         <>

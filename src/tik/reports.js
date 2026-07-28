@@ -524,19 +524,25 @@ const R = [
     },
   },
   {
+    // A "מנה" is the quarter's batch of visits filed to מת״ש. Which quarters
+    // have been filed is not tracked yet, so this stays informational — the
+    // actual filing is done from 305.
     no: '303', group: 'quarterly', label: 'דוח מנות ששודרו',
-    desc: 'המנות שכבר שודרו למת״ש.',
-    params: ['quarter'], soon: 'צריך להסביר מה זו "מנה" ומה בדיוק משודר.',
+    desc: 'המנות (רבעונים) שכבר שודרו למת״ש.',
+    params: ['quarter'], soon: 'מעקב אחר רבעונים שכבר שודרו — ייבנה בהמשך. השידור עצמו נעשה בדוח 305.',
   },
   {
     no: '304', group: 'quarterly', label: 'דוח מנות שצריך לשדר',
-    desc: 'המנות שעדיין ממתינות לשידור.',
-    params: ['quarter'], soon: 'צריך להסביר מה זו "מנה" ומה בדיוק משודר.',
+    desc: 'המנות (רבעונים) שעדיין ממתינות לשידור.',
+    params: ['quarter'], soon: 'מעקב אחר רבעונים שממתינים לשידור — ייבנה בהמשך. השידור עצמו נעשה בדוח 305.',
   },
   {
+    // The real thing: the government's quarterly report (דוח רבעוני למת״ש),
+    // filled from the quarter's visits into the official Excel template.
     no: '305', group: 'quarterly', label: 'שידור קבוצתי למת״ש',
-    desc: 'הפקת קובץ השידור הקבוצתי ושליחתו למת״ש.',
-    params: ['quarter'], soon: 'צריך לראות את מבנה הקובץ ולאן הוא נשלח.',
+    desc: 'הפקת קובץ הדוח הרבעוני למת״ש — התבנית הרשמית מלאה בכל ביקורי הרבעון.',
+    note: 'הקובץ נוצר מהתבנית הממשלתית עצמה, כולל גיליון הצהרת המנהלים, ומוכן להגשה.',
+    params: ['quarter'], render: 'social', matash: true,
   },
 
   // ---- 401–406 · חשבוניות -------------------------------------------------

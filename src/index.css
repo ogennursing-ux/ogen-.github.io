@@ -2300,6 +2300,9 @@ textarea.gov-input { resize: vertical; }
 .rp-tablewrap { overflow-x: auto; }
 .rp-tablewrap .rp-table { min-width: 100%; white-space: nowrap; }
 
+.rp-btn.matash { background: #15803d; border-color: #15803d; color: #fff; }
+.rp-btn.matash:hover:not(:disabled) { background: #166534; }
+
 /* The home screen — date, connected coordinator, and the task list */
 .home { max-width: 1100px; margin: 0 auto; }
 .home-head {
