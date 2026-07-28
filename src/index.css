@@ -2172,6 +2172,9 @@ textarea.gov-input { resize: vertical; }
 .rg-cell-paid { background: #dcfce7; color: #15803d; font-weight: 700; }
 .rg-wpay-btn { border: 0; background: none; font: inherit; font-size: 13px; font-weight: inherit; color: inherit; cursor: pointer; padding: 2px 4px; border-radius: 5px; }
 .rg-wpay-btn:hover { background: rgba(15,23,42,.08); }
+.rg-wpay-num { color: #0e7490; font-weight: 800; }
+.rg-wpay-done { color: #15803d; font-weight: 700; font-size: 12.5px; white-space: nowrap; }
+
 
 /* Reports */
 .rg-report-bar { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px 18px; margin-bottom: 4px; }

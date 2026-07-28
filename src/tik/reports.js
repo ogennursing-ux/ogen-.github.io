@@ -13,7 +13,7 @@
 // its number and its parameters page exist so the place is reserved and the
 // fields behind it are already being collected.
 
-import { activePlacements, WORKER_PAYMENTS } from './registry.js';
+import { activePlacements, WORKER_PAYMENTS, workerPaymentPlan } from './registry.js';
 import { buildVisitReport, VISIT_CHANNELS, quarterRange } from './socialWorker.js';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -233,7 +233,7 @@ const R = [
   },
   {
     no: '8', group: 'workers', label: 'עובדים שיש לחייב',
-    desc: 'שלוש פעימות התשלום של העובד/ת — בהגעה, אחרי 26 חודשים ואחרי 38 חודשים.',
+    desc: 'פעימות התשלום של העובד/ת — רק אלה שנופלות בזמן שהוא/היא אצלנו בתאגיד.',
     params: ['range'],
     columns: [COL.caseNo, COL.worker, COL.passport,
       { key: 'instalment', label: 'הפעימה' }, whenCol('מועד החיוב'),
@@ -243,16 +243,14 @@ const R = [
       const today = todayStart();
       const out = [];
       for (const c of byRakaz(cases, params.rakaz)) {
-        const start = parseDate(F(c).startDate || F(c).arrivalDate);
-        if (!start) continue;
-        const paid = F(c).workerPaymentsDone || {};
-        for (const p of WORKER_PAYMENTS) {
-          const due = plusMonths(start, p.afterMonths);
-          if (!w.has(due)) continue;
+        // Only instalments owed to us (those due while the worker is in our
+        // תאגיד) count; a worker who transferred late never owes the early ones.
+        for (const p of workerPaymentPlan(F(c), today).owed) {
+          if (!w.has(p.due)) continue;
           out.push({
-            ...workerRow(c), instalment: p.label, when: due,
-            state: paid[p.key] ? 'שולם' : due < today ? 'עבר' : 'ממתין',
-            tone: paid[p.key] ? 'ok' : due < today ? 'bad' : 'warn',
+            ...workerRow(c), instalment: `תשלום ${p.number}`, when: p.due,
+            state: p.paid ? 'שולם' : p.due < today ? 'עבר' : 'ממתין',
+            tone: p.paid ? 'ok' : p.due < today ? 'bad' : 'warn',
           });
         }
       }

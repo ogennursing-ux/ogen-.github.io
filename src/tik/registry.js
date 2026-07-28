@@ -156,10 +156,42 @@ export const RENEWAL_TYPES = [
 // land in Israel: on arrival, then after 26 months, then after 38 months.
 // These dates aren't stored anywhere — they're derived from the arrival date.
 export const WORKER_PAYMENTS = [
-  { key: 'wpay1', label: 'תשלום עובד/ת 1 — בהגעה', short: 'ת.עובד 1', afterMonths: 0 },
-  { key: 'wpay2', label: 'תשלום עובד/ת 2 — 26 חודשים', short: 'ת.עובד 2', afterMonths: 26 },
-  { key: 'wpay3', label: 'תשלום עובד/ת 3 — 38 חודשים', short: 'ת.עובד 3', afterMonths: 38 },
+  { key: 'wpay1', number: 1, label: 'תשלום עובד/ת 1 — בהגעה', short: 'ת.עובד 1', afterMonths: 0 },
+  { key: 'wpay2', number: 2, label: 'תשלום עובד/ת 2 — 26 חודשים', short: 'ת.עובד 2', afterMonths: 26 },
+  { key: 'wpay3', number: 3, label: 'תשלום עובד/ת 3 — 38 חודשים', short: 'ת.עובד 3', afterMonths: 38 },
 ];
+
+// The worker's three instalments — but the agency only collects the ones that
+// fall WHILE the worker is placed with us (i.e. registered in our תאגיד). A
+// worker who transferred to us after, say, 28 months never owes us instalments
+// 1 (arrival) or 2 (26 months) — only the ones due on or after they joined.
+// The instalment clock runs from arrival; "joined us" is the placement start.
+export function workerPaymentPlan(fields, today) {
+  const t = today || todayStart();
+  const f = fields || {};
+  const arrival = parseDate(f.arrivalDate || f.startDate);
+  const joinedUs = parseDate(f.startDate || f.arrivalDate);
+  if (!arrival) return { installments: [], owed: [], next: null, allPaid: false, hasOwed: false };
+  const done = f.workerPaymentsDone || {};
+  const installments = WORKER_PAYMENTS.map((wp) => {
+    const due = plusMonths(arrival, wp.afterMonths);
+    return {
+      key: wp.key, number: wp.number, label: wp.label, due,
+      // owed to us only if it falls on/after the worker joined our תאגיד
+      owed: !joinedUs || due >= joinedUs,
+      paid: !!done[wp.key],
+    };
+  });
+  const owed = installments.filter((x) => x.owed);
+  const unpaid = owed.filter((x) => !x.paid).sort((a, b) => a.due - b.due);
+  return {
+    installments, owed, unpaid,
+    next: unpaid[0] || null,
+    allPaid: owed.length > 0 && unpaid.length === 0,
+    hasOwed: owed.length > 0,
+  };
+}
+
 // Worker instalments are flagged a month ahead, and again — more urgently —
 // in the final week.
 const WPAY_ALERT_MONTHS = 1;
@@ -205,22 +237,23 @@ export function computeRenewalRows(cases) {
         due, raw: raw || '', daysLeft: Math.round((due - today) / DAY), overdue, urgent,
       };
     }
-    // Worker instalments, derived from the arrival date (not stored).
-    const arrival = parseDate(f.arrivalDate);
-    for (const wp of WORKER_PAYMENTS) {
-      if (!arrival) {
-        cells[wp.key] = { due: null, raw: '', daysLeft: null, overdue: false, urgent: false, derived: true };
-        continue;
-      }
-      const due = plusMonths(arrival, wp.afterMonths);
-      const paid = !!(f.workerPaymentsDone || {})[wp.key];
-      const daysLeft = Math.round((due - today) / DAY);
-      const overdue = !paid && due < today;
-      const urgent = !paid && !overdue && due <= plusMonths(today, WPAY_ALERT_MONTHS);
-      const thisWeek = !paid && !overdue && daysLeft <= WPAY_WEEK_DAYS;
+    // The worker's instalments collapse into ONE cell: the next payment that
+    // is owed to us (falls while the worker is in our תאגיד) and not yet paid.
+    // Once every owed instalment is paid, the cell reads "שילם הכל".
+    const plan = workerPaymentPlan(f, today);
+    if (!plan.hasOwed) {
+      cells.wpayNext = { due: null, number: null, none: true, derived: true };
+    } else if (plan.allPaid) {
+      cells.wpayNext = { due: null, number: null, allPaid: true, derived: true };
+    } else {
+      const n = plan.next;
+      const daysLeft = Math.round((n.due - today) / DAY);
+      const overdue = n.due < today;
+      const urgent = !overdue && n.due <= plusMonths(today, WPAY_ALERT_MONTHS);
+      const thisWeek = !overdue && daysLeft <= WPAY_WEEK_DAYS;
       if (overdue) anyOverdue = true;
       if (urgent) anyUrgent = true;
-      cells[wp.key] = { due, raw: '', daysLeft, overdue, urgent, thisWeek, paid, derived: true };
+      cells.wpayNext = { due: n.due, number: n.number, key: n.key, daysLeft, overdue, urgent, thisWeek, paid: false, derived: true };
     }
 
     // Soonest upcoming date drives the row order.
@@ -286,14 +319,22 @@ export function buildReport(cases, fromStr, toStr) {
 
   const due = [];
   const rows = computeRenewalRows(cases);
-  const allTypes = [...RENEWAL_TYPES, ...WORKER_PAYMENTS];
   for (const r of rows) {
-    for (const t of allTypes) {
+    for (const t of RENEWAL_TYPES) {
       const cell = r.cells[t.key];
       if (!cell || !inRange(cell.due)) continue;
       due.push({
         id: `${r.id}-${t.key}`, type: t, cell, row: r,
         who: r.workerName || r.employerName, caseObj: r.caseObj,
+      });
+    }
+    // The worker's next owed instalment (one cell, carries its number).
+    const wp = r.cells.wpayNext;
+    if (wp && wp.due && inRange(wp.due)) {
+      due.push({
+        id: `${r.id}-wpayNext`,
+        type: { key: 'wpayNext', label: `תשלום עובד/ת ${wp.number}`, short: `ת.עובד ${wp.number}`, icon: '💵' },
+        cell: wp, row: r, who: r.workerName || r.employerName, caseObj: r.caseObj,
       });
     }
   }

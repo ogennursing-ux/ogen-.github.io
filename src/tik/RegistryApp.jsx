@@ -3,7 +3,7 @@ import { isAuthed, login } from './officeAuth.js';
 import {
   loadRegistry, searchFamilies, searchWorkers, computeRenewalRows, saveRenewalDate,
   loadLeads, createLead, convertLeadToCase, dismissLead, RENEWAL_TYPES, createCase,
-  WORKER_PAYMENTS, activePlacements, setWorkerPaymentDone,
+  activePlacements, setWorkerPaymentDone,
 } from './registry.js';
 import { payments } from './caseDetail.js';
 import RecordPage from './RecordPage.jsx';
@@ -483,7 +483,7 @@ export default function RegistryApp() {
                     <th>#</th><th>שם העובד/ת</th><th>מס׳ דרכון</th><th>ת. כניסה</th>
                     <th>טל׳ עובד/ת</th><th>מעסיק</th><th>טל׳ מעסיק</th>
                     {RENEWAL_TYPES.map((t) => <th key={t.key} className="rg-renew-col" title={t.label}>{t.short}</th>)}
-                    {WORKER_PAYMENTS.map((t) => <th key={t.key} className="rg-renew-col wpay" title={t.label}>{t.short}</th>)}
+                    <th className="rg-renew-col wpay" title="התשלום הבא של העובד/ת — התאריך והמספר, או ״שילם הכל״">תשלום הבא</th>
                   </tr>
                 </thead>
                 <tbody>{shownRenewals.map((r) => (
@@ -506,25 +506,21 @@ export default function RegistryApp() {
                         </td>
                       );
                     })}
-                    {WORKER_PAYMENTS.map((t) => {
-                      const cell = r.cells[t.key];
-                      const cls = cell.paid ? 'rg-cell-paid'
-                        : cell.overdue ? 'rg-cell-bad'
-                        : cell.thisWeek ? 'rg-cell-week'
-                        : cell.urgent ? 'rg-cell-warn'
-                        : cell.due ? '' : 'rg-cell-empty';
+                    {(() => {
+                      const cell = r.cells.wpayNext;
+                      if (cell.allPaid) return <td className="rg-renew-col wpay rg-cell-paid" title="כל התשלומים שולמו"><span className="rg-wpay-done">✓ שילם הכל</span></td>;
+                      if (cell.none || !cell.due) return <td className="rg-renew-col wpay rg-cell-empty"><span className="rg-muted">—</span></td>;
+                      const cls = cell.overdue ? 'rg-cell-bad' : cell.thisWeek ? 'rg-cell-week' : cell.urgent ? 'rg-cell-warn' : '';
                       return (
-                        <td key={t.key} className={`rg-renew-col wpay ${cls}`}
-                            title={cell.due ? `${t.label} — ${cell.paid ? 'שולם' : cell.daysLeft >= 0 ? `בעוד ${cell.daysLeft} ימים` : `עבר לפני ${-cell.daysLeft} ימים`}` : `${t.label} — חסר תאריך הגעה`}>
-                          {cell.due ? (
-                            <button className="rg-wpay-btn" title="סמן כשולם / לא שולם"
-                              onClick={async (e) => { e.stopPropagation(); await setWorkerPaymentDone(r.caseObj, t.key, !cell.paid); reload(); }}>
-                              {cell.paid ? '✓ ' : ''}{fmtDate(cell.due)}
-                            </button>
-                          ) : <span className="rg-muted">—</span>}
+                        <td className={`rg-renew-col wpay ${cls}`}
+                            title={`תשלום ${cell.number} — ${cell.daysLeft >= 0 ? `בעוד ${cell.daysLeft} ימים` : `עבר לפני ${-cell.daysLeft} ימים`}. לחיצה מסמנת כשולם.`}>
+                          <button className="rg-wpay-btn" title="סמן את התשלום הזה כשולם"
+                            onClick={async (e) => { e.stopPropagation(); await setWorkerPaymentDone(r.caseObj, cell.key, true); reload(); }}>
+                            {fmtDate(cell.due)} <b className="rg-wpay-num">· {cell.number}</b>
+                          </button>
                         </td>
                       );
-                    })}
+                    })()}
                   </tr>
                 ))}</tbody>
               </table>

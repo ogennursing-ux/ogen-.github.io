@@ -4,7 +4,7 @@
 // client fee, birthdays and open leads — and sorted into four buckets by how
 // urgent it is.
 
-import { RENEWAL_TYPES, WORKER_PAYMENTS, computeRenewalRows, activePlacements } from './registry.js';
+import { RENEWAL_TYPES, computeRenewalRows, activePlacements } from './registry.js';
 import { buildVisitReport } from './socialWorker.js';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -51,24 +51,24 @@ export function buildAgenda(cases, leads = []) {
     if (bucket) items.push({ ...t, bucket, days: Math.round((t.due - today) / DAY) });
   };
 
-  // Renewals + the worker's three instalments, straight from the renewals engine.
-  const byKey = Object.fromEntries([...RENEWAL_TYPES, ...WORKER_PAYMENTS].map((t) => [t.key, t]));
+  // Renewals + the worker's next owed instalment, straight from the renewals
+  // engine (which already folds the three instalments into one "next" cell).
   for (const row of computeRenewalRows(cases)) {
-    for (const [key, cell] of Object.entries(row.cells)) {
-      if (!cell.due || cell.paid) continue;
-      const type = byKey[key];
-      const isWorkerPay = WORKER_PAYMENTS.some((w) => w.key === key);
+    for (const t of RENEWAL_TYPES) {
+      const cell = row.cells[t.key];
+      if (!cell || !cell.due) continue;
       push({
-        id: `${row.id}-${key}`,
-        kind: isWorkerPay ? 'תשלום עובד/ת' : 'חידוש',
-        icon: type?.icon || (isWorkerPay ? '💵' : '🔔'),
-        label: type?.label || key,
-        who: isWorkerPay ? (row.workerName || row.employerName) : (row.workerName || row.employerName),
-        due: cell.due,
-        caseObj: row.caseObj,
-        recordKind: isWorkerPay ? 'worker' : 'worker',
+        id: `${row.id}-${t.key}`, kind: 'חידוש', icon: t.icon || '🔔',
+        label: t.label, who: row.workerName || row.employerName,
+        due: cell.due, caseObj: row.caseObj, recordKind: 'worker',
       });
     }
+    const wp = row.cells.wpayNext;
+    if (wp && wp.due) push({
+      id: `${row.id}-wpayNext`, kind: 'תשלום עובד/ת', icon: '💵',
+      label: `תשלום עובד/ת ${wp.number}`, who: row.workerName || row.employerName,
+      due: wp.due, caseObj: row.caseObj, recordKind: 'worker',
+    });
   }
 
   // Social-worker visits that are due and not yet done.

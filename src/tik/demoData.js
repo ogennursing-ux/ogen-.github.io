@@ -167,29 +167,35 @@ function buildCase(i, today) {
 
   // Social-worker visits: the earlier ones are recorded as done, the later ones
   // are still open — exactly the mix the quarterly report is meant to show.
+  // Social-worker visits: mark every scheduled visit whose due date is already
+  // in the past as done (with the date it "happened"), so the quarterly report
+  // — including the part of the current quarter that has elapsed — has data.
   const socialVisits = {};
   const channels = ['physical', 'physical', 'phone', 'digital'];
-  if (monthsAgo >= 1) {
-    socialVisits.placement = {
-      date: iso(shift(start, 2)), note: 'ביקור השמה', channel: channels[i % 4],
-    };
-  }
-  if (monthsAgo >= 2) {
-    socialVisits.day30 = {
-      date: iso(shift(start, 31 + (i % 5))), note: 'ביקור 30 יום', channel: channels[(i + 1) % 4],
-    };
-  }
-  for (let m = 6; m <= monthsAgo - 2; m += 6) {
-    socialVisits[`periodic-${m}`] = {
-      date: iso(shift(shiftM(start, m), i % 6)),
-      note: 'ביקור שוטף', channel: channels[(i + m) % 4],
-    };
-  }
+  const markVisit = (key, due, idx) => {
+    if (due <= today) {
+      socialVisits[key] = { date: iso(due), note: 'ביקור', channel: channels[idx % 4] };
+    }
+  };
+  markVisit('placement', shift(start, 2), 0);
+  markVisit('day30', shift(start, 31 + (i % 5)), 1);
+  for (let m = 6; m <= monthsAgo; m += 6) markVisit(`periodic-${m}`, shift(shiftM(start, m), i % 6), m / 6 + 2);
 
-  // The first two instalments are marked paid on the older placements.
+  // A worker arrives in Israel; the three instalments run from that date. Most
+  // arrive and are placed with us at once, so arrival = start. Every seventh is
+  // a TRANSFER — arrived long before joining us — to show that we only collect
+  // the instalments that fall while the worker is in our תאגיד.
+  const transferred = i % 7 === 3;
+  const arrivalDate = transferred ? shiftM(start, -28) : start;
+
+  // Mark as paid the owed instalments that are already in the past, leaving the
+  // upcoming one as the "next payment".
   const workerPaymentsDone = {};
-  if (monthsAgo > 1) workerPaymentsDone.wpay1 = true;
-  if (monthsAgo > 28) workerPaymentsDone.wpay2 = true;
+  for (const [key, months] of [['wpay1', 0], ['wpay2', 26], ['wpay3', 38]]) {
+    const due = shiftM(arrivalDate, months);
+    const owed = due >= start;            // only what falls while with us
+    if (owed && due < today) workerPaymentsDone[key] = true;
+  }
 
   const insurer = INSURERS[i % INSURERS.length];
 
@@ -249,6 +255,7 @@ function buildCase(i, today) {
       visaRenewRef: sentVisa ? 'MB-' + String(50000 + i * 37) : '',
 
       // --- the placement ----------------------------------------------------
+      arrivalDate: iso(arrivalDate),
       startDate: iso(start),
       placementStartDate: iso(start),
       placementEndDate: closed ? iso(endDate) : '',
