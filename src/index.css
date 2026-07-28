@@ -2257,6 +2257,10 @@ textarea.gov-input { resize: vertical; }
   .rpt-header .rg-header-actions, .rpt-shell .rp-btn.ghost { display: none; }
 }
 
+/* Demo data: always visibly separate from the real files */
+.rp-btn.demo { border-color: #d8b4fe; color: #7e22ce; background: #faf5ff; }
+.rp-btn.demo:hover { border-color: #a855f7; background: #f3e8ff; }
+
 /* Rows that open a record */
 .rg-clickrow { cursor: pointer; }
 

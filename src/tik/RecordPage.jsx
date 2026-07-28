@@ -63,7 +63,11 @@ function Section({ section, fields, editing, onChange }) {
       <h3><span>{section.icon}</span>{section.title}</h3>
       <div className="rp-grid">
         {section.fields.map((def) => (
-          <Field key={def.key} def={def} value={fields[def.key]} editing={editing} onChange={onChange} fields={fields} />
+          // `fallback` covers records saved before the worker's own personal
+          // fields were split from the patient's: show the old shared value,
+          // but write any edit to the worker's key so they stop overwriting.
+          <Field key={def.key} def={def} editing={editing} onChange={onChange} fields={fields}
+            value={fields[def.key] ?? (def.fallback ? fields[def.fallback] : undefined)} />
         ))}
       </div>
     </section>

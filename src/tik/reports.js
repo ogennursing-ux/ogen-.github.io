@@ -223,7 +223,7 @@ const R = [
       const { from, to } = windowOf(params);
       const out = [];
       for (const c of byRakaz(cases, params.rakaz)) {
-        const dob = parseDate(F(c).dob);
+        const dob = parseDate(F(c).workerDob || F(c).dob);
         const when = birthdayIn(dob, from, to);
         if (!when) continue;
         out.push({ ...workerRow(c), when, age: when.getFullYear() - dob.getFullYear() });

@@ -9,6 +9,7 @@ import { getOrAssignCaseNumber, payments } from './caseDetail.js';
 import RecordPage from './RecordPage.jsx';
 import { REPORT_GROUPS } from './reports.js';
 import { openRecordTab } from './recordLink.js';
+import { seedDemoData, clearDemoData } from './demoData.js';
 import { buildVisitReport } from './socialWorker.js';
 
 function Login({ onIn }) {
@@ -305,6 +306,7 @@ export default function RegistryApp() {
         {tab === 'families' && <button className="rp-btn" onClick={() => newCase('family')}>+ לקוח חדש</button>}
         {tab === 'workers' && <button className="rp-btn" onClick={() => newCase('worker')}>+ עובד/ת חדש/ה</button>}
         {tab !== 'leads' && <button className="rp-btn ghost" onClick={exportCsv}>⬇️ ייצוא Excel</button>}
+        <DemoDataButton cases={cases} onChanged={reload} />
       </div>
 
       {err && <p className="rg-err">{err}</p>}
@@ -492,6 +494,42 @@ function ReportsTab() {
         השדות שלו כבר נאספים והוא יחושב ברגע שנסגור את הכללים.
       </p>
     </div>
+  );
+}
+
+// Thirty made-up placements to try the system on. They are tagged, counted and
+// removable in one click, so demo data can never be mistaken for real files.
+function DemoDataButton({ cases, onChanged }) {
+  const [busy, setBusy] = useState('');
+  // Count the underlying rows, not the merged cases, so the button says
+  // exactly how many rows the delete will remove.
+  const demoCount = (cases || []).reduce(
+    (n, c) => n + (c.data?.demo ? (c.ids?.length || 1) : 0), 0);
+
+  async function add() {
+    if (!confirm('ליצור 30 משפחות ו־30 עובדים לדוגמה?\n\nאלה תיקי הדגמה מסומנים — אפשר למחוק את כולם בלחיצה אחת.')) return;
+    setBusy('add');
+    try { const n = await seedDemoData(); onChanged(); alert(`נוצרו ${n} תיקי הדגמה.`); }
+    catch (e) { alert(e?.message || e); } finally { setBusy(''); }
+  }
+  async function remove() {
+    if (!confirm(`למחוק את כל ${demoCount} תיקי ההדגמה?\n\nתיקים אמיתיים לא ייגעו.`)) return;
+    setBusy('del');
+    try { const n = await clearDemoData(); onChanged(); alert(`נמחקו ${n} תיקי הדגמה.`); }
+    catch (e) { alert(e?.message || e); } finally { setBusy(''); }
+  }
+
+  if (demoCount) {
+    return (
+      <button className="rp-btn ghost demo" disabled={!!busy} onClick={remove}>
+        {busy === 'del' ? 'מוחק…' : `🧪 מחק ${demoCount} תיקי הדגמה`}
+      </button>
+    );
+  }
+  return (
+    <button className="rp-btn ghost demo" disabled={!!busy} onClick={add}>
+      {busy === 'add' ? 'יוצר…' : '🧪 צור נתוני הדגמה'}
+    </button>
   );
 }
 

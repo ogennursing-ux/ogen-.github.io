@@ -23,6 +23,11 @@ export function recordsFromChat(fields) {
   const f = { ...(fields || {}) };
   const worker = recordFromSubmission(f, 'worker');
   const family = recordFromSubmission({ ...f, fullName: f.fullName || f.employerName }, 'family');
+  // The worker's own personal fields win over the patient's shared ones.
+  if (f.workerDob) worker.dob = f.workerDob;
+  if (f.workerGender) worker.gender = f.workerGender;
+  if (f.workerMaritalStatus) worker.maritalStatus = f.workerMaritalStatus;
+  if (f.workerEmail) worker.email = f.workerEmail;
   if (!worker.phone) worker.phone = f.workerPhone || '';
   if (!family.phone) family.phone = f.contactPhone || '';
   if (!family.mobile) family.mobile = f.contactPhone || '';

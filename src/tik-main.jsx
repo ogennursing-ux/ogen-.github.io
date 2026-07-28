@@ -1,5 +1,5 @@
 import './lib/polyfills.js';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import TikApp from './tik/TikApp.jsx';
 import IntakeChat from './tik/IntakeChat.jsx';
@@ -9,29 +9,37 @@ import RegistryApp from './tik/RegistryApp.jsx';
 import ReportPage from './tik/ReportPage.jsx';
 import './index.css';
 
-// RTL Hebrew — this standalone module has no language toggle.
 document.documentElement.lang = 'he';
 document.documentElement.dir = 'rtl';
 
 // Routing by hash:
-//   …/#chat   → the public customer chat (no login)
-//   …/#board  → the cases control room (office login)
-//   …/#report/<key> → one report, in its own browser tab
-//   anything else → the full office app (TikApp)
-const route = location.hash.replace(/^#\/?/, '').toLowerCase();
-const isChat = route.startsWith('chat');
-const isBoard = route.startsWith('board');
-const isSignFields = route.startsWith('signfields');
-const isRegistry = route.startsWith('registry');
-const isReport = route.startsWith('report');
+//   …/#chat          → the public customer chat (no login)
+//   …/#board         → the cases control room (office login)
+//   …/#registry      → the source registry (families, workers, renewals)
+//   …/#report/<key>  → one report, in its own browser tab
+//   anything else    → the full office app (TikApp)
+//
+// Only the first segment chooses the app; everything after it is that app's
+// own routing. Watching it here means a link from a report back to the
+// registry switches apps on the spot, with no page reload.
+const section = () => location.hash.replace(/^#\/?/, '').toLowerCase().split(/[/?]/)[0] || '';
+
+function Shell() {
+  const [at, setAt] = useState(section);
+  useEffect(() => {
+    const onHash = () => setAt(section());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
+  if (at === 'chat') return <IntakeChat />;
+  if (at === 'signfields') return <SignFields />;
+  if (at === 'report') return <ReportPage />;
+  if (at === 'registry') return <RegistryApp />;
+  if (at === 'board') return <CasesBoard />;
+  return <TikApp />;
+}
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    {isChat ? <IntakeChat />
-      : isSignFields ? <SignFields />
-      : isReport ? <ReportPage />
-      : isRegistry ? <RegistryApp />
-      : isBoard ? <CasesBoard />
-      : <TikApp />}
-  </React.StrictMode>,
+  <React.StrictMode><Shell /></React.StrictMode>,
 );
