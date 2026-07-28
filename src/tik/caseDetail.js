@@ -138,6 +138,50 @@ export async function addNote(caseObj, text) {
   return row;
 }
 
+// ---- Contacts (א.קשר) — a case can have several people to call ---------------
+export const CONTACT_RELATIONS = ['בן', 'בת', 'בן/בת זוג', 'חתן/כלה', 'נכד/ה', 'אח/ות', 'אפוטרופוס', 'עו״ס', 'רופא/ה', 'אחר'];
+
+export function contacts(caseObj) {
+  const arr = caseObj.data?.fields?.contacts;
+  return Array.isArray(arr) ? arr : [];
+}
+
+export async function addContact(caseObj, contact) {
+  const list = contacts(caseObj);
+  await patchCaseFields(caseObj, { contacts: [...list, { id: uid(), ...contact }] });
+}
+
+export async function removeContact(caseObj, id) {
+  await patchCaseFields(caseObj, { contacts: contacts(caseObj).filter((c) => c.id !== id) });
+}
+
+// ---- Account statement (ג.חש) --------------------------------------------------
+// Everything the case was charged for and everything it paid, on one ledger.
+export function accountStatement(caseObj) {
+  const f = caseObj.data?.fields || {};
+  const rows = [];
+  const num = (v) => Number(v) || 0;
+
+  if (num(f.placementFee)) {
+    rows.push({ id: 'chg-placement', date: f.startDate || f.openedDate || '', kind: 'חיוב',
+      label: 'עמלת השמה', debit: num(f.placementFee), credit: 0 });
+  }
+  if (num(f.companyFee)) {
+    rows.push({ id: 'chg-fee', date: f.companyFeeFrom || '', kind: 'חיוב',
+      label: `דמי תאגיד${f.companyFeeFrom ? '' : ' (חודשי)'}`, debit: num(f.companyFee), credit: 0 });
+  }
+  for (const p of (f.payments || [])) {
+    rows.push({ id: p.id, date: p.date || '', kind: 'תשלום',
+      label: p.method || 'תשלום', debit: 0, credit: num(p.amount) });
+  }
+  rows.sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
+  let balance = 0;
+  for (const r of rows) { balance += r.debit - r.credit; r.balance = balance; }
+  const totalDebit = rows.reduce((s, r) => s + r.debit, 0);
+  const totalCredit = rows.reduce((s, r) => s + r.credit, 0);
+  return { rows, totalDebit, totalCredit, balance };
+}
+
 // ---- Case ownership (רכז/ת) ----------------------------------------------------
 export async function assignRakaz(caseObj, name) {
   await patchCaseFields(caseObj, { assignedTo: name });

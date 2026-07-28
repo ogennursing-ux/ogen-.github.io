@@ -2196,6 +2196,37 @@ textarea.gov-input { resize: vertical; }
 .rg-reportcard.on { border-color: #0e7490; box-shadow: 0 0 0 1px #0e7490 inset, 0 4px 14px rgba(14,116,144,.14); background: #f0fdff; }
 .rg-reportcard.on b { color: #0e7490; }
 
+/* Forms, contacts, statement panels inside a record */
+.rp-forms { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.rp-formcard { text-align: start; border: 1px solid #e2e8f0; background: #fff; border-radius: 12px; padding: 14px 16px; cursor: pointer; font: inherit; display: flex; flex-direction: column; gap: 4px; }
+.rp-formcard:hover { border-color: #0e7490; background: #f0fdff; }
+.rp-formcard:disabled { opacity: .6; cursor: default; }
+.rp-formcard b { font-size: 14px; color: #0f172a; }
+.rp-formcard span { font-size: 12.5px; color: #64748b; }
+.rp-tag.ok { background: #dcfce7; color: #15803d; }
+.rp-total td { font-weight: 800; border-top: 2px solid #0f172a; background: #f8fafc; }
+
+/* Appointments calendar */
+.cal-month { font-size: 16px; color: #0f172a; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 14px; }
+.cal-head { text-align: center; font-size: 12px; font-weight: 800; color: #64748b; padding: 6px 0; }
+.cal-cell { min-height: 104px; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 6px; display: flex; flex-direction: column; gap: 3px; }
+.cal-cell.empty { background: transparent; border: 0; }
+.cal-cell.today { border-color: #0e7490; box-shadow: 0 0 0 1px #0e7490 inset; }
+.cal-day { font-size: 12px; font-weight: 800; color: #94a3b8; }
+.cal-cell.today .cal-day { color: #0e7490; }
+.cal-ev { border: 0; border-radius: 6px; padding: 3px 6px; font: inherit; font-size: 10.5px; font-weight: 700; text-align: start; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-ev.ok { background: #dcfce7; color: #15803d; }
+.cal-ev.info { background: #e0f2fe; color: #0369a1; }
+.cal-ev.warn { background: #fef3c7; color: #b45309; }
+.cal-ev.bad { background: #fee2e2; color: #b91c1c; }
+.cal-ev:hover { filter: brightness(.95); }
+.cal-more { font-size: 10.5px; color: #94a3b8; }
+@media (max-width: 760px) {
+  .cal-cell { min-height: 74px; }
+  .cal-ev { font-size: 9.5px; }
+}
+
 /* Social-worker visits */
 .sw-range { font-size: 13px; color: #64748b; font-variant-numeric: tabular-nums; }
 .sw-duedate { font-size: 13px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 6px 12px; }

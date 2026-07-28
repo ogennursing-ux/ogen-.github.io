@@ -4,8 +4,11 @@ import {
   DOC_TYPES, EVENT_TYPES, documentHistory, addDocumentEntry,
   PAYMENT_METHODS, INSURANCE_COMPANIES, payments, addPayment, vatBreakdown,
   VISIT_TYPES, visits, addVisit, notes, addNote, patchCaseFields, duplicateCase,
-  uploadCaseFile, fileUrl,
+  uploadCaseFile, fileUrl, contacts, addContact, removeContact, CONTACT_RELATIONS,
+  accountStatement,
 } from './caseDetail.js';
+import { recordsFromChat } from './chatRecords.js';
+import { buildFilledContract } from './filledContract.js';
 import { COMPANY_NAME } from '../lib/workerPortal.js';
 
 const fmtDate = (v) => {
@@ -278,6 +281,121 @@ function ActivityPanel({ caseObj, onChanged }) {
   );
 }
 
+
+function ContactsPanel({ caseObj, onChanged }) {
+  const [form, setForm] = useState({});
+  const [busy, setBusy] = useState(false);
+  const list = contacts(caseObj);
+  const save = async () => {
+    if (!form.name) return;
+    setBusy(true);
+    try { await addContact(caseObj, form); setForm({}); onChanged(); }
+    catch (e) { alert(e?.message || e); } finally { setBusy(false); }
+  };
+  return (
+    <section className="rp-section">
+      <h3><span>📞</span>אנשי קשר</h3>
+      {list.length ? (
+        <table className="rp-table">
+          <thead><tr><th>שם</th><th>קרבה</th><th>טלפון</th><th>הערה</th><th></th></tr></thead>
+          <tbody>{list.map((c) => (
+            <tr key={c.id}>
+              <td><b>{c.name}</b></td>
+              <td><span className="rp-tag">{c.relation || '—'}</span></td>
+              <td dir="ltr">{c.phone || '—'}</td>
+              <td className="muted">{c.note || '—'}</td>
+              <td>
+                {c.phone && <a className="rp-btn ghost sm" href={`tel:${c.phone}`}>☎️</a>}{' '}
+                <button className="rp-btn ghost sm" onClick={async () => { if (confirm('להסיר את איש הקשר?')) { await removeContact(caseObj, c.id); onChanged(); } }}>✕</button>
+              </td>
+            </tr>
+          ))}</tbody>
+        </table>
+      ) : <p className="rp-empty">לא הוגדרו אנשי קשר נוספים.</p>}
+      <div className="rp-inline-form">
+        <input placeholder="שם" value={form.name || ''} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        <select value={form.relation || ''} onChange={(e) => setForm({ ...form, relation: e.target.value })}>
+          <option value="">קרבה…</option>{CONTACT_RELATIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+        </select>
+        <input placeholder="טלפון" dir="ltr" value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+        <input placeholder="הערה" value={form.note || ''} onChange={(e) => setForm({ ...form, note: e.target.value })} />
+        <button className="rp-btn" disabled={!form.name || busy} onClick={save}>+ הוסף</button>
+      </div>
+    </section>
+  );
+}
+
+function StatementPanel({ caseObj }) {
+  const { rows, totalDebit, totalCredit, balance } = accountStatement(caseObj);
+  return (
+    <section className="rp-section">
+      <h3><span>📒</span>כרטסת חשבון
+        <em>{balance > 0 ? `יתרה לתשלום ${fmtMoney(balance)}` : balance < 0 ? `יתרת זכות ${fmtMoney(-balance)}` : 'מאוזן'}</em>
+      </h3>
+      {rows.length ? (
+        <table className="rp-table">
+          <thead><tr><th>תאריך</th><th>פירוט</th><th>חובה</th><th>זכות</th><th>יתרה</th></tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id}>
+                <td>{fmtDate(r.date)}</td>
+                <td><span className={`rp-tag ${r.kind === 'תשלום' ? 'ok' : ''}`}>{r.kind}</span> {r.label}</td>
+                <td>{r.debit ? fmtMoney(r.debit) : '—'}</td>
+                <td>{r.credit ? fmtMoney(r.credit) : '—'}</td>
+                <td><b>{fmtMoney(r.balance)}</b></td>
+              </tr>
+            ))}
+            <tr className="rp-total">
+              <td colSpan={2}>סה״כ</td>
+              <td>{fmtMoney(totalDebit)}</td>
+              <td>{fmtMoney(totalCredit)}</td>
+              <td><b>{fmtMoney(balance)}</b></td>
+            </tr>
+          </tbody>
+        </table>
+      ) : <p className="rp-empty">אין תנועות. הוסיפו עמלת השמה / דמי תאגיד בפרטי התיק, ותשלומים בטאב תשלומים.</p>}
+    </section>
+  );
+}
+
+// Printable one-page summary of the case, and the full 26-page contract.
+function FormsPanel({ caseObj, kind }) {
+  const [busy, setBusy] = useState('');
+  const f = caseObj.data?.fields || {};
+
+  async function makeContract() {
+    setBusy('contract');
+    try {
+      const { worker, family } = recordsFromChat(f);
+      const bytes = await buildFilledContract(family, worker, {});
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `חוזה — ${f.employerName || 'תיק'}.pdf`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    } catch (e) { alert('הפקת החוזה נכשלה: ' + (e?.message || e)); }
+    finally { setBusy(''); }
+  }
+
+  return (
+    <section className="rp-section">
+      <h3><span>🖨️</span>הפקת טפסים</h3>
+      <div className="rp-forms">
+        <button className="rp-formcard" disabled={busy === 'contract'} onClick={makeContract}>
+          <b>📄 חוזה השמה מלא</b>
+          <span>{busy === 'contract' ? 'מפיק…' : '26 עמודים עם כל פרטי התיק'}</span>
+        </button>
+        <button className="rp-formcard" onClick={() => window.print()}>
+          <b>🧾 דף פרטי התיק</b>
+          <span>הדפסת סיכום התיק כפי שהוא על המסך</span>
+        </button>
+      </div>
+      <p className="rp-empty">טפסים נוספים יתווספו כאן — שלחו לי דוגמה של טופס והוא ייווצר אוטומטית מנתוני התיק.</p>
+    </section>
+  );
+}
+
 // ---- the page -----------------------------------------------------------------
 export default function RecordPage({ caseObj, kind, siblings = [], onNavigate, onBack, onChanged }) {
   const sections = kind === 'worker' ? WORKER_SECTIONS : FAMILY_SECTIONS;
@@ -329,7 +447,11 @@ export default function RecordPage({ caseObj, kind, siblings = [], onNavigate, o
     catch (e) { alert('שכפול נכשל: ' + (e?.message || e)); }
   }
 
-  const TABS = [['details', '📋 פרטי התיק'], ['docs', '📁 מסמכים'], ['pay', '💳 תשלומים'], ['activity', '📅 פעילות']];
+  const TABS = [
+    ['details', '📋 פרטי התיק'], ['docs', '📁 מסמכים'], ['contacts', '📞 א.קשר'],
+    ['pay', '💳 תשלומים'], ['statement', '📒 כרטסת'], ['activity', '📅 פעילות'],
+    ['forms', '🖨️ טפסים'],
+  ];
 
   return (
     <div className="rp-page" ref={topRef}>
@@ -391,7 +513,10 @@ export default function RecordPage({ caseObj, kind, siblings = [], onNavigate, o
       )}
       {tab === 'docs' && <DocumentsPanel caseObj={caseObj} onChanged={onChanged} />}
       {tab === 'pay' && <PaymentsPanel caseObj={caseObj} onChanged={onChanged} />}
+      {tab === 'contacts' && <ContactsPanel caseObj={caseObj} onChanged={onChanged} />}
+      {tab === 'statement' && <StatementPanel caseObj={caseObj} />}
       {tab === 'activity' && <ActivityPanel caseObj={caseObj} onChanged={onChanged} />}
+      {tab === 'forms' && <FormsPanel caseObj={caseObj} kind={kind} />}
     </div>
   );
 }
