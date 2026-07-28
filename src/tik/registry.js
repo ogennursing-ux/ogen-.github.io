@@ -237,6 +237,23 @@ export async function saveRenewalDate(caseObj, key, value) {
   }
 }
 
+// Create an empty case from the office (not from the chat) — "לקוח חדש" /
+// "עובד חדש". Seeds only what the user typed; everything else is filled in on
+// the record page.
+export async function createCase(seed = {}) {
+  const id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`;
+  const { error } = await sb().from('agent_submissions').insert({
+    id, kind: 'family', source: 'office', status: 'new',
+    data: {
+      fields: { ...seed, openedDate: new Date().toISOString().slice(0, 10) },
+      meta: { createdInOffice: true },
+      updatedAt: new Date().toISOString(),
+    },
+  });
+  if (error) throw new Error('יצירת התיק נכשלה: ' + error.message);
+  return id;
+}
+
 // ---- Leads (inquiries that haven't become an active case yet) ----------------
 // Kept separate from agent_submissions "family" cases (kind:'lead'), so the
 // leads report doesn't clutter the cases board / registry search.

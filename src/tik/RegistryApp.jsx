@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { isAuthed, login } from './officeAuth.js';
 import {
   loadRegistry, searchFamilies, searchWorkers, computeRenewalRows, saveRenewalDate,
-  loadLeads, createLead, convertLeadToCase, dismissLead, RENEWAL_TYPES,
+  loadLeads, createLead, convertLeadToCase, dismissLead, RENEWAL_TYPES, createCase,
   WORKER_PAYMENTS, activePlacements, buildReport, setWorkerPaymentDone,
 } from './registry.js';
 import { getOrAssignCaseNumber, payments } from './caseDetail.js';
@@ -176,6 +176,22 @@ export default function RegistryApp() {
   }
   const goList = () => { location.hash = 'registry'; window.scrollTo(0, 0); };
 
+  // "לקוח חדש" — create an empty case from the office and open it.
+  async function newCase(kind) {
+    const name = prompt(kind === 'worker' ? 'שם העובד/ת החדש/ה:' : 'שם המטופל / מעסיק:');
+    if (name == null || !name.trim()) return;
+    try {
+      const seed = kind === 'worker' ? { nameHe: name.trim() } : { employerName: name.trim() };
+      const id = await createCase(seed);
+      await reload();
+      location.hash = `registry/${kind === 'worker' ? 'w' : 'f'}/${id}`;
+      window.scrollTo(0, 0);
+    } catch (e) { alert(e?.message || e); }
+  }
+
+  // Ordered list behind the record page, so it can offer prev/next.
+  const siblingsFor = (kind) => (kind === 'worker' ? workers : families);
+
   function exportCsv() {
     if (tab === 'workers') {
       downloadCsv('ogen-workers.csv',
@@ -205,7 +221,14 @@ export default function RegistryApp() {
   if (openRecord) {
     return (
       <div className="rg-shell">
-        <RecordPage caseObj={openRecord} kind={openKind} onBack={goList} onChanged={reload} />
+        <RecordPage
+          caseObj={openRecord}
+          kind={openKind}
+          siblings={siblingsFor(openKind)}
+          onNavigate={(c) => { location.hash = `registry/${openKind === 'worker' ? 'w' : 'f'}/${c.id}`; window.scrollTo(0, 0); }}
+          onBack={goList}
+          onChanged={reload}
+        />
       </div>
     );
   }
@@ -259,6 +282,8 @@ export default function RegistryApp() {
             {rakazim.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         )}
+        {tab === 'families' && <button className="rp-btn" onClick={() => newCase('family')}>+ לקוח חדש</button>}
+        {tab === 'workers' && <button className="rp-btn" onClick={() => newCase('worker')}>+ עובד/ת חדש/ה</button>}
         {tab !== 'leads' && <button className="rp-btn ghost" onClick={exportCsv}>⬇️ ייצוא Excel</button>}
       </div>
 

@@ -45,6 +45,8 @@ export const FAMILY_SECTIONS = [
       { key: 'maritalStatus', label: 'מצב משפחתי', type: 'select', options: MARITAL },
       { key: 'birthCountry', label: 'ארץ לידה', type: 'text' },
       { key: 'motherTongue', label: 'שפת אם', type: 'select', options: LANGUAGES },
+      { key: 'foreignLang1', label: 'שפה זרה 1', type: 'select', options: LANGUAGES },
+      { key: 'foreignLang2', label: 'שפה זרה 2', type: 'select', options: LANGUAGES },
     ],
   },
   {
@@ -81,10 +83,25 @@ export const FAMILY_SECTIONS = [
       { key: 'assignedTo', label: 'רכז/ת', type: 'text' },
       { key: 'socialWorker', label: 'עובד/ת סוציאלי/ת', type: 'text' },
       { key: 'openedDate', label: 'תאריך פתיחה', type: 'date' },
+      { key: 'updatedDate', label: 'תאריך עדכון', type: 'date' },
+      { key: 'updatedBy', label: 'רכז/ת מעדכן/ת', type: 'text' },
       { key: 'closedDate', label: 'תאריך סגירה', type: 'date' },
       { key: 'lastVisit', label: 'ביקור אחרון', type: 'date' },
       { key: 'referrer', label: 'גורם מפנה', type: 'text' },
       { key: 'permitRequestDate', label: 'תאריך בקשה להיתר', type: 'date' },
+      { key: 'bilateralForm', label: 'טופס בילטראלי', type: 'select', options: YES_NO },
+      { key: 'municipal', label: 'עירוני', type: 'select', options: YES_NO },
+    ],
+  },
+  {
+    title: 'השמה נוכחית',
+    icon: '🤝',
+    fields: [
+      { key: 'placementWorker', label: 'העובד/ת המטפל/ת', type: 'text', width: 2 },
+      { key: 'placementNumber', label: 'מספר השמה', type: 'text' },
+      { key: 'placementStartDate', label: 'ת. תחילת עבודה', type: 'date' },
+      { key: 'placementEndDate', label: 'ת. סיום עבודה', type: 'date' },
+      { key: 'placementFromIsrael', label: 'השמה מהארץ', type: 'select', options: YES_NO },
     ],
   },
   {
@@ -102,6 +119,7 @@ export const FAMILY_SECTIONS = [
     title: 'הנהלת חשבונות',
     icon: '💳',
     fields: [
+      { key: 'accountingNo', label: 'חודש / מס׳ הנה״ח', type: 'text' },
       { key: 'companyFee', label: 'דמי תאגיד (חודשי)', type: 'number' },
       { key: 'companyFeeFrom', label: 'לתקופה מ־', type: 'date' },
       { key: 'companyFeeTo', label: 'עד', type: 'date' },
@@ -205,6 +223,10 @@ export const WORKER_SECTIONS = [
     fields: [
       { key: 'workerNumber', label: 'מספר עובד/ת', type: 'number', readOnly: true },
       { key: 'workerStatus', label: 'סטטוס', type: 'select', options: ['מועסק', 'לא מועסק', 'מעבר מלשכה אחרת', 'עזב/ה את הארץ'] },
+      { key: 'workerCondition', label: 'מצב', type: 'select', options: ['פעיל', 'ממתין', 'מושהה', 'הסתיים'] },
+      { key: 'workerGeoArea', label: 'שיוך גאוגרפי', type: 'text' },
+      { key: 'workerOpenedDate', label: 'תאריך פתיחה', type: 'date' },
+      { key: 'workerUpdatedDate', label: 'תאריך עדכון', type: 'date' },
       { key: 'arrivalDate', label: 'תאריך כניסה לארץ', type: 'date' },
       { key: 'stayDuration', label: 'רצף שהייה (שנים)', type: 'text', readOnly: true, computed: 'stayFromArrival' },
       { key: 'arrivalSource', label: 'מקור הגעה', type: 'select', options: ['חדש/ה מחו״ל', 'מעבר מלשכה אחרת', 'החלפת מעסיק'] },
@@ -257,6 +279,7 @@ export const WORKER_SECTIONS = [
       { key: 'abroadZip', label: 'מיקוד', type: 'text', ltr: true },
       { key: 'abroadPhone', label: 'טלפון', type: 'text', ltr: true },
       { key: 'emergencyPhone', label: 'טלפון לחירום', type: 'text', ltr: true },
+      { key: 'abroadContact', label: 'איש קשר בחו״ל', type: 'text', width: 2 },
     ],
   },
   {
@@ -267,6 +290,16 @@ export const WORKER_SECTIONS = [
       { key: 'workerPaid', label: 'שולם', type: 'number' },
       { key: 'workerPaymentDate', label: 'תאריך תשלום', type: 'date' },
       { key: 'workerNextPayment', label: 'תשלום הבא', type: 'date' },
+    ],
+  },
+  {
+    title: 'מעסיק נוכחי',
+    icon: '🏠',
+    fields: [
+      { key: 'employerName', label: 'שם המעסיק / מטופל', type: 'text', width: 2 },
+      { key: 'placementNumber', label: 'מספר השמה', type: 'text' },
+      { key: 'placementStartDate', label: 'ת. תחילת עבודה', type: 'date' },
+      { key: 'placementEndDate', label: 'ת. סיום עבודה', type: 'date' },
     ],
   },
   {

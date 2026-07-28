@@ -41,6 +41,32 @@ export const DOC_TYPES = [
 ];
 export const EVENT_TYPES = ['ראשון', 'חידוש', 'החלפה'];
 
+// ---- File attachments ---------------------------------------------------------
+// Scans/photos are uploaded to the same Supabase storage bucket the signing
+// system uses, and only the path is kept on the case — so a 26-page case row
+// never balloons with base64 blobs.
+const FILE_BUCKET = 'documents';
+
+export async function uploadCaseFile(caseObj, docKey, file) {
+  const ext = (file.name || '').split('.').pop() || 'bin';
+  const path = `cases/${caseObj.id}/${docKey}-${uid()}.${ext}`;
+  const { error } = await sb().storage.from(FILE_BUCKET)
+    .upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: false });
+  if (error) throw new Error('העלאת הקובץ נכשלה: ' + error.message);
+  return { path, name: file.name || 'קובץ', size: file.size, type: file.type || '' };
+}
+
+// A temporary signed URL to view/download an attachment.
+export async function fileUrl(path) {
+  const { data, error } = await sb().storage.from(FILE_BUCKET).createSignedUrl(path, 60 * 60);
+  if (error) throw new Error(error.message);
+  return data.signedUrl;
+}
+
+export async function removeCaseFile(path) {
+  await sb().storage.from(FILE_BUCKET).remove([path]).catch(() => {});
+}
+
 export function documentHistory(caseObj, docKey) {
   const arr = caseObj.data?.fields?.documents?.[docKey];
   return Array.isArray(arr) ? [...arr].sort((a, b) => new Date(b.expiry || 0) - new Date(a.expiry || 0)) : [];

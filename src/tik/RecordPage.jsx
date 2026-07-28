@@ -4,6 +4,7 @@ import {
   DOC_TYPES, EVENT_TYPES, documentHistory, addDocumentEntry,
   PAYMENT_METHODS, INSURANCE_COMPANIES, payments, addPayment, vatBreakdown,
   VISIT_TYPES, visits, addVisit, notes, addNote, patchCaseFields, duplicateCase,
+  uploadCaseFile, fileUrl,
 } from './caseDetail.js';
 import { COMPANY_NAME } from '../lib/workerPortal.js';
 
@@ -66,16 +67,32 @@ function Section({ section, fields, editing, onChange }) {
 }
 
 // ---- documents ----------------------------------------------------------------
+// Open an attachment in a new tab via a short-lived signed URL.
+async function openAttachment(path) {
+  try { window.open(await fileUrl(path), '_blank', 'noopener'); }
+  catch (e) { alert('פתיחת הקובץ נכשלה: ' + (e?.message || e)); }
+}
+
 function DocumentsPanel({ caseObj, onChanged }) {
   const [open, setOpen] = useState(null);
   const [form, setForm] = useState({});
+  const [file, setFile] = useState(null);
+  const [busy, setBusy] = useState(false);
+
   const save = async (docKey) => {
     if (!form.expiry) return;
-    await addDocumentEntry(caseObj, docKey, {
-      event: form.event || EVENT_TYPES[0], number: form.number || '',
-      issued: form.issued || '', expiry: form.expiry, company: form.company || '',
-    });
-    setForm({}); setOpen(null); onChanged();
+    setBusy(true);
+    try {
+      let attachment = null;
+      if (file) attachment = await uploadCaseFile(caseObj, docKey, file);
+      await addDocumentEntry(caseObj, docKey, {
+        event: form.event || EVENT_TYPES[0], number: form.number || '',
+        issued: form.issued || '', expiry: form.expiry, company: form.company || '',
+        attachment,
+      });
+      setForm({}); setFile(null); setOpen(null); onChanged();
+    } catch (e) { alert(e?.message || e); }
+    finally { setBusy(false); }
   };
   return (
     <section className="rp-section">
@@ -92,7 +109,7 @@ function DocumentsPanel({ caseObj, onChanged }) {
             </div>
             {hist.length ? (
               <table className="rp-table">
-                <thead><tr><th>אירוע</th>{t.hasNumber && <th>מספר</th>}{t.hasCompany && <th>חברה</th>}<th>הופק</th><th>בתוקף עד</th></tr></thead>
+                <thead><tr><th>אירוע</th>{t.hasNumber && <th>מספר</th>}{t.hasCompany && <th>חברה</th>}<th>הופק</th><th>בתוקף עד</th><th>קובץ</th></tr></thead>
                 <tbody>{hist.map((h) => (
                   <tr key={h.id}>
                     <td><span className="rp-tag">{h.event}</span></td>
@@ -100,6 +117,11 @@ function DocumentsPanel({ caseObj, onChanged }) {
                     {t.hasCompany && <td>{h.company || '—'}</td>}
                     <td>{fmtDate(h.issued)}</td>
                     <td><b>{fmtDate(h.expiry)}</b></td>
+                    <td>
+                      {h.attachment?.path
+                        ? <button className="rp-btn ghost sm" onClick={() => openAttachment(h.attachment.path)}>📎 צפייה</button>
+                        : <span className="rp-empty">—</span>}
+                    </td>
                   </tr>
                 ))}</tbody>
               </table>
@@ -117,7 +139,14 @@ function DocumentsPanel({ caseObj, onChanged }) {
                 )}
                 <input type="date" title="הופק" value={form.issued || ''} onChange={(e) => setForm({ ...form, issued: e.target.value })} />
                 <input type="date" title="בתוקף עד" value={form.expiry || ''} onChange={(e) => setForm({ ...form, expiry: e.target.value })} />
-                <button className="rp-btn" disabled={!form.expiry} onClick={() => save(t.key)}>שמור</button>
+                <label className="rp-file">
+                  {file ? `📎 ${file.name}` : '📎 צרף סריקה / צילום'}
+                  <input type="file" accept="image/*,application/pdf" hidden
+                    onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                </label>
+                <button className="rp-btn" disabled={!form.expiry || busy} onClick={() => save(t.key)}>
+                  {busy ? 'שומר…' : 'שמור'}
+                </button>
               </div>
             )}
           </div>
@@ -250,7 +279,7 @@ function ActivityPanel({ caseObj, onChanged }) {
 }
 
 // ---- the page -----------------------------------------------------------------
-export default function RecordPage({ caseObj, kind, onBack, onChanged }) {
+export default function RecordPage({ caseObj, kind, siblings = [], onNavigate, onBack, onChanged }) {
   const sections = kind === 'worker' ? WORKER_SECTIONS : FAMILY_SECTIONS;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({});
@@ -275,6 +304,16 @@ export default function RecordPage({ caseObj, kind, onBack, onChanged }) {
     const phone = String(kind === 'worker' ? stored.workerPhone : (stored.contactPhone || stored.mobile) || '').replace(/\D/g, '');
     return phone ? `https://wa.me/972${phone.replace(/^0/, '')}` : '';
   }, [stored, kind]);
+  const mailLink = useMemo(() => {
+    const to = String(stored.email || '').trim();
+    if (!to) return '';
+    return `mailto:${to}?subject=${encodeURIComponent('עוגן סיעוד — ' + title)}`;
+  }, [stored, title]);
+
+  // Position in the list behind this page, for the prev/next arrows.
+  const idx = siblings.findIndex((c) => c.id === caseObj.id);
+  const prev = idx > 0 ? siblings[idx - 1] : null;
+  const next = idx >= 0 && idx < siblings.length - 1 ? siblings[idx + 1] : null;
 
   const onChange = (key, val) => setDraft((d) => ({ ...d, [key]: val }));
 
@@ -295,7 +334,16 @@ export default function RecordPage({ caseObj, kind, onBack, onChanged }) {
   return (
     <div className="rp-page" ref={topRef}>
       <div className="rp-topbar">
-        <button className="rp-back" onClick={onBack}>→ חזרה לרשימה</button>
+        <div className="rp-nav">
+          <button className="rp-back" onClick={onBack}>→ חזרה לרשימה</button>
+          {siblings.length > 1 && (
+            <span className="rp-stepper">
+              <button className="rp-btn ghost sm" disabled={!prev} onClick={() => prev && onNavigate(prev)} title="התיק הקודם">‹ הקודם</button>
+              <span className="rp-pos">{idx >= 0 ? `${idx + 1} מתוך ${siblings.length}` : ''}</span>
+              <button className="rp-btn ghost sm" disabled={!next} onClick={() => next && onNavigate(next)} title="התיק הבא">הבא ›</button>
+            </span>
+          )}
+        </div>
         <div className="rp-actions">
           {editing ? (
             <>
@@ -307,6 +355,7 @@ export default function RecordPage({ caseObj, kind, onBack, onChanged }) {
               <button className="rp-btn" onClick={() => setEditing(true)}>✏️ עריכה</button>
               <button className="rp-btn ghost" onClick={onDuplicate}>🧬 שכפל</button>
               {waLink && <a className="rp-btn ghost" href={waLink} target="_blank" rel="noreferrer">💬 וואטסאפ</a>}
+              {mailLink && <a className="rp-btn ghost" href={mailLink}>✉️ מייל</a>}
               <button className="rp-btn ghost" onClick={() => setHideSensitive((v) => !v)}>{hideSensitive ? '👁️ הצג' : '🙈 הסתר רגיש'}</button>
             </>
           )}
