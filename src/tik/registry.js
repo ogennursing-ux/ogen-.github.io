@@ -17,14 +17,49 @@ const sb = () => (_sb || (_sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)));
 // for the same person (same passport, e.g. the name typed slightly differently
 // each time) both survive it, so the same worker shows up twice. Fold those
 // together here: newest row wins, older rows fill in whatever it is missing.
+//
+// Merging is deliberately cautious. A placeholder identifier — 000000000 in the
+// employer's ID field, a passport typed as "0" — is not an identity, and
+// treating it as one collapses every unrelated file that shares it into a
+// single row. Two files also stay apart when they disagree on an identifier
+// they both carry: the same caregiver placed with two different families is
+// two placements, not one file entered twice.
+
+// An identifier only counts if it could plausibly belong to one person:
+// long enough, and not the same character repeated.
+function realId(v) {
+  const digits = String(v || '').replace(/\D/g, '');
+  if (digits.length < 5) return '';
+  if (/^(\d)\1*$/.test(digits)) return '';   // 000000000, 111111111
+  return digits;
+}
+function realPassport(v) {
+  const t = String(v || '').replace(/[\s-]/g, '').toUpperCase();
+  if (t.length < 5) return '';
+  if (!/\d/.test(t)) return '';               // a passport always carries digits
+  if (/^(.)\1*$/.test(t)) return '';
+  return t;
+}
+
 const dedupeKey = (c) => {
   const f = c.data?.fields || {};
-  const pass = String(f.passportNo || '').replace(/\s/g, '').toUpperCase();
+  const pass = realPassport(f.passportNo);
   if (pass) return `p:${pass}`;
-  const id = String(f.idNumber || '').replace(/\D/g, '');
+  const id = realId(f.idNumber);
   if (id) return `i:${id}`;
   return null;
 };
+
+// Two rows may only merge if nothing they both state contradicts.
+function compatible(a, b) {
+  const fa = a.data?.fields || {};
+  const fb = b.data?.fields || {};
+  const pairs = [
+    [realPassport(fa.passportNo), realPassport(fb.passportNo)],
+    [realId(fa.idNumber), realId(fb.idNumber)],
+  ];
+  return pairs.every(([x, y]) => !x || !y || x === y);
+}
 
 export function dedupeCases(cases) {
   const byKey = new Map();
@@ -32,12 +67,23 @@ export function dedupeCases(cases) {
   for (const c of cases) {
     const key = dedupeKey(c);
     if (!key) { out.push(c); continue; }
-    if (!byKey.has(key)) { byKey.set(key, [c]); out.push(c); }
-    else byKey.get(key).push(c);
+    const groups = byKey.get(key);
+    if (!groups) { byKey.set(key, [[c]]); out.push(c); continue; }
+    // Within a key, a row joins the first group it does not contradict;
+    // otherwise it stands on its own.
+    const home = groups.find((g) => g.every((other) => compatible(c, other)));
+    if (home) home.push(c);
+    else { groups.push([c]); out.push(c); }
   }
-  return out.map((c) => {
+
+  const groupFor = (c) => {
     const key = dedupeKey(c);
-    const group = key ? byKey.get(key) : [c];
+    if (!key) return null;
+    return (byKey.get(key) || []).find((g) => g.includes(c)) || null;
+  };
+
+  return out.map((c) => {
+    const group = groupFor(c);
     if (!group || group.length < 2) return c;
     // Newest first; earlier rows only fill blanks so nothing already known is lost.
     const ordered = [...group].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
