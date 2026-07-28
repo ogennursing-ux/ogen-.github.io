@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { isAuthed, login } from './officeAuth.js';
 import {
-  loadRegistry, searchFamilies, searchWorkers, computeRenewals, saveRenewalDate,
-  loadLeads, createLead, convertLeadToCase, dismissLead,
+  loadRegistry, searchFamilies, searchWorkers, computeRenewalRows, saveRenewalDate,
+  loadLeads, createLead, convertLeadToCase, dismissLead, RENEWAL_TYPES,
 } from './registry.js';
 import { getOrAssignCaseNumber, payments } from './caseDetail.js';
 import RecordPage from './RecordPage.jsx';
@@ -143,16 +143,16 @@ export default function RegistryApp() {
   const byRakaz = (list) => (rakazFilter ? list.filter((c) => c.data?.fields?.assignedTo === rakazFilter) : list);
   const families = useMemo(() => (cases ? byRakaz(searchFamilies(cases, q)) : []), [cases, q, rakazFilter]);
   const workers = useMemo(() => (cases ? byRakaz(searchWorkers(cases, q)) : []), [cases, q, rakazFilter]);
-  const renewals = useMemo(() => (cases ? computeRenewals(byRakaz(cases)) : []), [cases, rakazFilter]);
+  const renewals = useMemo(() => (cases ? computeRenewalRows(byRakaz(cases)) : []), [cases, rakazFilter]);
   const renewCounts = useMemo(() => ({
-    overdue: renewals.filter((r) => r.overdue).length,
-    urgent: renewals.filter((r) => !r.overdue && r.urgent).length,
-    missing: renewals.filter((r) => !r.due).length,
+    overdue: renewals.filter((r) => r.anyOverdue).length,
+    urgent: renewals.filter((r) => !r.anyOverdue && r.anyUrgent).length,
+    missing: renewals.filter((r) => r.anyMissing).length,
   }), [renewals]);
   const shownRenewals = useMemo(() => {
-    if (renewFilter === 'overdue') return renewals.filter((r) => r.overdue);
-    if (renewFilter === 'urgent') return renewals.filter((r) => !r.overdue && r.urgent);
-    if (renewFilter === 'missing') return renewals.filter((r) => !r.due);
+    if (renewFilter === 'overdue') return renewals.filter((r) => r.anyOverdue);
+    if (renewFilter === 'urgent') return renewals.filter((r) => !r.anyOverdue && r.anyUrgent);
+    if (renewFilter === 'missing') return renewals.filter((r) => r.anyMissing);
     return renewals;
   }, [renewals, renewFilter]);
   const revenue = useMemo(
@@ -180,9 +180,12 @@ export default function RegistryApp() {
           c.worker?.passportNo || '', c.worker?.nationality || '', c.worker?.phone || '',
           fmtDate(f.visaExpiry), fmtDate(f.passportExpiry), c.family?.fullName || '', f.assignedTo || '']; }));
     } else if (tab === 'renewals') {
-      downloadCsv('ogen-renewals.csv', ['שם', 'סוג', 'תאריך', 'ימים שנותרו', 'סטטוס'],
-        shownRenewals.map((r) => [r.name, r.type.label, r.due ? fmtDate(r.due) : '', r.daysLeft ?? '',
-          r.overdue ? 'עבר תוקף' : r.urgent ? 'דחוף' : r.due ? 'תקין' : 'חסר תאריך']));
+      downloadCsv('ogen-renewals.csv',
+        ['#', 'שם העובד/ת', 'מס׳ דרכון', 'ת. כניסה', 'טל׳ עובד/ת', 'מעסיק', 'טל׳ מעסיק',
+          ...RENEWAL_TYPES.map((t) => t.short)],
+        shownRenewals.map((r) => [r.caseNumber, r.workerName, r.passportNo,
+          r.arrivalDate ? fmtDate(r.arrivalDate) : '', r.workerPhone, r.employerName, r.employerPhone,
+          ...RENEWAL_TYPES.map((t) => (r.cells[t.key].due ? fmtDate(r.cells[t.key].due) : ''))]));
     } else {
       downloadCsv('ogen-families.csv',
         ['מס׳ תיק', 'שם', 'ת״ז', 'טלפון', 'ישוב', 'עובד/ת', 'רכז/ת', 'סה״כ שולם'],
@@ -310,20 +313,44 @@ export default function RegistryApp() {
           </div>
           {shownRenewals.length ? (
             <div className="rg-tablewrap">
-              <table className="rg-table">
-                <thead><tr><th>שם</th><th>סוג החידוש</th><th>תאריך</th><th>מצב</th><th></th></tr></thead>
+              <table className="rg-table rg-renew-table">
+                <thead>
+                  <tr>
+                    <th>#</th><th>שם העובד/ת</th><th>מס׳ דרכון</th><th>ת. כניסה</th>
+                    <th>טל׳ עובד/ת</th><th>מעסיק</th><th>טל׳ מעסיק</th>
+                    {RENEWAL_TYPES.map((t) => <th key={t.key} className="rg-renew-col" title={t.label}>{t.short}</th>)}
+                  </tr>
+                </thead>
                 <tbody>{shownRenewals.map((r) => (
-                  <tr key={r.id} className={r.overdue ? 'rg-row-bad' : r.urgent ? 'rg-row-warn' : ''}>
-                    <td onClick={() => goRecord(r.caseObj, 'family')} className="rg-link"><b>{r.name}</b></td>
-                    <td>{r.type.icon} {r.type.label}</td>
-                    <td>{r.due ? fmtDate(r.due) : <RenewalDateInput row={r} onSaved={reload} />}</td>
-                    <td>{r.due ? (r.daysLeft >= 0 ? `בעוד ${r.daysLeft} ימים` : `עבר לפני ${-r.daysLeft} ימים`) : <span className="rg-muted">—</span>}</td>
-                    <td>{r.overdue ? <span className="rg-pill bad">עבר תוקף</span> : r.urgent ? <span className="rg-pill warn">דחוף</span> : r.due ? <span className="rg-pill ok">תקין</span> : ''}</td>
+                  <tr key={r.id}>
+                    <td className="rg-num">{r.caseNumber || '—'}</td>
+                    <td className="rg-link" onClick={() => goRecord(r.caseObj, 'worker')}><b>{r.workerName || '—'}</b></td>
+                    <td dir="ltr">{r.passportNo || '—'}</td>
+                    <td>{r.arrivalDate ? fmtDate(r.arrivalDate) : '—'}</td>
+                    <td dir="ltr">{r.workerPhone || '—'}</td>
+                    <td className="rg-link" onClick={() => goRecord(r.caseObj, 'family')}>{r.employerName || '—'}</td>
+                    <td dir="ltr">{r.employerPhone || '—'}</td>
+                    {RENEWAL_TYPES.map((t) => {
+                      const cell = r.cells[t.key];
+                      const cls = cell.overdue ? 'rg-cell-bad' : cell.urgent ? 'rg-cell-warn' : cell.due ? '' : 'rg-cell-empty';
+                      return (
+                        <td key={t.key} className={`rg-renew-col ${cls}`}
+                            title={cell.due ? `${t.label} — ${cell.daysLeft >= 0 ? `בעוד ${cell.daysLeft} ימים` : `עבר לפני ${-cell.daysLeft} ימים`}` : t.label}>
+                          {cell.due ? fmtDate(cell.due)
+                            : <RenewalDateInput caseObj={r.caseObj} typeKey={t.key} onSaved={reload} />}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}</tbody>
               </table>
             </div>
           ) : <p className="rg-empty">אין פריטים בקטגוריה הזו.</p>}
+          <p className="rg-legend">
+            <span className="rg-cell-bad">עבר תוקף</span>
+            <span className="rg-cell-warn">מתקרב לסיום</span>
+            <span className="rg-muted">לחיצה על שם פותחת את התיק</span>
+          </p>
         </>
       )}
 
@@ -334,17 +361,16 @@ export default function RegistryApp() {
   );
 }
 
-function RenewalDateInput({ row, onSaved }) {
+function RenewalDateInput({ caseObj, typeKey, onSaved }) {
   const [val, setVal] = useState('');
   const [busy, setBusy] = useState(false);
+  const save = async (v) => {
+    setBusy(true);
+    try { await saveRenewalDate(caseObj, typeKey, v); onSaved(); }
+    catch (e) { alert(e?.message || e); } finally { setBusy(false); }
+  };
   return (
-    <span className="rg-inline-date">
-      <input type="date" value={val} onChange={(e) => setVal(e.target.value)} />
-      <button className="rp-btn sm" disabled={!val || busy} onClick={async () => {
-        setBusy(true);
-        try { await saveRenewalDate(row.caseObj, row.type.key, val); onSaved(); }
-        catch (e) { alert(e?.message || e); } finally { setBusy(false); }
-      }}>שמור</button>
-    </span>
+    <input className="rg-cell-date" type="date" value={val} disabled={busy}
+      onChange={(e) => { setVal(e.target.value); if (e.target.value) save(e.target.value); }} />
   );
 }

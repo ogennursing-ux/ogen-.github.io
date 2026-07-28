@@ -2153,6 +2153,19 @@ textarea.gov-input { resize: vertical; }
 .rg-inline-date { display: inline-flex; gap: 6px; align-items: center; }
 .rg-inline-date input { border: 1px solid #cbd5e1; border-radius: 7px; padding: 5px 8px; font: inherit; font-size: 12.5px; }
 
+/* Renewals report: one row per person, a column per renewal type (like the
+   office's own report) — the individual CELL is highlighted, not the row. */
+.rg-renew-table td, .rg-renew-table th { padding: 9px 11px; }
+.rg-renew-col { text-align: center; font-variant-numeric: tabular-nums; border-inline-start: 1px solid #f1f5f9; min-width: 96px; }
+.rg-renew-table thead th.rg-renew-col { background: #eef4f6; color: #0f766e; font-weight: 800; }
+.rg-cell-bad { background: #fecaca; color: #7f1d1d; font-weight: 800; }
+.rg-cell-warn { background: #fed7aa; color: #7c2d12; font-weight: 800; }
+.rg-cell-empty { background: #fafafa; }
+.rg-cell-date { border: 1px dashed #cbd5e1; border-radius: 6px; padding: 4px 6px; font: inherit; font-size: 12px; width: 100%; background: transparent; color: #94a3b8; }
+.rg-cell-date:hover { border-color: #0e7490; color: #0f172a; }
+.rg-legend { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-top: 12px; font-size: 12.5px; color: #64748b; }
+.rg-legend span { padding: 3px 10px; border-radius: 6px; }
+
 /* Pills, chips, dates */
 .rg-pill { display: inline-block; font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 3px 10px; }
 .rg-pill.ok { background: #dcfce7; color: #15803d; }

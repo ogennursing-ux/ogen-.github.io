@@ -54,11 +54,11 @@ export function searchWorkers(cases, q) {
 // (not collected anywhere yet) are always shown per case, with an empty state the
 // office can fill in.
 export const RENEWAL_TYPES = [
-  { key: 'permitExpiry', label: 'תוקף היתר העסקה', icon: '📋', months: 3 },
-  { key: 'visaExpiry', label: 'תוקף ויזה / אשרה', icon: '🛂', months: 2 },
-  { key: 'passportExpiry', label: 'תוקף דרכון', icon: '📕', years: 2 },
-  { key: 'insuranceExpiry', label: 'תוקף ביטוח רפואי', icon: '🏥', days: 10, manual: true },
-  { key: 'companyFeeRenewalDate', label: 'חידוש דמי תאגיד', icon: '💳', days: 10, manual: true },
+  { key: 'visaExpiry', label: 'תוקף ויזה / אשרה', short: 'ס.אשרה', icon: '🛂', months: 2 },
+  { key: 'passportExpiry', label: 'תוקף דרכון', short: 'ס.דרכון', icon: '📕', years: 2 },
+  { key: 'insuranceExpiry', label: 'תוקף ביטוח רפואי', short: 'ס.ביטוח', icon: '🏥', days: 10, manual: true },
+  { key: 'permitExpiry', label: 'תוקף היתר העסקה', short: 'ס.היתר', icon: '📋', months: 3 },
+  { key: 'companyFeeRenewalDate', label: 'חידוש דמי תאגיד', short: 'ס.תאגיד', icon: '💳', days: 10, manual: true },
 ];
 
 function parseDate(v) {
@@ -72,38 +72,54 @@ function addDays(d, n) { const c = new Date(d); c.setDate(c.getDate() - n); retu
 const DAY = 24 * 60 * 60 * 1000;
 const todayStart = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
 
-// Flatten every case into one row per renewal type: name, due date, days left,
-// and whether it's inside its alert window (or already overdue).
-export function computeRenewals(cases) {
+// One row PER CASE, with every renewal type as a column — the way the office's
+// own renewals report is laid out (a worker appears once, not once per document).
+// Each cell carries its own due date / urgency so it can be coloured on its own.
+export function computeRenewalRows(cases) {
   const today = todayStart();
-  const rows = [];
-  for (const c of cases) {
+  return cases.map((c) => {
     const f = c.data?.fields || {};
-    const name = c.worker?.nameHe || c.worker?.nameEn || c.family?.fullName || 'ללא שם';
+    const cells = {};
+    let anyOverdue = false; let anyUrgent = false; let anyMissing = false;
     for (const type of RENEWAL_TYPES) {
       const raw = f[type.key];
       const due = parseDate(raw);
-      if (!due && !type.manual) continue; // nothing collected yet, and not editable here
-      const alertFrom = !due ? null
-        : type.years ? addYears(due, type.years)
+      if (!due) {
+        cells[type.key] = { due: null, raw: '', daysLeft: null, overdue: false, urgent: false };
+        anyMissing = true;
+        continue;
+      }
+      const alertFrom = type.years ? addYears(due, type.years)
         : type.months ? addMonths(due, type.months)
         : addDays(due, type.days);
-      const daysLeft = due ? Math.round((due - today) / DAY) : null;
-      rows.push({
-        id: `${c.id}-${type.key}`, caseObj: c, type, name, due, raw: raw || '',
-        daysLeft, overdue: due ? due < today : false,
-        urgent: due ? alertFrom <= today : false,
-      });
+      const overdue = due < today;
+      const urgent = !overdue && alertFrom <= today;
+      if (overdue) anyOverdue = true;
+      if (urgent) anyUrgent = true;
+      cells[type.key] = {
+        due, raw: raw || '', daysLeft: Math.round((due - today) / DAY), overdue, urgent,
+      };
     }
-  }
-  // Rows with a date first (soonest due first), then rows still missing a date.
-  rows.sort((a, b) => {
-    if (a.due && b.due) return a.due - b.due;
-    if (a.due) return -1;
-    if (b.due) return 1;
+    // Soonest upcoming date drives the row order.
+    const dates = Object.values(cells).map((x) => x.due).filter(Boolean);
+    return {
+      id: c.id, caseObj: c, cells, anyOverdue, anyUrgent, anyMissing,
+      workerName: c.worker?.nameHe || c.worker?.nameEn || '',
+      employerName: c.family?.fullName || '',
+      passportNo: c.worker?.passportNo || '',
+      workerPhone: c.worker?.phone || '',
+      employerPhone: c.family?.phone || c.family?.mobile || '',
+      arrivalDate: parseDate(f.arrivalDate),
+      startDate: parseDate(f.startDate),
+      caseNumber: f.caseNumber || '',
+      soonest: dates.length ? new Date(Math.min(...dates)) : null,
+    };
+  }).sort((a, b) => {
+    if (a.soonest && b.soonest) return a.soonest - b.soonest;
+    if (a.soonest) return -1;
+    if (b.soonest) return 1;
     return 0;
   });
-  return rows;
 }
 
 // Save a manually-entered renewal date (insurance / company-fee) back onto the
