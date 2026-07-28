@@ -600,8 +600,8 @@ function ReportsTab() {
             <ul>
               {g.reports.map((r) => (
                 <li key={r.key}>
-                  <a href={href(r.key)} target="_blank" rel="noreferrer"
-                    className={r.soon ? 'soon' : undefined} title={r.soon || r.desc}>
+                  <a href={r.to ? `${location.pathname}${location.search}${r.to}` : href(r.key)} target="_blank" rel="noreferrer"
+                    className={r.soon ? 'soon' : undefined} title={r.to ? 'פתיחת מסך הקבלות והחשבוניות' : (r.soon || r.desc)}>
                     <span className="rpt-rowno">{r.no}</span>
                     <span className="rpt-rowlabel">{r.label}</span>
                     {r.soon && <span className="rpt-rowtag">בהמתנה</span>}

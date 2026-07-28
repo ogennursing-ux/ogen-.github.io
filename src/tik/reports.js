@@ -547,22 +547,22 @@ const R = [
   {
     no: '401', group: 'invoices', label: 'חשבוניות/קבלות חתך',
     desc: 'כל מסמכי החיוב בתקופה, לפי חתך.',
-    params: ['range', 'rakaz'], soon: 'ייבנה יחד עם סוגי החשבוניות.',
+    params: ['range'],
   },
   {
     no: '402', group: 'invoices', label: 'חשבונית מס/קבלה',
     desc: 'הפקת חשבונית מס/קבלה.',
-    params: ['range'], soon: 'ייבנה יחד עם סדרות המספור.',
+    params: ['range'],
   },
   {
     no: '403', group: 'invoices', label: 'חשבונית מס',
     desc: 'הפקת חשבונית מס.',
-    params: ['range'], soon: 'ייבנה יחד עם סדרות המספור.',
+    params: ['range'],
   },
   {
     no: '404', group: 'invoices', label: 'חשבונית זיכוי',
     desc: 'הפקת חשבונית זיכוי.',
-    params: ['range'], soon: 'ייבנה יחד עם סדרות המספור.',
+    params: ['range'],
   },
   {
     no: '405', group: 'invoices', label: 'קבלה',
@@ -911,7 +911,14 @@ export const REPORT_GROUPS = [
   { id: 'personal', title: 'דוחות אישיים', icon: '👤', scope: 'לפי רכז/ת' },
   { id: 'office', title: 'דוחות המשרד', icon: '📊', scope: 'כלליים' },
   { id: 'stats', title: 'דוחות סטטיסטיים', icon: '📈', scope: 'ריכוזים' },
-].map((g) => ({ ...g, reports: R.filter((r) => r.group === g.id).map((r, i) => ({ ...r, key: keyOf(r, i) })) }));
+].map((g) => ({
+  ...g,
+  reports: R.filter((r) => r.group === g.id).map((r, i) => ({
+    ...r, key: keyOf(r, i),
+    // The invoicing reports open the tax-documents desk, not a params page.
+    ...(g.id === 'invoices' && r.no !== '406' ? { to: '#invoices' } : {}),
+  })),
+}));
 
 export const REPORTS = Object.fromEntries(
   REPORT_GROUPS.flatMap((g) => g.reports).map((r) => [r.key, r]),
