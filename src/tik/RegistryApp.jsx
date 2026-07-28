@@ -243,10 +243,9 @@ export default function RegistryApp() {
         <button className={`rg-tab${tab === 'renewals' ? ' on' : ''}`} onClick={() => setTab('renewals')}>
           🔔 דוח חידושים {renewCounts.overdue + renewCounts.urgent > 0 && <em className="alert">{renewCounts.overdue + renewCounts.urgent}</em>}
         </button>
-        <button className={`rg-tab${tab === 'social' ? ' on' : ''}`} onClick={() => setTab('social')}>
-          🧑‍⚕️ עובד/ת סוציאלי/ת {socialOverdue > 0 && <em className="alert">{socialOverdue}</em>}
+        <button className={`rg-tab${tab === 'reports' ? ' on' : ''}`} onClick={() => setTab('reports')}>
+          📊 דוחות {socialOverdue > 0 && <em className="alert">{socialOverdue}</em>}
         </button>
-        <button className={`rg-tab${tab === 'reports' ? ' on' : ''}`} onClick={() => setTab('reports')}>📊 דוחות</button>
         <button className={`rg-tab${tab === 'leads' ? ' on' : ''}`} onClick={() => setTab('leads')}>📞 פניות <em>{leads.length}</em></button>
       </nav>
 
@@ -408,11 +407,9 @@ export default function RegistryApp() {
         ) : <p className="rg-empty">אין השמות פעילות.</p>
       )}
 
-      {cases && tab === 'social' && (
-        <SocialWorkerTab cases={activePlacements(byRakaz(cases))} onOpen={goRecord} onChanged={reload} />
+      {cases && tab === 'reports' && (
+        <ReportsTab cases={cases} placements={placements} onOpen={goRecord} onChanged={reload} />
       )}
-
-      {cases && tab === 'reports' && <ReportsTab cases={cases} onOpen={goRecord} />}
 
       {tab === 'leads' && <LeadsTab leads={leads} onChanged={reload} />}
 
@@ -434,11 +431,36 @@ function rangePreset(which) {
   return { from: iso(start), to: iso(end) };
 }
 
-function ReportsTab({ cases, onOpen }) {
+// Every report lives here, one click each, instead of scattered top-level tabs.
+const REPORT_LIST = [
+  { key: 'income', label: '💰 הכנסות', desc: 'כמה כסף נכנס בתקופה' },
+  { key: 'due', label: '🔔 חידושים ותשלומים', desc: 'ויזה, דרכון, ביטוח, היתר, תאגיד ותשלומי העובד/ת' },
+  { key: 'social', label: '🧑‍⚕️ ביקורי עובד/ת סוציאלי/ת', desc: 'ביקורי השמה, 30 יום ושוטף לפי רבעון' },
+];
+
+function ReportsTab({ cases, placements, onOpen, onChanged }) {
+  const [report, setReport] = useState('income');
+  return (
+    <>
+      <div className="rg-reportnav">
+        {REPORT_LIST.map((r) => (
+          <button key={r.key} className={`rg-reportcard${report === r.key ? ' on' : ''}`} onClick={() => setReport(r.key)}>
+            <b>{r.label}</b><span>{r.desc}</span>
+          </button>
+        ))}
+      </div>
+      {report === 'social'
+        ? <SocialWorkerTab cases={placements} onOpen={onOpen} onChanged={onChanged} />
+        : <MoneyReport cases={cases} onOpen={onOpen} only={report} />}
+    </>
+  );
+}
+
+function MoneyReport({ cases, onOpen, only }) {
   const init = rangePreset('month');
   const [from, setFrom] = useState(init.from);
   const [to, setTo] = useState(init.to);
-  const [kind, setKind] = useState('all'); // all | income | due
+  const kind = only; // 'income' | 'due'
   const report = useMemo(() => buildReport(cases, from, to), [cases, from, to]);
   const preset = (w) => { const r = rangePreset(w); setFrom(r.from); setTo(r.to); };
 
@@ -472,13 +494,7 @@ function ReportsTab({ cases, onOpen }) {
         <div className={`rg-kpi${report.due.length ? ' alert' : ''}`}><b>{report.due.length}</b><span>חידושים בתקופה</span></div>
       </div>
 
-      <div className="rg-filters">
-        <button className={`rg-chip${kind === 'all' ? ' on' : ''}`} onClick={() => setKind('all')}>הכל</button>
-        <button className={`rg-chip${kind === 'income' ? ' on' : ''}`} onClick={() => setKind('income')}>💰 הכנסות ({report.income.length})</button>
-        <button className={`rg-chip${kind === 'due' ? ' on' : ''}`} onClick={() => setKind('due')}>🔔 חידושים ותשלומים ({report.due.length})</button>
-      </div>
-
-      {(kind === 'all' || kind === 'income') && (
+      {kind === 'income' && (
         <section className="rg-report-block">
           <h3>💰 כסף שנכנס בתקופה
             <button className="rp-btn ghost sm" onClick={exportIncome}>⬇️ ייצוא</button>
@@ -501,7 +517,7 @@ function ReportsTab({ cases, onOpen }) {
         </section>
       )}
 
-      {(kind === 'all' || kind === 'due') && (
+      {kind === 'due' && (
         <section className="rg-report-block">
           <h3>🔔 מה צריך חידוש / תשלום בתקופה
             <button className="rp-btn ghost sm" onClick={exportDue}>⬇️ ייצוא</button>

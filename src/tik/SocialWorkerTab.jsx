@@ -81,15 +81,6 @@ export default function SocialWorkerTab({ cases, onOpen, onChanged }) {
     finally { setBusy(false); }
   }
 
-  // "Mark all still-open visits in this quarter as done today" — the common
-  // case after a day of field visits.
-  function fillAllToday() {
-    const today = isoOf(new Date());
-    const next = { ...draft };
-    for (const v of shown) if (!v.done) next[v.rowId] = today;
-    setDraft(next);
-  }
-
   const exportCsv = () => downloadCsv(`ogen-visits-${quarter.id}.csv`,
     ['#', 'עובד/ת', 'משפחה', 'ישוב', 'סוג ביקור', 'תאריך יעד', 'בוצע בתאריך', 'מצב', 'עו״ס', 'הערה'],
     shown.map((v) => [v.caseNumber, v.workerName, v.familyName, v.city, v.kind.label,
@@ -139,8 +130,7 @@ export default function SocialWorkerTab({ cases, onOpen, onChanged }) {
       {shown.length ? (
         <>
           <div className="sw-batchbar">
-            <span>עדכון מרוכז — מלאו תאריכים לכמה שורות ושמרו בבת אחת</span>
-            <button className="rp-btn ghost sm" onClick={fillAllToday}>מלא הכל בתאריך היום</button>
+            <span>עדכון ידני — לכל ביקור מזינים את <b>התאריך שבו העו״ס באמת ביקר</b>. אפשר למלא כמה שורות ולשמור בבת אחת.</span>
             <button className="rp-btn sm" disabled={!pending.length || busy} onClick={saveAll}>
               {busy ? 'שומר…' : `💾 שמור ${pending.length || ''} עדכונים`}
             </button>
