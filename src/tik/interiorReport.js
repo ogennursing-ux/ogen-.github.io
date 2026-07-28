@@ -1,14 +1,12 @@
-// Fills the official quarterly report (דוח רבעוני למת״ש) that private caregiving
-// agencies must file, using the government's own .xlsx as the template. We open
-// the template with JSZip, drop the quarter's visits into its visits sheet and
-// the agency/year/quarter into its header, and hand back a ready-to-file file —
-// so the exact official layout, the managers' declaration sheet and the
-// formatting are preserved untouched.
-//
-// This is the "שידור קבוצתי למת״ש": one batch (מנה) of visits, per quarter.
+// Fills the quarterly report to משרד הפנים that private caregiving agencies file
+// each quarter, listing the home visits the social worker carried out. It uses
+// the government's own .xlsx as the template: we open it with JSZip, drop the
+// quarter's visits into its visits sheet and the agency/year/quarter into its
+// header, and hand back a ready-to-file file — so the exact official layout,
+// the managers' declaration sheet and the formatting are preserved untouched.
 
 import JSZip from 'jszip';
-import templateUrl from './assets/matash-quarterly-template.xlsx?url';
+import templateUrl from './assets/interior-quarterly-template.xlsx?url';
 
 const SHEET = 'xl/worksheets/sheet2.xml';
 
@@ -99,9 +97,9 @@ function setHeaderCell(xml, ref, value) {
   return re.test(xml) ? xml.replace(re, replacement) : xml;
 }
 
-export async function buildMatashWorkbook({ agency, year, quarter, visits }) {
+export async function buildInteriorWorkbook({ agency, year, quarter, visits }) {
   const buf = await fetch(templateUrl).then((r) => {
-    if (!r.ok) throw new Error('טעינת תבנית מת״ש נכשלה');
+    if (!r.ok) throw new Error('טעינת תבנית הדוח למשרד הפנים נכשלה');
     return r.arrayBuffer();
   });
   const zip = await JSZip.loadAsync(buf);
@@ -124,11 +122,11 @@ export async function buildMatashWorkbook({ agency, year, quarter, visits }) {
   return zip.generateAsync({ type: 'blob' });
 }
 
-export async function downloadMatashReport(opts) {
-  const blob = await buildMatashWorkbook(opts);
+export async function downloadInteriorReport(opts) {
+  const blob = await buildInteriorWorkbook(opts);
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `דוח-רבעוני-מתש-${opts.quarter || ''}.xlsx`.replace(/\s/g, '');
+  a.download = `דוח-רבעוני-משרד-הפנים-${opts.quarter || ''}.xlsx`.replace(/\s/g, '');
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1500);
 }

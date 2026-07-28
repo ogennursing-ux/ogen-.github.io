@@ -492,9 +492,12 @@ const R = [
 
   // ---- 301–305 · רבעוניים -------------------------------------------------
   {
-    no: '301', group: 'quarterly', label: 'דוח ביקורים רבעוני',
-    desc: 'כל הביקורים ברבעון — פיזי, טלפוני ודיגיטלי ביחד.',
-    params: ['quarter'], render: 'social',
+    // The quarterly report filed with משרד הפנים: which placements the social
+    // worker visited this quarter. Exports the official government Excel.
+    no: '301', group: 'quarterly', label: 'דוח ביקורים רבעוני (למשרד הפנים)',
+    desc: 'כל הביקורים ברבעון, ויצוא הדוח הרבעוני הרשמי למשרד הפנים.',
+    note: 'הקובץ נוצר מהתבנית הממשלתית עצמה, כולל גיליון הצהרת המנהלים, ומוכן להגשה.',
+    params: ['quarter'], render: 'social', interior: true,
   },
   {
     no: '301.1', group: 'quarterly', label: 'דוח ביקורים רבעוני טלפוני',
@@ -537,12 +540,9 @@ const R = [
     params: ['quarter'], soon: 'מעקב אחר רבעונים שממתינים לשידור — ייבנה בהמשך. השידור עצמו נעשה בדוח 305.',
   },
   {
-    // The real thing: the government's quarterly report (דוח רבעוני למת״ש),
-    // filled from the quarter's visits into the official Excel template.
     no: '305', group: 'quarterly', label: 'שידור קבוצתי למת״ש',
-    desc: 'הפקת קובץ הדוח הרבעוני למת״ש — התבנית הרשמית מלאה בכל ביקורי הרבעון.',
-    note: 'הקובץ נוצר מהתבנית הממשלתית עצמה, כולל גיליון הצהרת המנהלים, ומוכן להגשה.',
-    params: ['quarter'], render: 'social', matash: true,
+    desc: 'הפקת קובץ השידור הקבוצתי ושליחתו למת״ש.',
+    params: ['quarter'], soon: 'מת״ש הוא יעד נפרד ממשרד הפנים — צריך לראות את מבנה הקובץ ולאן נשלח.',
   },
 
   // ---- 401–406 · חשבוניות -------------------------------------------------
