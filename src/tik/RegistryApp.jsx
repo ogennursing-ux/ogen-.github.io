@@ -7,7 +7,7 @@ import {
 } from './registry.js';
 import { getOrAssignCaseNumber, payments } from './caseDetail.js';
 import RecordPage from './RecordPage.jsx';
-import { REPORTS } from './ReportPage.jsx';
+import { REPORT_GROUPS } from './reports.js';
 import { openRecordTab } from './recordLink.js';
 import { buildVisitReport } from './socialWorker.js';
 
@@ -461,9 +461,40 @@ export default function RegistryApp() {
   );
 }
 
-// Reports are cards. Clicking one opens a fresh browser tab: first the
-// parameters page (dates / quarter), then the results — so a report you ran
-// stays open next to the record you are working on.
+// The reports screen, laid out the way the office's own one is: numbered
+// reports grouped into columns, general on top and per-coordinator below.
+// Clicking one opens a fresh browser tab — first the parameters page (dates /
+// quarter / coordinator), then the results — so a report you ran stays open
+// next to the record you are working on.
+function ReportsTab() {
+  const href = (key) => `${location.pathname}${location.search}#report/${key}`;
+  return (
+    <div className="rpt-catalog">
+      {REPORT_GROUPS.map((g) => (
+        <section key={g.id} className="rpt-group">
+          <h3>{g.icon} {g.title} <em>{g.scope}</em></h3>
+          <ul>
+            {g.reports.map((r) => (
+              <li key={r.key}>
+                <a href={href(r.key)} target="_blank" rel="noreferrer"
+                  className={r.soon ? 'soon' : undefined} title={r.soon || r.desc}>
+                  <span className="rpt-rowno">{r.no}</span>
+                  <span className="rpt-rowlabel">{r.label}</span>
+                  {r.soon && <span className="rpt-rowtag">בהמתנה</span>}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+      <p className="rpt-legend">
+        כל דוח נפתח בלשונית חדשה ↗ · דוח מסומן <span className="rpt-rowtag">בהמתנה</span> שמור במקומו,
+        השדות שלו כבר נאספים והוא יחושב ברגע שנסגור את הכללים.
+      </p>
+    </div>
+  );
+}
+
 // The same person used to appear once per submission. They are merged now by
 // passport (or ID); this marks the merged rows so nothing looks lost.
 function MergedTag({ c }) {
@@ -472,22 +503,6 @@ function MergedTag({ c }) {
     <span className="rg-merged" title={`${c.duplicateOf} רשומות של אותו אדם אוחדו לתיק אחד`}>
       אוחד ×{c.duplicateOf}
     </span>
-  );
-}
-
-function ReportsTab() {
-  const href = (key) => `${location.pathname}${location.search}#report/${key}`;
-  return (
-    <div className="rg-reportnav">
-      {Object.entries(REPORTS).map(([key, r]) => (
-        <a key={key} className="rg-reportcard" href={href(key)} target="_blank" rel="noreferrer">
-          <span className="rg-reportcard-icon">{r.icon}</span>
-          <b>{r.label}</b>
-          <span>{r.desc}</span>
-          <em>נפתח בלשונית חדשה ↗</em>
-        </a>
-      ))}
-    </div>
   );
 }
 

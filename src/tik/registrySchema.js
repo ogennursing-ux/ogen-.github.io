@@ -24,6 +24,10 @@ export const LANGUAGES = [
 
 export const INSURERS = ['הראל', 'הילית', 'מנורה מבטחים', 'כלל ביטוח', 'הפניקס', 'איילון', 'AIG'];
 
+export const POLICY_STATUS = ['בתוקף', 'בהמתנה', 'הסתיימה', 'בוטלה'];
+export const PERMIT_STATUS = ['טרם הוגש', 'הוגש', 'בטיפול', 'אושר', 'נדחה', 'הסתיים'];
+export const SEND_STATUS = ['טרם שודר', 'שודר', 'אושר', 'נדחה'];
+
 export const YES_NO = ['כן', 'לא'];
 export const GENDERS = ['זכר', 'נקבה'];
 export const MARITAL = ['רווק/ה', 'נשוי/אה', 'גרוש/ה', 'אלמן/ה'];
@@ -105,14 +109,43 @@ export const FAMILY_SECTIONS = [
     ],
   },
   {
-    title: 'תוקף אשרה / ביטוח / היתר',
+    title: 'תוקף אשרה / ביטוח',
     icon: '📋',
     fields: [
       { key: 'visaExpiry', label: 'תוקף אשרה', type: 'date' },
       { key: 'insuranceExpiry', label: 'תוקף ביטוח', type: 'date' },
       { key: 'insuranceCompany', label: 'חברת ביטוח', type: 'select', options: INSURERS },
+    ],
+  },
+  {
+    // The policy itself, not just when it runs out — so the office can pull
+    // reports by registration date or by the policy's own start/end.
+    title: 'פוליסת ביטוח',
+    icon: '🛡️',
+    fields: [
+      { key: 'policyNo', label: 'מספר פוליסה', type: 'text', ltr: true },
+      { key: 'policyInsurer', label: 'חברת הביטוח', type: 'select', options: INSURERS },
+      { key: 'policyPlan', label: 'שם הביטוח / מסלול', type: 'text', width: 2, hint: 'למשל: עילית' },
+      { key: 'policyRegDate', label: 'תאריך רישום', type: 'date' },
+      { key: 'policyStart', label: 'תחילת הפוליסה', type: 'date' },
+      { key: 'policyEnd', label: 'סיום הפוליסה', type: 'date' },
+      { key: 'policyPremium', label: 'פרמיה חודשית', type: 'number' },
+      { key: 'policyStatus', label: 'סטטוס פוליסה', type: 'select', options: POLICY_STATUS },
+      { key: 'policyAgent', label: 'סוכן/סוכנות', type: 'text' },
+      { key: 'policyNotes', label: 'הערות לפוליסה', type: 'textarea', width: 3 },
+    ],
+  },
+  {
+    title: 'היתר העסקה',
+    icon: '🗂️',
+    fields: [
       { key: 'permitNumber', label: 'מספר היתר', type: 'text', ltr: true },
+      { key: 'permitSubmitDate', label: 'תאריך הגשת הבקשה', type: 'date' },
+      { key: 'permitStatus', label: 'סטטוס הבקשה', type: 'select', options: PERMIT_STATUS },
+      { key: 'permitStart', label: 'תחילת ההיתר', type: 'date' },
+      { key: 'permitEnd', label: 'סיום ההיתר', type: 'date' },
       { key: 'permitExpiry', label: 'תוקף היתר', type: 'date' },
+      { key: 'permitNotes', label: 'הערות להיתר', type: 'textarea', width: 3 },
     ],
   },
   {
@@ -124,6 +157,9 @@ export const FAMILY_SECTIONS = [
       { key: 'companyFeeFrom', label: 'לתקופה מ־', type: 'date' },
       { key: 'companyFeeTo', label: 'עד', type: 'date' },
       { key: 'companyFeeRenewalDate', label: 'חידוש דמי תאגיד', type: 'date' },
+      { key: 'monthlyFee', label: 'תשלום חודשי (₪)', type: 'number', hint: 'ברירת מחדל 70 ₪ לחודש' },
+      { key: 'monthlyFeeFrom', label: 'תשלום חודשי — מ־', type: 'date' },
+      { key: 'monthlyFeeTo', label: 'תשלום חודשי — עד', type: 'date', hint: 'שנה מתאריך ההתחלה' },
       { key: 'placementFee', label: 'עמלת השמה', type: 'number' },
       { key: 'placementFeeValidTo', label: 'תוקף עד', type: 'date' },
       { key: 'payer', label: 'גורם משלם', type: 'text' },
@@ -248,6 +284,30 @@ export const WORKER_SECTIONS = [
       { key: 'insuranceCompany', label: 'חברת ביטוח', type: 'select', options: INSURERS },
       { key: 'insuranceExpiry', label: 'תוקף ביטוח', type: 'date' },
       { key: 'interVisa', label: 'אינטרויזה', type: 'date' },
+    ],
+  },
+  {
+    // A worker travelling home: we get a departure date and a return date, and
+    // the office wants to know who is coming back in a given period.
+    title: 'אינטרויזה — יציאה וחזרה',
+    icon: '✈️',
+    fields: [
+      { key: 'interVisaOut', label: 'תאריך יציאה לחו״ל', type: 'date' },
+      { key: 'interVisaBack', label: 'תאריך חזרה לארץ', type: 'date' },
+      { key: 'interVisaCountry', label: 'ארץ היעד', type: 'select', options: COUNTRIES },
+      { key: 'interVisaNote', label: 'הערה', type: 'textarea', width: 3 },
+    ],
+  },
+  {
+    // Renewing the visa means sending it to משרד הפנים. Not everyone updates
+    // this today, so nothing is required — but the field is here when they do.
+    title: 'שידור חידוש אשרה (משרד הפנים)',
+    icon: '📡',
+    fields: [
+      { key: 'visaRenewSentDate', label: 'תאריך שידור', type: 'date' },
+      { key: 'visaRenewStatus', label: 'סטטוס השידור', type: 'select', options: SEND_STATUS },
+      { key: 'visaRenewRef', label: 'מספר אסמכתא', type: 'text', ltr: true },
+      { key: 'visaRenewNote', label: 'הערה', type: 'textarea', width: 3 },
     ],
   },
   {

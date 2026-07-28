@@ -1,16 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { isAuthed, login } from './officeAuth.js';
+import { loadRegistry, buildReport, activePlacements } from './registry.js';
 import {
-  loadRegistry, buildReport, activePlacements, RENEWAL_TYPES, WORKER_PAYMENTS,
-} from './registry.js';
-import {
-  buildVisitReport, quarterOptions, reportDueFor, VISIT_KINDS, saveVisitsBatch,
+  buildVisitReport, quarterOptions, reportDueFor, saveVisitsBatch, VISIT_CHANNELS,
 } from './socialWorker.js';
+import { REPORTS, REPORT_GROUPS, runReport, coordinators } from './reports.js';
 import CalendarReport from './CalendarReport.jsx';
 import { openRecordTab } from './recordLink.js';
 
 // Each report is a small wizard in its own browser tab:
-//   step 1 — pick the parameters (dates / quarter)
+//   step 1 — pick the parameters (dates / quarter / coordinator)
 //   step 2 — the result table
 // The parameters live in the URL, so a finished report can be bookmarked,
 // refreshed, or sent to someone else and it opens the same numbers.
@@ -23,7 +22,6 @@ const fmtDate = (v) => {
   return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
 };
 const fmtMoney = (n) => `${(Number(n) || 0).toLocaleString('he-IL')} ₪`;
-const isoToday = () => new Date().toISOString().slice(0, 10);
 
 function downloadCsv(filename, header, rows) {
   const esc = (s) => `"${String(s ?? '').replace(/"/g, '""')}"`;
@@ -36,13 +34,7 @@ function downloadCsv(filename, header, rows) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
-export const REPORTS = {
-  income: { label: 'הכנסות', icon: '💰', desc: 'כמה כסף נכנס בתקופה', params: 'range' },
-  due: { label: 'חידושים ותשלומים', icon: '🔔', desc: 'ויזה, דרכון, ביטוח, היתר, תאגיד ותשלומי העובד/ת', params: 'range' },
-  social: { label: 'ביקורי עובד/ת סוציאלי/ת', icon: '🧑‍⚕️', desc: 'ביקורי השמה, 30 יום ושוטף לפי רבעון', params: 'quarter' },
-  placements: { label: 'השמות פעילות', icon: '🤝', desc: 'כל העובדים המועסקים כרגע', params: 'none' },
-  calendar: { label: 'יומן פגישות', icon: '📅', desc: 'כל הביקורים, החידושים והפגישות על לוח שנה חודשי', params: 'none' },
-};
+export { REPORTS, REPORT_GROUPS };
 
 function Login({ onIn }) {
   const [user, setUser] = useState('');
@@ -64,13 +56,15 @@ function Login({ onIn }) {
 }
 
 // --- step 1: parameters --------------------------------------------------------
-function ParamsStep({ reportKey, onRun }) {
-  const meta = REPORTS[reportKey];
+function ParamsStep({ report, cases, onRun }) {
+  const wants = report.params || [];
   const quarters = useMemo(() => quarterOptions(4, 2), []);
-  const current = quarters.find((q) => q.current) || quarters[0];
+  const rakazim = useMemo(() => coordinators(cases || []), [cases]);
   const [from, setFrom] = useState(() => { const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10); });
   const [to, setTo] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() + 1, 0); return d.toISOString().slice(0, 10); });
-  const [quarterId, setQuarterId] = useState(current.id);
+  const [quarter, setQuarter] = useState(() => (quarters.find((q) => q.current) || quarters[0]).id);
+  const [rakaz, setRakaz] = useState('');
+  const [channel, setChannel] = useState('');
 
   const preset = (which) => {
     const t = new Date(); t.setHours(0, 0, 0, 0);
@@ -78,6 +72,7 @@ function ParamsStep({ reportKey, onRun }) {
     const s = new Date(t); const e = new Date(t);
     if (which === 'week') { e.setDate(e.getDate() + 7); }
     if (which === 'month') { s.setDate(1); e.setMonth(e.getMonth() + 1, 0); }
+    if (which === 'lastMonth') { s.setMonth(s.getMonth() - 1, 1); e.setDate(0); }
     if (which === 'nextMonth') { e.setMonth(e.getMonth() + 1); }
     if (which === 'quarterAhead') { e.setMonth(e.getMonth() + 3); }
     if (which === 'year') { s.setMonth(0, 1); e.setMonth(11, 31); }
@@ -85,13 +80,26 @@ function ParamsStep({ reportKey, onRun }) {
     setFrom(iso(s)); setTo(iso(e));
   };
 
+  const submit = () => {
+    const p = {};
+    if (wants.includes('range')) { p.from = from; p.to = to; }
+    if (wants.includes('quarter')) p.quarter = quarter;
+    if (wants.includes('rakaz') && rakaz) p.rakaz = rakaz;
+    if (wants.includes('channel') && channel) p.channel = channel;
+    p.run = '1';
+    onRun(p);
+  };
+
   return (
     <div className="rpt-step">
       <div className="rpt-card">
-        <h2><span>{meta.icon}</span>{meta.label}</h2>
-        <p className="rpt-desc">{meta.desc}</p>
+        <span className="rpt-no">{report.no}</span>
+        <h2>{report.label}</h2>
+        <p className="rpt-desc">{report.desc}</p>
+        {report.note && <p className="rpt-note">ℹ️ {report.note}</p>}
+        {report.soon && <p className="rpt-soon">🚧 הדוח עדיין לא מחושב. {report.soon}</p>}
 
-        {meta.params === 'range' && (
+        {wants.includes('range') && (
           <>
             <div className="rpt-fields">
               <label>מתאריך<input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
@@ -100,37 +108,135 @@ function ParamsStep({ reportKey, onRun }) {
             <div className="rpt-presets">
               <button className="rg-chip" onClick={() => preset('week')}>השבוע הקרוב</button>
               <button className="rg-chip" onClick={() => preset('month')}>החודש</button>
+              <button className="rg-chip" onClick={() => preset('lastMonth')}>החודש שעבר</button>
               <button className="rg-chip" onClick={() => preset('nextMonth')}>החודש הקרוב</button>
               <button className="rg-chip" onClick={() => preset('quarterAhead')}>3 חודשים קדימה</button>
               <button className="rg-chip" onClick={() => preset('year')}>השנה</button>
               <button className="rg-chip" onClick={() => preset('lastYear')}>שנה שעברה</button>
             </div>
-            <button className="rp-btn rpt-run" onClick={() => onRun({ from, to })}>הפק דוח ←</button>
           </>
         )}
 
-        {meta.params === 'quarter' && (
-          <>
-            <div className="rpt-fields">
-              <label>רבעון
-                <select value={quarterId} onChange={(e) => setQuarterId(e.target.value)}>
-                  {quarters.map((q) => <option key={q.id} value={q.id}>{q.label}{q.current ? ' (נוכחי)' : ''}</option>)}
-                </select>
-              </label>
-            </div>
-            <button className="rp-btn rpt-run" onClick={() => onRun({ quarter: quarterId })}>הפק דוח ←</button>
-          </>
+        {wants.includes('quarter') && (
+          <div className="rpt-fields">
+            <label>רבעון
+              <select value={quarter} onChange={(e) => setQuarter(e.target.value)}>
+                {quarters.map((q) => <option key={q.id} value={q.id}>{q.label}{q.current ? ' (נוכחי)' : ''}</option>)}
+              </select>
+            </label>
+          </div>
         )}
 
-        {meta.params === 'none' && (
-          <button className="rp-btn rpt-run" onClick={() => onRun({})}>הפק דוח ←</button>
+        {wants.includes('rakaz') && (
+          <div className="rpt-fields" style={{ marginTop: 14 }}>
+            <label>רכז/ת
+              <select value={rakaz} onChange={(e) => setRakaz(e.target.value)}>
+                <option value="">כל הרכזים</option>
+                {rakazim.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </label>
+          </div>
         )}
+
+        {wants.includes('channel') && (
+          <div className="rpt-fields" style={{ marginTop: 14 }}>
+            <label>אופן הביקור
+              <select value={channel} onChange={(e) => setChannel(e.target.value)}>
+                <option value="">הכול</option>
+                {Object.values(VISIT_CHANNELS).map((ch) => (
+                  <option key={ch.key} value={ch.key}>{ch.icon} {ch.label}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
+
+        <button className="rp-btn rpt-run" onClick={submit}>הפק דוח ←</button>
       </div>
     </div>
   );
 }
 
-// --- step 2: results -----------------------------------------------------------
+// --- generic result table ------------------------------------------------------
+const cellText = (row, col) => {
+  const v = row[col.key];
+  if (v === undefined || v === null || v === '') return '';
+  if (col.type === 'date') return fmtDate(v);
+  if (col.type === 'money') return fmtMoney(v);
+  return String(v);
+};
+
+// Every catalogue report that declares columns renders through here, so they
+// all look the same and all export the same way.
+function TableResult({ report, rows }) {
+  const cols = report.columns || [];
+  const totals = report.totals || [];
+  const sum = (key) => rows.reduce((s, r) => s + (Number(r[key]) || 0), 0);
+
+  const exportCsv = () => downloadCsv(
+    `ogen-${report.no}.csv`,
+    cols.map((c) => c.label),
+    rows.map((r) => cols.map((c) => cellText(r, c))),
+  );
+
+  return (
+    <>
+      <div className="rg-kpis">
+        <div className="rg-kpi"><b>{rows.length}</b><span>שורות בדוח</span></div>
+        {totals.map((t) => {
+          const col = cols.find((c) => c.key === t);
+          return <div key={t} className="rg-kpi"><b>{fmtMoney(sum(t))}</b><span>{col?.label || t}</span></div>;
+        })}
+      </div>
+      <button className="rp-btn ghost" onClick={exportCsv} disabled={!rows.length}>⬇️ ייצוא Excel</button>
+      {rows.length ? (
+        <div className="rg-tablewrap" style={{ marginTop: 14 }}>
+          <table className="rg-table">
+            <thead><tr>{cols.map((c) => <th key={c.key}>{c.label}</th>)}</tr></thead>
+            <tbody>{rows.map((r) => (
+              <tr key={r.id}>
+                {cols.map((c) => {
+                  const txt = cellText(r, c);
+                  const clickable = c.link && r.caseObj;
+                  const cls = [c.type === 'num' ? 'rg-num' : '', clickable ? 'rg-link' : '']
+                    .filter(Boolean).join(' ');
+                  return (
+                    <td key={c.key} className={cls || undefined} dir={c.ltr ? 'ltr' : undefined}
+                      onClick={clickable ? () => openRecordTab(c.link, r.caseObj.id) : undefined}
+                      title={clickable ? 'פתיחת התיק בלשונית חדשה' : undefined}>
+                      {c.type === 'pill' && txt
+                        ? <span className={`rg-pill ${r.tone || 'info'}`}>{txt}</span>
+                        : (c.type === 'strong' || c.strong) ? <b>{txt || '—'}</b> : (txt || '—')}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      ) : <p className="rg-empty">אין נתונים בתקופה הזו.</p>}
+    </>
+  );
+}
+
+// A report whose rules the office still has to explain. The card, the number
+// and the parameters page exist; only the calculation is missing.
+function SoonResult({ report }) {
+  return (
+    <div className="rpt-soonbox">
+      <span className="rpt-soonicon">🚧</span>
+      <h3>הדוח שמור במקום — עדיין לא מחושב</h3>
+      <p>{report.soon}</p>
+      <p className="rg-muted">
+        השדות שהדוח הזה צריך כבר נאספים בתיקים, כך שברגע שנסגור את הכללים
+        הוא יתמלא מהנתונים שכבר קיימים במערכת — בלי להזין שום דבר מחדש.
+      </p>
+      <a className="rp-btn ghost" href="#registry">חזרה למערכת ←</a>
+    </div>
+  );
+}
+
+// --- the reports that keep their own hand-built layout --------------------------
 function IncomeResult({ cases, params }) {
   const r = useMemo(() => buildReport(cases, params.from, params.to), [cases, params]);
   return (
@@ -193,13 +299,17 @@ function DueResult({ cases, params }) {
   );
 }
 
-function SocialResult({ cases, params, onChanged }) {
+// The social-worker quarter: the only report the office also *writes* into,
+// because the visit dates are filled in by hand from what really happened.
+function SocialResult({ report, cases, params, onChanged }) {
   const quarters = useMemo(() => quarterOptions(4, 2), []);
   const quarter = quarters.find((q) => q.id === params.quarter) || quarters.find((q) => q.current);
   const all = useMemo(() => buildVisitReport(activePlacements(cases)), [cases]);
-  const rows = useMemo(() => all.filter((v) => v.due >= quarter.from && v.due <= quarter.to), [all, quarter]);
+  const rows = useMemo(() => all.filter((v) => v.due >= quarter.from && v.due <= quarter.to
+    && (!report.channel || !v.done || v.channel.key === report.channel)), [all, quarter, report.channel]);
   const [draft, setDraft] = useState({});
   const [notes, setNotes] = useState({});
+  const [chans, setChans] = useState({});
   const [busy, setBusy] = useState(false);
   const pending = Object.entries(draft).filter(([, d]) => d);
 
@@ -208,9 +318,13 @@ function SocialResult({ cases, params, onChanged }) {
     try {
       await saveVisitsBatch(pending.map(([rowId, date]) => {
         const row = all.find((v) => v.rowId === rowId);
-        return { caseObj: row.caseObj, visitId: row.id, date, note: notes[rowId] || '' };
+        return {
+          caseObj: row.caseObj, visitId: row.id, date,
+          note: notes[rowId] ?? row.note,
+          channel: chans[rowId] || row.channel.key,
+        };
       }));
-      setDraft({}); setNotes({}); onChanged();
+      setDraft({}); setNotes({}); setChans({}); onChanged();
     } catch (e) { alert('שמירה נכשלה: ' + (e?.message || e)); }
     finally { setBusy(false); }
   }
@@ -227,6 +341,7 @@ function SocialResult({ cases, params, onChanged }) {
     <>
       <p className="rpt-range">
         {fmtDate(quarter.from)} – {fmtDate(quarter.to)} · 📄 הגשת הדוח עד <b>{fmtDate(reportDueFor(quarter.year, quarter.q))}</b>
+        {report.channel && <> · מסונן ל<b>{VISIT_CHANNELS[report.channel].label}</b></>}
       </p>
       <div className="rg-kpis">
         <div className="rg-kpi"><b>{counts.total}</b><span>ביקורים ברבעון</span></div>
@@ -237,22 +352,22 @@ function SocialResult({ cases, params, onChanged }) {
         <div className="rg-kpi"><b>{counts.periodic}</b><span>ביקורים שוטפים</span></div>
       </div>
       <button className="rp-btn ghost" onClick={() => downloadCsv(`ogen-visits-${quarter.id}.csv`,
-        ['#', 'עובד/ת', 'משפחה', 'ישוב', 'סוג', 'תאריך יעד', 'בוצע', 'מצב', 'עו״ס'],
-        rows.map((v) => [v.caseNumber, v.workerName, v.familyName, v.city, v.kind.label,
+        ['#', 'עובד/ת', 'משפחה', 'ישוב', 'סוג', 'אופן', 'תאריך יעד', 'בוצע', 'מצב', 'עו״ס'],
+        rows.map((v) => [v.caseNumber, v.workerName, v.familyName, v.city, v.kind.label, v.channel.label,
           fmtDate(v.due), v.doneDate ? fmtDate(v.doneDate) : '',
           v.done ? 'בוצע' : v.overdue ? 'באיחור' : 'ממתין', v.socialWorker]))}>⬇️ ייצוא Excel</button>
 
       {rows.length ? (
         <>
           <p className="sw-batchbar" style={{ marginTop: 14 }}>
-            <span>עדכון ידני — לכל ביקור מזינים את <b>התאריך שבו העו״ס באמת ביקר</b>.</span>
+            <span>עדכון ידני — לכל ביקור מזינים את <b>התאריך שבו העו״ס באמת ביקר</b> ואת אופן הביקור.</span>
             <button className="rp-btn sm" disabled={!pending.length || busy} onClick={saveAll}>
               {busy ? 'שומר…' : `💾 שמור ${pending.length || ''} עדכונים`}
             </button>
           </p>
           <div className="rg-tablewrap">
             <table className="rg-table sw-table">
-              <thead><tr><th>#</th><th>עובד/ת</th><th>משפחה</th><th>ישוב</th><th>סוג</th><th>תאריך יעד</th><th>מצב</th><th>בוצע בתאריך</th><th>הערה</th></tr></thead>
+              <thead><tr><th>#</th><th>עובד/ת</th><th>משפחה</th><th>ישוב</th><th>סוג</th><th>תאריך יעד</th><th>מצב</th><th>בוצע בתאריך</th><th>אופן</th><th>הערה</th></tr></thead>
               <tbody>{rows.map((v) => (
                 <tr key={v.rowId} className={v.done ? 'sw-done' : v.overdue ? 'rg-row-bad' : ''}>
                   <td className="rg-num">{v.caseNumber || '—'}</td>
@@ -267,6 +382,14 @@ function SocialResult({ cases, params, onChanged }) {
                   <td><input type="date" className="sw-date"
                     value={draft[v.rowId] ?? (v.doneDate ? v.doneDate.toISOString().slice(0, 10) : '')}
                     onChange={(e) => setDraft({ ...draft, [v.rowId]: e.target.value })} /></td>
+                  <td>
+                    <select className="sw-channel" value={chans[v.rowId] ?? v.channel.key}
+                      onChange={(e) => setChans({ ...chans, [v.rowId]: e.target.value })}>
+                      {Object.values(VISIT_CHANNELS).map((ch) => (
+                        <option key={ch.key} value={ch.key}>{ch.icon} {ch.label}</option>
+                      ))}
+                    </select>
+                  </td>
                   <td><input type="text" className="sw-note" placeholder="הערה…"
                     value={notes[v.rowId] ?? v.note}
                     onChange={(e) => setNotes({ ...notes, [v.rowId]: e.target.value })} /></td>
@@ -330,40 +453,50 @@ export default function ReportPage() {
     .catch((e) => { setCases([]); setErr(e?.message || String(e)); });
   useEffect(() => { if (authed) reload(); }, [authed]);
 
-  // #report/<key>            → parameters
-  // #report/<key>?from=…&to=… → results
+  // #report/<key>              → parameters
+  // #report/<key>?run=1&…      → results
   const [, key = ''] = /^report\/([^?]+)/.exec(route) || [];
-  const query = Object.fromEntries(new URLSearchParams((route.split('?')[1] || '')));
-  const meta = REPORTS[key];
-  const hasParams = meta && (meta.params === 'none'
-    ? query.run === '1'
-    : meta.params === 'quarter' ? !!query.quarter : !!(query.from || query.to));
+  const query = useMemo(
+    () => Object.fromEntries(new URLSearchParams(route.split('?')[1] || '')),
+    [route],
+  );
+  const report = REPORTS[key];
+  const hasParams = !!report && query.run === '1';
+
+  const rows = useMemo(
+    () => (report && hasParams && cases && report.run ? runReport(report, cases, query) : []),
+    [report, hasParams, cases, query],
+  );
 
   if (!authed) return <Login onIn={() => setAuthed(true)} />;
-  if (!meta) {
+  if (!report) {
     return (
       <div className="rpt-shell">
+        <header className="rpt-header">
+          <div className="rg-brand"><span className="rg-logo">📊</span><div><h1>דוחות</h1></div></div>
+        </header>
         <p className="rg-empty">דוח לא מוכר.</p>
         <a className="rp-btn" href="#registry">חזרה למערכת</a>
       </div>
     );
   }
 
-  const run = (params) => {
-    const qs = new URLSearchParams(meta.params === 'none' ? { run: '1' } : params).toString();
-    location.hash = `report/${key}?${qs}`;
-  };
+  const group = REPORT_GROUPS.find((g) => g.id === report.group);
+  const run = (params) => { location.hash = `report/${key}?${new URLSearchParams(params).toString()}`; };
+
+  const subtitle = !hasParams ? 'בחרו את הפרמטרים לדוח'
+    : query.quarter ? `רבעון ${query.quarter.replace('-Q', ' / ')}`
+    : (query.from || query.to) ? `${fmtDate(query.from)} – ${fmtDate(query.to)}`
+    : report.desc;
 
   return (
     <div className="rpt-shell">
       <header className="rpt-header">
         <div className="rg-brand">
-          <span className="rg-logo">{meta.icon}</span>
+          <span className="rg-logo">{group?.icon || '📊'}</span>
           <div>
-            <h1>{meta.label}</h1>
-            <p>{hasParams
-              ? (meta.params === 'range' ? `${fmtDate(query.from)} – ${fmtDate(query.to)}` : meta.desc)
-              : 'בחרו את הפרמטרים לדוח'}</p>
+            <h1><span className="rpt-no inline">{report.no}</span>{report.label}</h1>
+            <p>{group?.title} · {subtitle}{query.rakaz ? ` · ${query.rakaz}` : ''}</p>
           </div>
         </div>
         <div className="rg-header-actions">
@@ -376,13 +509,15 @@ export default function ReportPage() {
       {err && <p className="rg-err">{err}</p>}
       {cases === null && !err && <p className="rg-empty">טוען…</p>}
 
-      {cases && !hasParams && <ParamsStep reportKey={key} onRun={run} />}
+      {cases && !hasParams && <ParamsStep report={report} cases={cases} onRun={run} />}
       {cases && hasParams && (
-        key === 'income' ? <IncomeResult cases={cases} params={query} />
-          : key === 'due' ? <DueResult cases={cases} params={query} />
-          : key === 'social' ? <SocialResult cases={cases} params={query} onChanged={reload} />
-          : key === 'calendar' ? <CalendarReport cases={cases} placements={activePlacements(cases)} onOpen={(c, k) => openRecordTab(k, c.id)} />
-          : <PlacementsResult cases={cases} />
+        report.soon ? <SoonResult report={report} />
+          : report.render === 'social' ? <SocialResult report={report} cases={cases} params={query} onChanged={reload} />
+          : report.render === 'income' ? <IncomeResult cases={cases} params={query} />
+          : report.render === 'due' ? <DueResult cases={cases} params={query} />
+          : report.render === 'placements' ? <PlacementsResult cases={cases} />
+          : report.render === 'calendar' ? <CalendarReport cases={cases} placements={activePlacements(cases)} onOpen={(c, k) => openRecordTab(k, c.id)} />
+          : <TableResult report={report} rows={rows} />
       )}
     </div>
   );

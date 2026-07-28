@@ -22,6 +22,15 @@ export const VISIT_KINDS = {
   periodic: { key: 'periodic', label: 'ביקור תקופתי', short: 'שוטף', icon: '🔄' },
 };
 
+// How a visit was actually carried out. The quarterly report is filed
+// separately for each channel, so the office records it per visit.
+export const VISIT_CHANNELS = {
+  physical: { key: 'physical', label: 'פיזי', icon: '🚶' },
+  phone: { key: 'phone', label: 'טלפוני', icon: '📞' },
+  digital: { key: 'digital', label: 'דיגיטלי', icon: '💻' },
+};
+export const DEFAULT_CHANNEL = 'physical';
+
 // How many days after a visit's due date it is still considered "on time".
 const GRACE_DAYS = 0;
 // Report for a quarter is filed by the 10th of the month after it ends.
@@ -77,6 +86,7 @@ export function requiredVisitsFor(caseObj, horizonMonths = 36) {
     const daysLeft = Math.round((due - today) / DAY);
     return {
       id, kind: VISIT_KINDS[kind], due, doneDate, note: rec.note || '',
+      channel: VISIT_CHANNELS[rec.channel] || VISIT_CHANNELS[DEFAULT_CHANNEL],
       quarter: quarterOf(due),
       daysLeft,
       done: !!doneDate,
@@ -118,13 +128,13 @@ export function buildVisitReport(cases) {
 }
 
 // Save one visit's completion date (and optional note).
-export async function saveVisit(caseObj, visitId, date, note) {
+export async function saveVisit(caseObj, visitId, date, note, channel) {
   const ids = caseObj.ids && caseObj.ids.length ? caseObj.ids : [caseObj.id];
   for (const id of ids) {
     const { data: row } = await sb().from('agent_submissions').select('data').eq('id', id).maybeSingle();
     const prev = row?.data?.fields?.socialVisits || {};
     const next = { ...prev };
-    if (date) next[visitId] = { date, note: note || '' };
+    if (date) next[visitId] = { date, note: note || '', channel: channel || DEFAULT_CHANNEL };
     else delete next[visitId];
     const fields = { ...(row?.data?.fields || {}), socialVisits: next };
     await sb().from('agent_submissions').update({ data: { ...(row?.data || {}), fields } }).eq('id', id);
@@ -133,7 +143,7 @@ export async function saveVisit(caseObj, visitId, date, note) {
 
 // Save several visits at once — the office fills a batch then saves in one go.
 export async function saveVisitsBatch(entries) {
-  // entries: [{ caseObj, visitId, date, note }]
+  // entries: [{ caseObj, visitId, date, note, channel }]
   const byCase = new Map();
   for (const e of entries) {
     const key = e.caseObj.id;
@@ -146,7 +156,7 @@ export async function saveVisitsBatch(entries) {
       const { data: row } = await sb().from('agent_submissions').select('data').eq('id', id).maybeSingle();
       const next = { ...(row?.data?.fields?.socialVisits || {}) };
       for (const it of items) {
-        if (it.date) next[it.visitId] = { date: it.date, note: it.note || '' };
+        if (it.date) next[it.visitId] = { date: it.date, note: it.note || '', channel: it.channel || DEFAULT_CHANNEL };
         else delete next[it.visitId];
       }
       const fields = { ...(row?.data?.fields || {}), socialVisits: next };
