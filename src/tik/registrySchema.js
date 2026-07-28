@@ -22,11 +22,22 @@ export const LANGUAGES = [
   'רומנית', 'אמהרית', 'צרפתית', 'ספרדית', 'אחר',
 ];
 
-export const INSURERS = ['הראל', 'הילית', 'מנורה מבטחים', 'כלל ביטוח', 'הפניקס', 'איילון', 'AIG'];
+// The insurers the office actually works with, in the order their own
+// system lists them.
+export const INSURERS = ['מגדל', 'כלל', 'מנורה', 'הראל', 'הפניקס', 'איילון', 'גל בר', 'הילית', 'מכבי', 'שירביט', 'מאוחדת', 'הכשרה'];
 
 export const POLICY_STATUS = ['בתוקף', 'בהמתנה', 'הסתיימה', 'בוטלה'];
 export const PERMIT_STATUS = ['טרם הוגש', 'הוגש', 'בטיפול', 'אושר', 'נדחה', 'הסתיים'];
 export const SEND_STATUS = ['טרם שודר', 'שודר', 'אושר', 'נדחה'];
+
+// Every status a caregiver's file can be in, as the office's own list has them.
+export const WORKER_STATUSES = [
+        'פנוי', 'מועסק', 'עזב', 'מוקפא', 'אינטרויזה', 'הומניטרי', 'פנוי החלפה',
+        'פנוי לתעודה', 'פנוי לצעיר', 'וותק +157', 'מחפש עבודה', 'פנוי בוטל',
+        'לא אקטואלי', 'עבר לישיבה', 'חק.נסיון', 'הבריח', 'נפטר', 'הסדר מעמד',
+        'חופשה/מחלה', 'דווח חריג', 'מסורב כניסה', 'מחליף אינם', 'מחלה 51-62',
+        'פנוי בחופש', 'פנוי/להזמנה', 'בילטראלי', 'שימוע/ערר', 'אישור בלמ״ס',
+      ];
 
 export const YES_NO = ['כן', 'לא'];
 export const GENDERS = ['זכר', 'נקבה'];
@@ -258,7 +269,7 @@ export const WORKER_SECTIONS = [
     icon: '📊',
     fields: [
       { key: 'workerNumber', label: 'מספר עובד/ת', type: 'number', readOnly: true },
-      { key: 'workerStatus', label: 'סטטוס', type: 'select', options: ['מועסק', 'לא מועסק', 'מעבר מלשכה אחרת', 'עזב/ה את הארץ'] },
+      { key: 'workerStatus', label: 'סטטוס', type: 'select', options: WORKER_STATUSES },
       { key: 'workerCondition', label: 'מצב', type: 'select', options: ['פעיל', 'ממתין', 'מושהה', 'הסתיים'] },
       { key: 'workerGeoArea', label: 'שיוך גאוגרפי', type: 'text' },
       { key: 'workerOpenedDate', label: 'תאריך פתיחה', type: 'date' },

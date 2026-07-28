@@ -163,6 +163,7 @@ const cellText = (row, col) => {
   if (v === undefined || v === null || v === '') return '';
   if (col.type === 'date') return fmtDate(v);
   if (col.type === 'money') return fmtMoney(v);
+  if (col.type === 'pct') return `${v}%`;
   return String(v);
 };
 
@@ -182,6 +183,9 @@ function TableResult({ report, rows }) {
   return (
     <>
       <div className="rg-kpis">
+        {report.group === 'stats' && (
+          <div className="rg-kpi"><b>{rows.reduce((n, r) => n + (Number(r.count) || 0), 0)}</b><span>סה״כ</span></div>
+        )}
         <div className="rg-kpi"><b>{rows.length}</b><span>שורות בדוח</span></div>
         {totals.map((t) => {
           const col = cols.find((c) => c.key === t);
@@ -204,7 +208,8 @@ function TableResult({ report, rows }) {
                     <td key={c.key} className={cls || undefined} dir={c.ltr ? 'ltr' : undefined}
                       onClick={clickable ? () => openRecordTab(c.link, r.caseObj.id) : undefined}
                       title={clickable ? 'פתיחת התיק בלשונית חדשה' : undefined}>
-                      {c.type === 'pill' && txt
+                      {c.type === 'bar' ? <span className="rg-bar" aria-hidden="true">{txt}</span>
+                        : c.type === 'pill' && txt
                         ? <span className={`rg-pill ${r.tone || 'info'}`}>{txt}</span>
                         : (c.type === 'strong' || c.strong) ? <b>{txt || '—'}</b> : (txt || '—')}
                     </td>

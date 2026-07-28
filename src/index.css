@@ -2261,6 +2261,9 @@ textarea.gov-input { resize: vertical; }
 .rp-btn.demo { border-color: #d8b4fe; color: #7e22ce; background: #faf5ff; }
 .rp-btn.demo:hover { border-color: #a855f7; background: #f3e8ff; }
 
+/* The little count bar in a statistical report */
+.rg-bar { color: #0e7490; letter-spacing: -1px; font-size: 11px; white-space: nowrap; }
+
 /* Rows that open a record */
 .rg-clickrow { cursor: pointer; }
 

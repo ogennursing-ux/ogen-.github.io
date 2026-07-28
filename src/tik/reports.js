@@ -659,20 +659,178 @@ const R = [
     desc: 'כל הביקורים, החידושים והפגישות על לוח שנה חודשי.',
     params: [], render: 'calendar',
   },
+];
+
+
+// ---------------------------------------------------------------------------
+// Statistical reports — "ריכוז X לפי Y"
+// ---------------------------------------------------------------------------
+// Every one of these is the same question: take a population, group it by one
+// field, and count. So there is one engine and a table of what to group.
+
+const MONTH_NAMES = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+  'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+
+const monthKey = (v) => {
+  const d = parseDate(v);
+  if (!d) return '';
+  return `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
+};
+const dayKey = (v) => {
+  const d = parseDate(v);
+  if (!d) return '';
+  const p = (n) => String(n).padStart(2, '0');
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
+};
+
+// The populations a statistical report can count.
+const POPULATIONS = {
+  // one entry per caregiver file
+  workers: (cases, w) => cases
+    .filter((c) => workerName(c))
+    .filter((c) => !w.from || w.has(parseDate(F(c).startDate)) || !F(c).startDate),
+  // one entry per client file
+  clients: (cases) => cases.filter((c) => familyName(c)),
+  // one entry per recorded visit
+  visits: (cases, w) => cases.flatMap((c) => (F(c).visits || [])
+    .filter((v) => w.has(parseDate(v.date)))
+    .map((v) => ({ c, v, date: parseDate(v.date) }))),
+  // one entry per placement / referral
+  referrals: (cases, w) => cases
+    .filter((c) => w.has(parseDate(F(c).referralDate || F(c).startDate))),
+  // one entry per payment document
+  invoices: (cases, w) => cases.flatMap((c) => (F(c).payments || [])
+    .filter((p) => w.has(parseDate(p.date)))
+    .map((p) => ({ c, p, date: parseDate(p.date) }))),
+};
+
+// Sort so the biggest group is first, but keep date-like groupings in order.
+function tally(items, keyOf2, { chronological = false } = {}) {
+  const map = new Map();
+  for (const it of items) {
+    const k = keyOf2(it) || '(לא צוין)';
+    if (!map.has(k)) map.set(k, { id: k, group: k, count: 0, first: it });
+    map.get(k).count++;
+  }
+  const rows = [...map.values()];
+  const total = rows.reduce((n, r) => n + r.count, 0) || 1;
+  for (const r of rows) { r.pct = Math.round((r.count / total) * 1000) / 10; delete r.first; }
+  if (chronological) {
+    rows.sort((a, b) => String(a.group).localeCompare(String(b.group), 'he'));
+  } else {
+    rows.sort((a, b) => b.count - a.count || String(a.group).localeCompare(String(b.group), 'he'));
+  }
+  return rows;
+}
+
+const STAT_COLUMNS = (label) => [
+  { key: 'group', label, type: 'strong' },
+  { key: 'count', label: 'כמות', type: 'num', strong: true },
+  { key: 'pct', label: 'אחוז', type: 'pct' },
+  { key: 'bar', label: '', type: 'bar' },
+];
+
+function statReport({ no, label, population, groupBy, groupLabel, chronological, desc }) {
+  return {
+    no: String(no), group: 'stats', label,
+    desc: desc || `כמה ${label.replace('ריכוז ', '')} — שורה לכל ערך, עם כמות ואחוז.`,
+    params: ['range'],
+    columns: STAT_COLUMNS(groupLabel),
+    totals: [],
+    run: (cases, params) => {
+      const w = windowOf(params);
+      const items = POPULATIONS[population](byRakaz(cases, params.rakaz), w);
+      const rows = tally(items, groupBy, { chronological });
+      const max = Math.max(1, ...rows.map((r) => r.count));
+      for (const r of rows) r.bar = '█'.repeat(Math.max(1, Math.round((r.count / max) * 24)));
+      return rows;
+    },
+  };
+}
+
+const STATS = [
+  // ---- 11–18 · עובדים ----------------------------------------------------
+  statReport({ no: 11, label: 'ריכוז עובדים לפי סניף', population: 'workers', groupLabel: 'סניף', groupBy: (c) => F(c).branch }),
+  statReport({ no: 12, label: 'ריכוז עובדים לפי סטטוס', population: 'workers', groupLabel: 'סטטוס', groupBy: (c) => F(c).workerStatus }),
+  statReport({ no: 13, label: 'ריכוז עובדים לפי רכז/ת', population: 'workers', groupLabel: 'רכז/ת', groupBy: (c) => F(c).assignedTo }),
+  statReport({ no: 14, label: 'ריכוז עובדים לפי סיבת סיום', population: 'workers', groupLabel: 'סיבת סיום', groupBy: (c) => F(c).endReason || F(c).closeReason }),
+  statReport({ no: 15, label: 'ריכוז עובדים לפי חברת ביטוח', population: 'workers', groupLabel: 'חברת ביטוח', groupBy: (c) => F(c).policyInsurer || F(c).insuranceCompany }),
+  statReport({ no: 16, label: 'ריכוז עובדים לפי תאריך פתיחה', population: 'workers', groupLabel: 'חודש פתיחה', chronological: true, groupBy: (c) => monthKey(F(c).startDate) }),
+  statReport({ no: 17, label: 'ריכוז עובדים לפי ישוב', population: 'workers', groupLabel: 'ישוב', groupBy: (c) => c.family?.city || F(c).city }),
+  statReport({ no: 18, label: 'ריכוז עובדים לפי אזרחות', population: 'workers', groupLabel: 'אזרחות', groupBy: (c) => c.worker?.nationality || F(c).nationality }),
+
+  // ---- 31–37 · לקוחות ----------------------------------------------------
+  statReport({ no: 31, label: 'ריכוז לקוחות לפי סניף', population: 'clients', groupLabel: 'סניף', groupBy: (c) => F(c).branch }),
+  statReport({ no: 32, label: 'ריכוז לקוחות לפי סטטוס', population: 'clients', groupLabel: 'סטטוס', groupBy: (c) => F(c).caseStatus }),
+  statReport({ no: 33, label: 'ריכוז לקוחות לפי תאריך פתיחה', population: 'clients', groupLabel: 'חודש פתיחה', chronological: true, groupBy: (c) => monthKey(F(c).openDate || F(c).referralDate) }),
+  statReport({ no: 35, label: 'ריכוז לקוחות לפי ישוב', population: 'clients', groupLabel: 'ישוב', groupBy: (c) => c.family?.city || F(c).city }),
+  statReport({ no: 36, label: 'ריכוז לקוחות לפי נותן הזכאות', population: 'clients', groupLabel: 'נותן הזכאות', groupBy: (c) => F(c).eligibilityBy || F(c).payer }),
+  statReport({ no: 37, label: 'ריכוז לקוחות מעסיקים לפי חודש', population: 'clients', groupLabel: 'חודש תחילת העסקה', chronological: true, groupBy: (c) => monthKey(F(c).startDate) }),
+
+  // ---- 62–68 · ביקורים ---------------------------------------------------
+  statReport({ no: 62, label: 'ריכוז ביקורים לפי סניף', population: 'visits', groupLabel: 'סניף', groupBy: (x) => F(x.c).branch }),
+  statReport({ no: 64, label: 'ריכוז ביקורים לפי רכז/ת', population: 'visits', groupLabel: 'רכז/ת', groupBy: (x) => F(x.c).assignedTo }),
+  statReport({ no: 67, label: 'ריכוז ביקורים לפי תאריך', population: 'visits', groupLabel: 'תאריך', chronological: true, groupBy: (x) => dayKey(x.date) }),
+  statReport({ no: 68, label: 'ריכוז ביקורים לפי חודש', population: 'visits', groupLabel: 'חודש', chronological: true, groupBy: (x) => monthKey(x.date) }),
+
+  // ---- 81–88 · הפניות ----------------------------------------------------
+  statReport({ no: 81, label: 'ריכוז הפניות לפי סניף', population: 'referrals', groupLabel: 'סניף', groupBy: (c) => F(c).branch }),
+  statReport({ no: 82, label: 'ריכוז הפניות לפי סטטוס', population: 'referrals', groupLabel: 'סטטוס', groupBy: (c) => F(c).caseStatus }),
+  statReport({ no: 83, label: 'ריכוז הפניות לפי רכז/ת', population: 'referrals', groupLabel: 'רכז/ת', groupBy: (c) => F(c).assignedTo }),
+  statReport({ no: 84, label: 'ריכוז הפניות לפי סוג השמה', population: 'referrals', groupLabel: 'סוג השמה', groupBy: (c) => F(c).placementType || (F(c).placementFromIsrael === 'כן' ? 'השמה מהארץ' : '') }),
+  statReport({ no: 85, label: 'ריכוז הפניות לפי תאריך הפניה', population: 'referrals', groupLabel: 'חודש הפניה', chronological: true, groupBy: (c) => monthKey(F(c).referralDate || F(c).startDate) }),
+  statReport({ no: 86, label: 'ריכוז הפניות לפי סיבת סיום', population: 'referrals', groupLabel: 'סיבת סיום', groupBy: (c) => F(c).endReason || F(c).closeReason }),
+  statReport({ no: 87, label: 'ריכוז הפניות לפי סניף מפורט', population: 'referrals', groupLabel: 'סניף · סטטוס', groupBy: (c) => `${F(c).branch || '—'} · ${F(c).caseStatus || '—'}` }),
+  statReport({ no: 88, label: 'ריכוז הפניות לפי סניף ורכז מפורט', population: 'referrals', groupLabel: 'סניף · רכז/ת', groupBy: (c) => `${F(c).branch || '—'} · ${F(c).assignedTo || '—'}` }),
+
+  // ---- 931–935 · חשבוניות ------------------------------------------------
+  statReport({ no: 931, label: 'ריכוז חשבוניות לפי חודש', population: 'invoices', groupLabel: 'חודש', chronological: true, groupBy: (x) => monthKey(x.date) }),
+  statReport({ no: 932, label: 'ריכוז חשבוניות לפי סניף', population: 'invoices', groupLabel: 'סניף', groupBy: (x) => F(x.c).branch }),
+  statReport({ no: 933, label: 'ריכוז חשבוניות לפי מ.לקוח', population: 'invoices', groupLabel: 'לקוח', groupBy: (x) => familyName(x.c) }),
+  statReport({ no: 935, label: 'ריכוז חשבוניות לפי סוג', population: 'invoices', groupLabel: 'אמצעי תשלום', groupBy: (x) => x.p.method }),
+
+  // ---- 201–206 · טפסים ו־SMS ---------------------------------------------
   {
-    no: 'מ5', group: 'office', label: 'דוחות סטטיסטיים',
-    desc: 'ריכוזים ומספרים כלליים על פעילות המשרד.',
-    params: ['range'], soon: 'צריך צילום של מסך הדוחות הסטטיסטיים.',
+    no: '201', group: 'stats', label: 'ריכוז טפסים חתומים לפי חודש',
+    desc: 'כמה טפסים נחתמו בכל חודש.',
+    params: ['range'], soon: 'ייבנה יחד עם מסך הטפסים הדיגיטליים (251).',
+  },
+  {
+    no: '202', group: 'stats', label: 'ריכוז SMS לפי רכז',
+    desc: 'כמה הודעות SMS נשלחו על ידי כל רכז/ת.',
+    params: ['range'], soon: 'המערכת שולחת היום בוואטסאפ ובמייל, לא ב־SMS.',
+  },
+  {
+    no: '203', group: 'stats', label: 'ריכוז SMS לפי חודש',
+    desc: 'כמה הודעות SMS נשלחו בכל חודש.',
+    params: ['range'], soon: 'המערכת שולחת היום בוואטסאפ ובמייל, לא ב־SMS.',
+  },
+  {
+    no: '205', group: 'stats', label: 'ריכוז SMS קבוצתי',
+    desc: 'משלוחי SMS קבוצתיים.',
+    params: ['range'], soon: 'המערכת שולחת היום בוואטסאפ ובמייל, לא ב־SMS.',
+  },
+  {
+    no: '206', group: 'stats', label: 'ריכוז SMS הודעות',
+    desc: 'תוכן ההודעות שנשלחו.',
+    params: ['range'], soon: 'המערכת שולחת היום בוואטסאפ ובמייל, לא ב־SMS.',
   },
 ];
+
+R.push(...STATS);
 
 // A stable ASCII key per report, used in the URL (#report/<key>). The numbered
 // reports keep their number; the personal and office ones get a p/o prefix,
 // because a Hebrew letter in a hash would have to survive URL encoding.
-const KEY_PREFIX = { personal: 'p', office: 'o' };
-const keyOf = (r, i) => (KEY_PREFIX[r.group]
-  ? KEY_PREFIX[r.group] + (i + 1)
-  : 'r' + String(r.no).replace(/\./g, '_'));
+// Numbers repeat across groups (201 is both a visits report and a forms tally),
+// and the personal ones are numbered in Hebrew, which a URL would have to
+// encode. So the key carries the group's letter as well as the number.
+const KEY_PREFIX = { personal: 'p', office: 'o', stats: 's' };
+const keyOf = (r, i) => {
+  const prefix = KEY_PREFIX[r.group] || 'r';
+  const num = String(r.no).replace(/\./g, '_');
+  return /^[\w.]+$/.test(num) ? prefix + num : prefix + (i + 1);
+};
 
 export const REPORT_GROUPS = [
   { id: 'workers', title: 'דוחות עובדים', icon: '👷', scope: 'כלליים' },
@@ -682,6 +840,7 @@ export const REPORT_GROUPS = [
   { id: 'invoices', title: 'דוחות חשבוניות', icon: '🧾', scope: 'כלליים' },
   { id: 'personal', title: 'דוחות אישיים', icon: '👤', scope: 'לפי רכז/ת' },
   { id: 'office', title: 'דוחות המשרד', icon: '📊', scope: 'כלליים' },
+  { id: 'stats', title: 'דוחות סטטיסטיים', icon: '📈', scope: 'ריכוזים' },
 ].map((g) => ({ ...g, reports: R.filter((r) => r.group === g.id).map((r, i) => ({ ...r, key: keyOf(r, i) })) }));
 
 export const REPORTS = Object.fromEntries(

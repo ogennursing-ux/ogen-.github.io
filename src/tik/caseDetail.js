@@ -26,7 +26,7 @@ export async function patchCaseFields(caseObj, patch) {
 }
 
 // ---- Insurance companies (real ones seen in the office's own system) --------
-export const INSURANCE_COMPANIES = ['הראל', 'הילית', 'מנורה מבטחים', 'כלל ביטוח', 'הפניקס', 'איילון', 'AIG'];
+export const INSURANCE_COMPANIES = ['מגדל', 'כלל', 'מנורה', 'הראל', 'הפניקס', 'איילון', 'גל בר', 'הילית', 'מכבי', 'שירביט', 'מאוחדת', 'הכשרה'];
 
 // ---- Document history (passport / visa / permit / insurance) ---------------
 // Each type keeps a repeatable log (like the old system's "טופס קובץ החלפת
