@@ -20,8 +20,9 @@ const S_DATE = 54;   // date cell (formats a serial number as a date)
 const S_NUM = 13;    // the # column
 const ROW_HEIGHT = '39.6';
 
-// A social-worker visit kind → the form's own status words.
-const STATUS = { placement: 'אחרי', day30: 'אחרי', periodic: 'שוטף' };
+// A social-worker visit kind → the form's own status words. The placement
+// visit is filed as "טרום השמה", the 30-day visit as "אחרי", the rest "שוטף".
+const STATUS = { placement: 'טרום השמה', day30: 'אחרי', periodic: 'שוטף' };
 // The placement's origin → the form's own three options.
 const PLACEMENT = {
   'השמה מהארץ': 'השמה מהארץ',
