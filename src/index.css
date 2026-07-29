@@ -1,14 +1,66 @@
+/* ============================================================================
+   עוגן — "Anchor" design system
+   The agency's name means anchor: stability, mooring, being held safely. The
+   identity marries harbor trust (deep teal, brass) with the warmth of care, and
+   the world of official paperwork this office lives in (permits, ministry, tax).
+   Palette: deep harbor teal + brass gold on warm-neutral paper.
+   Type: Frank Ruhl Libre (serif display) over Assistant (UI sans).
+   The whole app already consumes a small set of tokens, so re-skinning happens
+   here; the primitives are refined at the end of the file under the same banner.
+   ========================================================================== */
 :root {
-  --bg: #eef3f8;
+  color-scheme: light;
+
+  /* Harbor teal — brand & interaction */
+  --brand-900: #08343e;
+  --brand-800: #0e4a57;   /* deep — headers, hero */
+  --brand-700: #125c6b;
+  --brand-600: #14778a;   /* primary interactive */
+  --brand-500: #1c93a6;
+  --brand-400: #58b3c2;
+  --brand-050: #e7f1f3;   /* teal tint surface */
+
+  /* Brass — the single deliberate accent, spent sparingly */
+  --brass-700: #8c6516;
+  --brass-600: #a97f24;
+  --brass-500: #c19330;
+  --brass-300: #e2c168;
+  --brass-050: #f6efda;
+
+  /* Warm-neutral paper & ink */
+  --paper: #eef2f1;
   --panel: #ffffff;
-  --ink: #16243a;
-  --muted: #6b7280;
-  --line: #e6eaf0;
-  --primary: #20a45c;
-  --primary-dark: #178a4c;
-  --accent: #2f6fed;
-  --danger: #dc2626;
-  --shadow: 0 10px 30px rgba(13, 27, 42, 0.10);
+  --panel-2: #f6f9f8;     /* subtle inset */
+  --ink: #12292f;
+  --ink-2: #33474d;
+  --muted: #62727a;
+  --line: #e2e8e8;
+  --line-strong: #cdd8d8;
+
+  /* Semantic — calm, legible, consistent across the app */
+  --ok: #2e7d5b;   --ok-bg: #e4f2ea;
+  --warn: #a9741a; --warn-bg: #f7edd7;
+  --danger: #b23a2e; --danger-bg: #f6e3e0;
+  --info: #14778a; --info-bg: #e2eff1;
+
+  /* Legacy token names mapped onto the Anchor palette so every existing rule
+     picks up the new theme without being touched. */
+  --bg: var(--paper);
+  --primary: var(--brand-600);
+  --primary-dark: var(--brand-800);
+  --accent: var(--brass-600);
+  --warm: var(--brass-500);
+
+  --focus: 0 0 0 3px rgba(20, 119, 138, 0.20);
+  --shadow: 0 20px 44px -22px rgba(8, 52, 62, 0.34);
+  --shadow-sm: 0 5px 16px -8px rgba(8, 52, 62, 0.22);
+
+  --radius: 14px;
+  --radius-sm: 9px;
+  --radius-lg: 20px;
+
+  --font-body: 'Assistant', system-ui, 'Segoe UI', Arial, sans-serif;
+  --font-display: 'Frank Ruhl Libre', 'Assistant', Georgia, 'Times New Roman', serif;
 }
 
 * {
@@ -29,7 +81,7 @@ body,
 }
 
 body {
-  font-family: 'Heebo', system-ui, Arial, sans-serif;
+  font-family: var(--font-body);
   /* direction follows the <html dir> attribute set by the language toggle */
   color: var(--ink);
   background: var(--bg);
@@ -2040,6 +2092,7 @@ textarea.gov-input { resize: vertical; }
 .board-miss ul { margin: 4px 18px 0; color: #92400e; font-size: 13.5px; }
 .board-miss .reason { font-size: 12.5px; color: #b45309; margin-top: 8px; }
 .board-rec { margin-top: 8px; font-size: 12.5px; color: #64748b; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 7px 10px; }
+.board-ready { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 10px; padding: 12px; text-align: center; }
 
 /* Signature-placement calibration screen (#signfields) */
 .sf-wrap { max-width: 680px; margin: 0 auto; padding: 16px 14px 60px; direction: rtl; }
@@ -2480,7 +2533,6 @@ textarea.gov-input { resize: vertical; }
 .sw-done td { color: #64748b; }
 .sw-savebar { position: sticky; bottom: 14px; display: flex; align-items: center; gap: 12px; justify-content: center; background: #0f172a; color: #fff; border-radius: 12px; padding: 12px 18px; margin-top: 14px; font-size: 13.5px; box-shadow: 0 8px 24px rgba(15,23,42,.28); }
 
-
 /* Pills, chips, dates */
 .rg-pill { display: inline-block; font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 3px 10px; }
 .rg-pill.ok { background: #dcfce7; color: #15803d; }
@@ -2652,7 +2704,6 @@ textarea.gov-input { resize: vertical; }
 }
 .sf-actions { position: sticky; bottom: 0; background: linear-gradient(180deg, rgba(255,255,255,0), #fff 30%); padding: 14px 0 4px; display: flex; flex-direction: column; gap: 8px; }
 .sf-saved { text-align: center; color: #047857; font-weight: 700; font-size: 13.5px; }
-.board-ready { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 10px; padding: 12px; text-align: center; }
 .board-ready .t { color: #075985; font-weight: 800; font-size: 14px; margin-bottom: 10px; }
 .board-linkrow { display: flex; gap: 6px; }
 .board-linkrow input { flex: 1; min-width: 0; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 10px; font-size: 12px; color: #334155; }
@@ -2671,25 +2722,13 @@ textarea.gov-input { resize: vertical; }
 /* =======================================================================
    VISUAL REFRESH — modern, warm, inviting look (appended last so it wins)
    ======================================================================= */
-:root {
-  --bg: #eaf0f8;
-  --ink: #14233b;
-  --muted: #5f6b7d;
-  --line: #e6ebf3;
-  --primary: #0ea5e9;
-  --primary-dark: #0284c7;
-  --accent: #6366f1;
-  --warm: #f59e0b;
-  --danger: #e11d48;
-  --shadow: 0 14px 38px rgba(17, 40, 70, 0.10);
-  --shadow-sm: 0 3px 12px rgba(17, 40, 70, 0.07);
-}
-
+/* Harbor light on the paper — a quiet teal/brass wash fixed behind everything,
+   so the app reads as one calm surface rather than flat grey. */
 body {
   background:
-    radial-gradient(1100px 560px at 100% -8%, rgba(56, 189, 248, 0.10), transparent 60%),
-    radial-gradient(950px 480px at -8% 2%, rgba(14, 165, 233, 0.12), transparent 55%),
-    linear-gradient(180deg, #eef3fb 0%, #e7edf7 100%);
+    radial-gradient(1150px 580px at 100% -10%, rgba(20, 119, 138, 0.09), transparent 60%),
+    radial-gradient(920px 460px at -8% 0%, rgba(193, 147, 48, 0.07), transparent 55%),
+    linear-gradient(180deg, #f1f5f4 0%, #e8eeec 100%);
   background-attachment: fixed;
 }
 
@@ -2865,3 +2904,153 @@ body {
 .chat-legal { text-align: center; padding: 6px 10px 10px; background: #eaf2fb; }
 .chat-legal a { color: #64748b; font-size: 12px; text-decoration: none; }
 .chat-legal a:hover { text-decoration: underline; }
+
+/* ============================================================================
+   עוגן — Anchor design system · primitive refinements
+   Re-skins the shared primitives the whole app is built from. Appended last so
+   it wins on equal specificity, transforming every screen from the token layer
+   up without touching a line of JSX. Boldness is spent in one place — the brass
+   accent and the serif display — everything else stays quiet and disciplined.
+   ========================================================================== */
+
+/* --- Display type: the serif carries the brand & the section headings ------ */
+.rg-brand h1, .rp-hero h1, .inv-header h1, .home-head h2, .home-intro h1,
+.rpt-brand h1, .board-brand h1, .rp-section h3, .home-group h3, .inv-card h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.rg-brand h1, .rp-hero h1, .inv-header h1, .home-head h2, .home-intro h1 { font-weight: 900; }
+.rp-section h3 { font-size: 18px; color: var(--ink); }
+/* the count on a section title reads as a quiet brass ledger note */
+.rp-section h3 em, .home-group h3 em { color: var(--brass-700); font-family: var(--font-body); }
+
+/* --- The record hero: a deep harbor plate with a brass waterline ----------- */
+.rp-hero {
+  background: linear-gradient(135deg, var(--brand-800) 0%, var(--brand-700) 55%, var(--brand-900) 100%);
+  border: none;
+  border-bottom: 2px solid var(--brass-500);
+  box-shadow: var(--shadow);
+}
+.rp-hero h1 { font-size: 27px; }
+.rp-hero-stats > div span { color: var(--brand-050); opacity: .8; }
+.rp-hero-stats > div b { color: #fff; }
+.rp-avatar {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(226, 193, 104, 0.5);
+}
+
+/* --- Tabs: a brass indicator under the active file section ------------------ */
+.rp-tabs { border-bottom: 1px solid var(--line); }
+.rp-tab { color: var(--muted); font-weight: 600; border-bottom-width: 2.5px; }
+.rp-tab:hover { color: var(--brand-800); }
+.rp-tab.on { color: var(--brand-800); border-bottom-color: var(--brass-500); }
+
+/* --- Cards & sections: soft paper with a hairline, not a hard box ----------- */
+.rp-section, .inv-card, .home-group, .rg-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+.rp-section h3 { border-bottom: 1px solid var(--line); }
+
+/* --- KPI tiles (registry top): quiet white, teal numerals, brass on alert --- */
+.rg-kpi {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+.rg-kpi b { color: var(--brand-700); font-weight: 800; }
+.rg-kpi.alert::before {
+  content: ''; position: absolute; inset-block-start: 0; inset-inline: 0;
+  height: 3px; background: linear-gradient(90deg, var(--brass-500), var(--brass-300));
+}
+.rg-kpi.alert b { color: var(--danger); }
+
+/* --- Stat tiles inside a file --------------------------------------------- */
+.tik-stat {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.tik-stat b { color: var(--brand-700); }
+.tik-stat.warn { background: var(--warn-bg); border-color: var(--brass-300); }
+.tik-stat.warn b { color: var(--brass-700); }
+
+/* --- Buttons: harbor-teal primary, calm ghost ------------------------------ */
+.btn-primary, .rp-btn, .rp-btn.matash {
+  background: linear-gradient(180deg, var(--brand-600), var(--brand-700));
+  border: 1px solid var(--brand-700);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-weight: 700;
+}
+.btn-primary:hover:not(:disabled), .rp-btn:hover:not(:disabled), .rp-btn.matash:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--brand-700), var(--brand-800));
+}
+.rp-btn.ghost, .btn-ghost {
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  color: var(--ink-2);
+}
+.rp-btn.ghost:hover:not(:disabled), .btn-ghost:hover:not(:disabled) {
+  border-color: var(--brand-500);
+  color: var(--brand-800);
+  background: var(--brand-050);
+}
+
+/* --- Inputs: a teal focus ring throughout --------------------------------- */
+.text-input:focus, .gov-input:focus, .home-me select:focus,
+.rp-inline-form input:focus, .rp-inline-form select:focus, .rp-inline-form textarea:focus,
+.inv-form input:focus, .inv-form select:focus {
+  outline: none;
+  border-color: var(--brand-500);
+  box-shadow: var(--focus);
+}
+
+/* --- Tables: a harbor header row with a brass waterline -------------------- */
+.rg-table thead th, .rp-table thead th {
+  background: var(--brand-050);
+  color: var(--brand-800);
+  font-weight: 700;
+  border-bottom: 2px solid var(--brass-300);
+}
+.rg-clickrow:hover, .rp-table tbody tr:hover { background: var(--brand-050); }
+
+/* --- Status pills & tags: one calm semantic set --------------------------- */
+.rg-pill.ok, .rp-tag.ok { background: var(--ok-bg); color: var(--ok); }
+.rg-pill.info { background: var(--info-bg); color: var(--info); }
+.rg-pill.warn { background: var(--warn-bg); color: var(--warn); }
+.rg-pill.bad { background: var(--danger-bg); color: var(--danger); }
+.rg-pill.muted, .rp-tag { background: var(--panel-2); color: var(--ink-2); }
+
+/* --- The other side of a placement: a brass mooring line ------------------- */
+.rp-counterpart {
+  border: 1px solid var(--line);
+  border-inline-start: 3px solid var(--brass-500);
+  border-radius: var(--radius-sm);
+}
+.rp-counterpart:hover { border-color: var(--brand-500); background: var(--brand-050); }
+.rp-counterpart-txt b { color: var(--brand-800); }
+.rp-counterpart-go { color: var(--brand-600); font-weight: 700; }
+
+/* --- Agenda buckets: a legible tone per urgency, no more muddy brown -------- */
+.home-group h3 { color: #fff; }
+.home-group.bad h3 { background: var(--danger); }
+.home-group.warn h3 { background: var(--brass-700); }   /* today = brass */
+.home-group.week h3, .home-group.info h3 { background: var(--brand-600); }
+.home-group.month h3, .home-group.muted h3 { background: var(--ink-2); }
+
+/* --- Quality floor: visible focus, calmer motion --------------------------- */
+a:focus-visible, button:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--brand-500);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
