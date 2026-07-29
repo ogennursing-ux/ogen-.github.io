@@ -62,14 +62,20 @@ function CompanySetup({ config, onSaved }) {
         <label>טלפון<input dir="ltr" value={form.companyPhone} onChange={set('companyPhone')} /></label>
         <label>אימייל<input dir="ltr" value={form.companyEmail} onChange={set('companyEmail')} /></label>
       </div>
-      <p className="inv-hint" style={{ marginTop: 12 }}>חשבון הבנק של החברה והסכום — לדוח הגבייה הרבעוני למשרד הפנים (306).</p>
+      <p className="inv-hint" style={{ marginTop: 12 }}>חשבון הבנק של החברה והשכר — לדוח הגבייה הרבעוני למשרד הפנים (306).</p>
       <div className="inv-form">
         <label>שם בנק<input value={form.companyBankName} onChange={set('companyBankName')} /></label>
         <label>מספר בנק<input dir="ltr" value={form.companyBankNumber} onChange={set('companyBankNumber')} /></label>
         <label>מספר סניף<input dir="ltr" value={form.companyBankBranch} onChange={set('companyBankBranch')} /></label>
         <label>מספר חשבון<input dir="ltr" value={form.companyBankAccount} onChange={set('companyBankAccount')} /></label>
-        <label>סכום דמי טיפול (3 תשלומים)<input dir="ltr" type="number" value={form.workerFeeTotal} onChange={set('workerFeeTotal')} /></label>
+        <label>שכר מינימום (סה״כ דמי הטיפול)<input dir="ltr" type="number" value={form.workerFeeTotal} onChange={set('workerFeeTotal')} /></label>
       </div>
+      {Number(form.workerFeeTotal) > 0 && (
+        <p className="inv-hint">
+          מזה נגזרים 3 התשלומים: תשלום 1 (בהגעה) = <b>{(Number(form.workerFeeTotal) - 2500).toLocaleString('he-IL')} ₪</b>
+          {' · '}תשלום 2 (26 ח׳) = <b>1,250 ₪</b>{' · '}תשלום 3 (38 ח׳) = <b>1,250 ₪</b>. עדכנו כאן בלבד כשמשתנה שכר המינימום.
+        </p>
+      )}
       <button className="rp-btn" disabled={busy} onClick={save}>{busy ? 'שומר…' : '💾 שמור פרטי חברה'}</button>
     </section>
   );

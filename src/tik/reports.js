@@ -547,13 +547,17 @@ const R = [
     // quarterly Excel; the amount and the agency bank account come from the
     // company settings, and the file is built from the official template.
     no: '306', group: 'quarterly', label: 'דוח גביית עובדים רבעוני (למשרד הפנים)',
-    desc: 'כל העובדים שגבינו מהם דמי טיפול — ליצוא קובץ האקסל הרבעוני למשרד הפנים.',
-    note: 'הקובץ נוצר מהתבנית הרשמית. פרטי הבנק והסכום נלקחים מהגדרות החברה (מסך הקבלות והחשבוניות).',
+    desc: 'רק העובדים שאכן נגבה מהם תשלום (יש קבלה) — ליצוא קובץ האקסל הרבעוני למשרד הפנים.',
+    note: 'נכללים רק עובדים עם תשלום/קבלה שנרשמו. הבנק והסכום (שכר מינימום) מהגדרות החברה (מסך הקבלות).',
     params: ['quarter'], feeExcel: true,
-    columns: [COL.caseNo, COL.worker, COL.passport, COL.nationality, COL.family, COL.city],
+    columns: [COL.caseNo, COL.worker, COL.passport, COL.nationality, COL.family, COL.city,
+      { key: 'collected', label: 'נגבה', type: 'money' }],
     run: (cases) => cases
-      .filter((c) => c.worker && F(c).placementStartDate && !F(c).placementEndDate)
-      .map((c) => ({ ...workerRow(c), caseObj: c })),
+      .filter((c) => c.worker && (F(c).payments || []).length > 0)
+      .map((c) => ({
+        ...workerRow(c), caseObj: c,
+        collected: (F(c).payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0),
+      })),
   },
 
   // ---- 401–406 · חשבוניות -------------------------------------------------
