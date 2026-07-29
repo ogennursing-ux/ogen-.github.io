@@ -3082,3 +3082,9 @@ body {
 }
 [data-app="office"] .rp-btn.receipt:hover { background: linear-gradient(180deg, var(--brass-600), var(--brass-700)); }
 .inv-prefill { margin: -4px 0 10px; font-size: 13px; color: var(--ok, #2e7d5b); font-weight: 600; }
+
+/* Social-worker report exports — make the official (signed) file the clear one */
+.sw-exports { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.sw-exports .rp-btn.matash { font-weight: 800; }
+.sw-export-note { margin: 8px 0 0; font-size: 13px; color: var(--muted, #62727a); background: var(--panel-2, #f6f9f8); border: 1px solid var(--line, #e2e8e8); border-radius: 10px; padding: 8px 12px; }
+[data-app="office"] .sw-export-note b { color: var(--brand-800, #0e4a57); }

@@ -379,9 +379,9 @@ function InteriorButton({ quarter, rows }) {
     finally { setBusy(false); }
   };
   return (
-    <button className="rp-btn matash" disabled={busy || !done.length} onClick={go} style={{ marginInlineStart: 8 }}
-      title={done.length ? `${done.length} ביקורים שבוצעו` : 'אין ביקורים שבוצעו ברבעון'}>
-      {busy ? 'מפיק…' : `📤 הורד דוח רבעוני למשרד הפנים${done.length ? ` (${done.length})` : ''}`}
+    <button className="rp-btn matash" disabled={busy || !done.length} onClick={go}
+      title={done.length ? `${done.length} ביקורים שבוצעו · כולל דף הצהרת מנהלים לחתימה` : 'אין ביקורים שבוצעו ברבעון'}>
+      {busy ? 'מפיק…' : `📤 הורד דוח רשמי למשרד הפנים (עם דף חתימות)${done.length ? ` · ${done.length}` : ''}`}
     </button>
   );
 }
@@ -462,12 +462,20 @@ function SocialResult({ report, cases, params, onChanged }) {
         <div className="rg-kpi"><b>{counts.day30}</b><span>ביקורי 30 יום</span></div>
         <div className="rg-kpi"><b>{counts.periodic}</b><span>ביקורים שוטפים</span></div>
       </div>
-      <button className="rp-btn ghost" onClick={() => downloadCsv(`ogen-visits-${quarter.id}.csv`,
-        ['#', 'עובד/ת', 'משפחה', 'ישוב', 'סוג', 'אופן', 'תאריך יעד', 'בוצע', 'מצב', 'עו״ס'],
-        rows.map((v) => [v.caseNumber, v.workerName, v.familyName, v.city, v.kind.label, v.channel.label,
-          fmtDate(v.due), v.doneDate ? fmtDate(v.doneDate) : '',
-          v.done ? 'בוצע' : v.overdue ? 'באיחור' : 'ממתין', v.socialWorker]))}>⬇️ ייצוא Excel</button>
-      {report.interior && <InteriorButton quarter={quarter} rows={rows} />}
+      <div className="sw-exports">
+        {report.interior && <InteriorButton quarter={quarter} rows={rows} />}
+        <button className="rp-btn ghost" onClick={() => downloadCsv(`ogen-visits-${quarter.id}.csv`,
+          ['#', 'עובד/ת', 'משפחה', 'ישוב', 'סוג', 'אופן', 'תאריך יעד', 'בוצע', 'מצב', 'עו״ס'],
+          rows.map((v) => [v.caseNumber, v.workerName, v.familyName, v.city, v.kind.label, v.channel.label,
+            fmtDate(v.due), v.doneDate ? fmtDate(v.doneDate) : '',
+            v.done ? 'בוצע' : v.overdue ? 'באיחור' : 'ממתין', v.socialWorker]))}>⬇️ רשימה פשוטה (CSV)</button>
+      </div>
+      {report.interior && (
+        <p className="sw-export-note">
+          <b>📤 הדוח הרשמי</b> הוא הקובץ המלא למשרד הפנים — כולל גיליון <b>"הצהרת מנהלים"</b> לחתימה.
+          "רשימה פשוטה" היא רק טבלת הביקורים, לא להגשה.
+        </p>
+      )}
 
       {rows.length ? (
         <>
