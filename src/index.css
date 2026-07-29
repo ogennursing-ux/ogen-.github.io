@@ -3074,3 +3074,11 @@ body {
 /* Home "today" — a calmer, cleaner list now that week/month are gone */
 [data-app="office"] .home-groups { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
 [data-app="office"] .home-group.warn { box-shadow: 0 10px 26px -14px rgba(169, 116, 26, 0.5); }
+
+/* "🧾 הפק קבלה" — the one-click receipt link on a family / worker file */
+[data-app="office"] .rp-btn.receipt {
+  background: linear-gradient(180deg, var(--brass-500), var(--brass-600));
+  border: 1px solid var(--brass-700); color: #fff; font-weight: 700;
+}
+[data-app="office"] .rp-btn.receipt:hover { background: linear-gradient(180deg, var(--brass-600), var(--brass-700)); }
+.inv-prefill { margin: -4px 0 10px; font-size: 13px; color: var(--ok, #2e7d5b); font-weight: 600; }

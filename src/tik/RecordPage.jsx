@@ -638,6 +638,23 @@ export default function RecordPage({ caseObj, kind, siblings = [], onNavigate, o
     return `mailto:${to}?subject=${encodeURIComponent('עוגן סיעוד — ' + title)}`;
   }, [stored, title]);
 
+  // A one-click receipt for the person in this file: opens the invoicing desk
+  // with their name / ID already filled and the case linked, so the clerk only
+  // types the amount. The link back to the case is what lets the collection
+  // report (306) know which worker a receipt belongs to.
+  const receiptLink = useMemo(() => {
+    const p = new URLSearchParams();
+    if (kind === 'worker') {
+      p.set('name', stored.nameEn || stored.nameHe || '');
+      if (stored.passportNo) p.set('taxId', stored.passportNo);
+    } else {
+      p.set('name', stored.employerName || stored.fullName || '');
+      if (stored.idNumber) p.set('taxId', stored.idNumber);
+    }
+    p.set('case', caseObj.id);
+    return `${location.pathname}${location.search}#invoices?${p.toString()}`;
+  }, [stored, kind, caseObj.id]);
+
   // Position in the list behind this page, for the prev/next arrows.
   const idx = siblings.findIndex((c) => c.id === caseObj.id);
   const prev = idx > 0 ? siblings[idx - 1] : null;
@@ -688,6 +705,7 @@ export default function RecordPage({ caseObj, kind, siblings = [], onNavigate, o
           ) : (
             <>
               <button className="rp-btn" onClick={() => setEditing(true)}>✏️ עריכה</button>
+              <a className="rp-btn receipt" href={receiptLink} target="_blank" rel="noreferrer" title="פתיחת קבלה עם הפרטים כבר ממולאים">🧾 הפק קבלה</a>
               <button className="rp-btn ghost" onClick={onDuplicate}>🧬 שכפל</button>
               {waLink && <a className="rp-btn ghost" href={waLink} target="_blank" rel="noreferrer">💬 וואטסאפ</a>}
               {mailLink && <a className="rp-btn ghost" href={mailLink}>✉️ מייל</a>}

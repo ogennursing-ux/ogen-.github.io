@@ -82,14 +82,27 @@ function CompanySetup({ config, onSaved }) {
 }
 
 // The issue form: type, customer, amount (gross, VAT included), payment method.
+// A "🧾 הפק קבלה" link from a family/worker file opens the desk with the person
+// already filled in: #invoices?name=…&taxId=…&case=…. The clerk only types the
+// amount; the case id rides along so the receipt is linked back to that file.
+function receiptPrefill() {
+  try {
+    const q = (location.hash.split('?')[1]) || '';
+    const p = new URLSearchParams(q);
+    return { name: p.get('name') || '', taxId: p.get('taxId') || '', caseId: p.get('case') || null };
+  } catch { return { name: '', taxId: '', caseId: null }; }
+}
+
 function IssueForm({ config, onIssued }) {
+  const pre = receiptPrefill();
   const [docType, setDocType] = useState('receipt');
-  const [name, setName] = useState('');
-  const [taxId, setTaxId] = useState('');
+  const [name, setName] = useState(pre.name);
+  const [taxId, setTaxId] = useState(pre.taxId);
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState('transfer');
   const [reference, setReference] = useState('');
   const [busy, setBusy] = useState(false);
+  const caseId = pre.caseId;
 
   const issue = async () => {
     if (!Number(amount)) { alert('יש להזין סכום.'); return; }
@@ -99,7 +112,7 @@ function IssueForm({ config, onIssued }) {
     try {
       const doc = await issueDocument({
         docType, customer: { name: name.trim(), taxId: taxId.trim() },
-        amountGross: amount, paymentMethod: method, reference: reference.trim(), config,
+        amountGross: amount, paymentMethod: method, reference: reference.trim(), config, caseId,
       });
       setName(''); setTaxId(''); setAmount(''); setReference('');
       onIssued(doc);
@@ -109,6 +122,7 @@ function IssueForm({ config, onIssued }) {
   return (
     <section className="inv-card">
       <h3>הפקת מסמך חדש</h3>
+      {caseId && name && <p className="inv-prefill">✓ הפרטים של {name} מולאו מהתיק — נותר רק להזין סכום.</p>}
       <div className="inv-form">
         <label>סוג מסמך
           <select value={docType} onChange={(e) => setDocType(e.target.value)}>
