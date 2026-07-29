@@ -77,19 +77,14 @@ export async function loadDocuments() {
   return (data || []).map((r) => ({ id: r.id, ...r.data, createdAt: r.created_at }));
 }
 
-async function highestNumber(docTypeKey) {
-  const { data, error } = await sb()
-    .from('agent_submissions')
-    .select('data')
-    .eq('kind', 'taxdoc')
-    .limit(1000);
+async function taxdocRows() {
+  const { data, error } = await sb().from('agent_submissions').select('data').eq('kind', 'taxdoc').limit(2000);
   if (error) throw new Error(error.message);
-  let max = 0;
-  for (const r of data || []) {
-    if (r.data?.docType === docTypeKey && Number(r.data?.number) > max) max = Number(r.data.number);
-  }
-  return max;
+  return (data || []).map((r) => r.data).filter(Boolean);
 }
+const highestNumber = (rows, docTypeKey) => rows
+  .filter((d) => d.docType === docTypeKey)
+  .reduce((max, d) => Math.max(max, Number(d.number) || 0), 0);
 
 async function logEvent(docId, event, extra = {}) {
   await sb().from('agent_submissions').insert({
@@ -121,8 +116,10 @@ export async function issueDocument({
   const { net, vat, gross } = vatBreakdown(amountGross);
   const method = PAYMENT_METHODS.find((m) => m.key === paymentMethod) || PAYMENT_METHODS[0];
 
-  // Try the next number; if someone grabbed it in the meantime, climb.
-  let n = (await highestNumber(docType)) + 1;
+  // Read the run once, take the next number, and insert. The gap-free guarantee
+  // rests on the DB's unique (docType, number) index (see INVOICING.md): if a
+  // parallel insert took the number, the insert fails and we re-read + climb.
+  let n = highestNumber(await taxdocRows(), docType) + 1;
   for (let attempt = 0; attempt < 25; attempt++) {
     const id = uid();
     const doc = {
@@ -145,27 +142,17 @@ export async function issueDocument({
       signed: false, // set true once the company certificate signs the PDF
       cancelled: false,
     };
-    // The unique (docType, number) guard: re-read right before insert; if the
-    // number now exists, bump and retry. (A DB unique index makes this airtight
-    // — see INVOICING.md; this app-level guard covers the office's low volume.)
-    const taken = await numberExists(docType, n);
-    if (taken) { n += 1; continue; }
     const { error } = await sb().from('agent_submissions').insert({
       id, kind: 'taxdoc', status: 'issued', source: 'office', data: doc,
     });
     if (error) {
-      if (/duplicate|unique/i.test(error.message)) { n += 1; continue; }
+      if (/duplicate|unique/i.test(error.message)) { n = highestNumber(await taxdocRows(), docType) + 1; continue; }
       throw new Error('הפקת המסמך נכשלה: ' + error.message);
     }
     await logEvent(id, 'issued', { number: doc.display });
     return { id, ...doc };
   }
   throw new Error('לא ניתן להקצות מספר מסמך — נסו שוב.');
-}
-
-async function numberExists(docTypeKey, number) {
-  const { data } = await sb().from('agent_submissions').select('data').eq('kind', 'taxdoc').limit(1000);
-  return (data || []).some((r) => r.data?.docType === docTypeKey && Number(r.data?.number) === number);
 }
 
 // A mistake is never edited or deleted — it is cancelled by a credit document
@@ -192,10 +179,9 @@ export async function recordPrint(doc) { await logEvent(doc.id, 'printed'); }
 export async function recordEmail(doc, to) { await logEvent(doc.id, 'emailed', { to }); }
 
 export async function loadEvents(docId) {
-  const { data } = await sb().from('agent_submissions').select('data,created_at')
-    .eq('kind', 'taxdoc_event').limit(2000);
-  return (data || []).map((r) => r.data).filter((e) => e.docId === docId)
-    .sort((a, b) => new Date(a.at) - new Date(b.at));
+  const { data } = await sb().from('agent_submissions').select('data')
+    .eq('kind', 'taxdoc_event').filter('data->>docId', 'eq', docId).limit(500);
+  return (data || []).map((r) => r.data).sort((a, b) => new Date(a.at) - new Date(b.at));
 }
 
 export { fmtNumber };
