@@ -11,7 +11,7 @@ import { loadDigitalForms } from './digitalForms.js';
 import { downloadInteriorReport } from './interiorReport.js';
 import { downloadFeeReport, splitName } from './feeReport.js';
 import { readConfig } from './officeConfig.js';
-import { companyDetails } from './invoices.js';
+import { companyDetails, loadDocuments } from './invoices.js';
 import { COMPANY_NAME } from '../lib/workerPortal.js';
 
 // Each report is a small wizard in its own browser tab:
@@ -552,6 +552,7 @@ export default function ReportPage() {
   const [authed, setAuthed] = useState(isAuthed());
   const [cases, setCases] = useState(null);
   const [forms, setForms] = useState(null);
+  const [docs, setDocs] = useState(null);
   const [err, setErr] = useState('');
   const [route, setRoute] = useState(() => location.hash.replace(/^#\/?/, ''));
 
@@ -573,6 +574,14 @@ export default function ReportPage() {
     loadDigitalForms().then(setForms).catch((e) => { setForms([]); setErr(e?.message || String(e)); });
   }, [authed, needsForms, forms]);
 
+  // The fee-collection report reads the issued receipts (tax documents), matched
+  // back to each case by the caseId the "🧾 הפק קבלה" flow stamps on them.
+  const needsDocs = REPORTS[(/^report\/([^?]+)/.exec(route) || [])[1]]?.source === 'docs';
+  useEffect(() => {
+    if (!authed || !needsDocs || docs !== null) return;
+    loadDocuments().then(setDocs).catch((e) => { setDocs([]); setErr(e?.message || String(e)); });
+  }, [authed, needsDocs, docs]);
+
   // #report/<key>              → parameters
   // #report/<key>?run=1&…      → results
   const [, key = ''] = /^report\/([^?]+)/.exec(route) || [];
@@ -585,8 +594,8 @@ export default function ReportPage() {
 
   const rows = useMemo(
     () => (report && hasParams && cases && report.run
-      ? runReport(report, cases, query, { forms: forms || [] }) : []),
-    [report, hasParams, cases, forms, query],
+      ? runReport(report, cases, query, { forms: forms || [], docs: docs || [] }) : []),
+    [report, hasParams, cases, forms, docs, query],
   );
 
   if (!authed) return <Login onIn={() => setAuthed(true)} />;
@@ -628,10 +637,10 @@ export default function ReportPage() {
       </header>
 
       {err && <p className="rg-err">{err}</p>}
-      {(cases === null || (needsForms && forms === null)) && !err && <p className="rg-empty">טוען…</p>}
+      {(cases === null || (needsForms && forms === null) || (needsDocs && docs === null)) && !err && <p className="rg-empty">טוען…</p>}
 
       {cases && !hasParams && <ParamsStep report={report} cases={cases} onRun={run} />}
-      {cases && hasParams && (!needsForms || forms !== null) && (
+      {cases && hasParams && (!needsForms || forms !== null) && (!needsDocs || docs !== null) && (
         report.soon ? <SoonResult report={report} />
           : report.render === 'social' ? <SocialResult report={report} cases={cases} params={query} onChanged={reload} />
           : report.render === 'income' ? <IncomeResult cases={cases} params={query} />

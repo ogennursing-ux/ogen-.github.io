@@ -547,17 +547,28 @@ const R = [
     // quarterly Excel; the amount and the agency bank account come from the
     // company settings, and the file is built from the official template.
     no: '306', group: 'quarterly', label: 'דוח גביית עובדים רבעוני (למשרד הפנים)',
-    desc: 'רק העובדים שאכן נגבה מהם תשלום (יש קבלה) — ליצוא קובץ האקסל הרבעוני למשרד הפנים.',
-    note: 'נכללים רק עובדים עם תשלום/קבלה שנרשמו. הבנק והסכום (שכר מינימום) מהגדרות החברה (מסך הקבלות).',
-    params: ['quarter'], feeExcel: true,
+    desc: 'רק העובדים שאכן הופקה להם קבלה — ליצוא קובץ האקסל הרבעוני למשרד הפנים.',
+    note: 'נכללים רק עובדים עם קבלה שהופקה מתוך התיק (🧾 הפק קבלה). הבנק והסכום (שכר מינימום) מהגדרות החברה (מסך הקבלות).',
+    params: ['quarter'], feeExcel: true, source: 'docs',
     columns: [COL.caseNo, COL.worker, COL.passport, COL.nationality, COL.family, COL.city,
-      { key: 'collected', label: 'נגבה', type: 'money' }],
-    run: (cases) => cases
-      .filter((c) => c.worker && (F(c).payments || []).length > 0)
-      .map((c) => ({
-        ...workerRow(c), caseObj: c,
-        collected: (F(c).payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0),
-      })),
+      { key: 'collected', label: 'נגבה בקבלות', type: 'money' }],
+    run: (cases, params, extra) => {
+      // Sum the receipts each case collected, matched by the caseId stamped on
+      // the document when it was issued from the file. Credits net out.
+      const byCase = {};
+      for (const d of (extra?.docs || [])) {
+        if (!d.caseId) continue;
+        const sign = d.docType === 'credit' ? -1 : 1;
+        byCase[d.caseId] = (byCase[d.caseId] || 0) + (Number(d.gross) || 0) * sign;
+      }
+      const collectedFor = (c) => {
+        const ids = c.ids && c.ids.length ? c.ids : [c.id];
+        return ids.reduce((s, id) => s + (byCase[id] || 0), 0);
+      };
+      return cases
+        .filter((c) => c.worker && collectedFor(c) > 0)
+        .map((c) => ({ ...workerRow(c), caseObj: c, collected: collectedFor(c) }));
+    },
   },
 
   // ---- 401–406 · חשבוניות -------------------------------------------------
