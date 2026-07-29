@@ -9,7 +9,7 @@ import { useT } from '../lib/i18n.js';
 
 // Loads a worker form by id and routes to the right filling experience:
 // a structured gov.il-style form, or the PDF-overlay signer flow.
-export default function WorkerFormRouter({ id, brandIcon = '📋', brandLabel = 'טפסים לעובדים סוציאליים', onBack }) {
+export default function WorkerFormRouter({ id, brandIcon = '📋', brandLabel = 'טפסים לעובדים סוציאליים', onBack, initialValues = null }) {
   const t = useT();
   const [state, setState] = useState({ status: 'loading' });
 
@@ -56,7 +56,7 @@ export default function WorkerFormRouter({ id, brandIcon = '📋', brandLabel = 
   }
 
   if (isStructuredForm(state.tmpl)) {
-    return <StructuredFormView template={state.tmpl} brandIcon={brandIcon} brandLabel={brandLabel} onBack={onBack} />;
+    return <StructuredFormView template={state.tmpl} brandIcon={brandIcon} brandLabel={brandLabel} onBack={onBack} initialValues={initialValues} />;
   }
   return <FormSignerView id={id} brandIcon={brandIcon} brandLabel={brandLabel} onBack={onBack} />;
 }

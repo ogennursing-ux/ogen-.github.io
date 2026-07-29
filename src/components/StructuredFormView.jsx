@@ -194,6 +194,11 @@ export default function StructuredFormView({
           <p className="gov-form-hint">
             {mode === 'edit' ? t('עריכת ההגשה — שנה/י את הפרטים ושמור/י.') : t('שדות המסומנים בכוכבית (*) הם שדות חובה')}
           </p>
+          {mode === 'fill' && initialValues && Object.keys(initialValues).length > 0 && (
+            <p className="gov-prefill-note">
+              ✅ {t('הפרטים מולאו אוטומטית מהתיק במשרד. בדוק/י ועדכן/י לפי הצורך.')}
+            </p>
+          )}
 
           <div className="gov-grid">
             {schema.map((f) => {
