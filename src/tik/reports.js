@@ -542,6 +542,19 @@ const R = [
     desc: 'הפקת קובץ השידור הקבוצתי ושליחתו למת״ש.',
     params: ['quarter'], soon: 'מת״ש הוא יעד נפרד ממשרד הפנים — צריך לראות את מבנה הקובץ ולאן נשלח.',
   },
+  {
+    // Every worker the agency collects the fee from, for the ministry's own
+    // quarterly Excel; the amount and the agency bank account come from the
+    // company settings, and the file is built from the official template.
+    no: '306', group: 'quarterly', label: 'דוח גביית עובדים רבעוני (למשרד הפנים)',
+    desc: 'כל העובדים שגבינו מהם דמי טיפול — ליצוא קובץ האקסל הרבעוני למשרד הפנים.',
+    note: 'הקובץ נוצר מהתבנית הרשמית. פרטי הבנק והסכום נלקחים מהגדרות החברה (מסך הקבלות והחשבוניות).',
+    params: ['quarter'], feeExcel: true,
+    columns: [COL.caseNo, COL.worker, COL.passport, COL.nationality, COL.family, COL.city],
+    run: (cases) => cases
+      .filter((c) => c.worker && F(c).placementStartDate && !F(c).placementEndDate)
+      .map((c) => ({ ...workerRow(c), caseObj: c })),
+  },
 
   // ---- 401–406 · חשבוניות -------------------------------------------------
   {

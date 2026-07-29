@@ -60,6 +60,15 @@ export function companyDetails(config = {}) {
     address: config.companyAddress || '',
     phone: config.companyPhone || '',
     email: config.companyEmail || '',
+    // The agency's own bank account — the same on every fee-report row — and the
+    // standard worker fee (the three instalments) that report bills per worker.
+    bank: {
+      name: config.companyBankName || '',
+      number: config.companyBankNumber || '',
+      branch: config.companyBankBranch || '',
+      account: config.companyBankAccount || '',
+    },
+    workerFeeTotal: config.workerFeeTotal || '',
   };
 }
 

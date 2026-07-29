@@ -9,6 +9,9 @@ import CalendarReport from './CalendarReport.jsx';
 import { openRecordTab } from './recordLink.js';
 import { loadDigitalForms } from './digitalForms.js';
 import { downloadInteriorReport } from './interiorReport.js';
+import { downloadFeeReport, splitName } from './feeReport.js';
+import { readConfig } from './officeConfig.js';
+import { companyDetails } from './invoices.js';
 import { COMPANY_NAME } from '../lib/workerPortal.js';
 
 // Each report is a small wizard in its own browser tab:
@@ -240,6 +243,7 @@ function TableResult({ report, rows }) {
         })}
       </div>
       <button className="rp-btn ghost" onClick={exportCsv} disabled={!rows.length}>⬇️ ייצוא Excel</button>
+      {report.feeExcel && <FeeButton rows={rows} />}
       {report.group === 'stats' && <TallyChart rows={rows} label={cols[0]?.label || ''} />}
       {rows.length ? (
         <div className="rg-tablewrap" style={{ marginTop: 14 }}>
@@ -378,6 +382,32 @@ function InteriorButton({ quarter, rows }) {
     <button className="rp-btn matash" disabled={busy || !done.length} onClick={go} style={{ marginInlineStart: 8 }}
       title={done.length ? `${done.length} ביקורים שבוצעו` : 'אין ביקורים שבוצעו ברבעון'}>
       {busy ? 'מפיק…' : `📤 הורד דוח רבעוני למשרד הפנים${done.length ? ` (${done.length})` : ''}`}
+    </button>
+  );
+}
+
+// Report 306 — the quarterly fee-collection Excel for משרד הפנים. Fills the
+// government template with one row per worker we charge, taking the amount and
+// the agency bank account from the company settings.
+function FeeButton({ rows }) {
+  const [busy, setBusy] = useState(false);
+  const go = async () => {
+    setBusy(true);
+    try {
+      const cfg = companyDetails(await readConfig().catch(() => ({})));
+      const workers = rows.map((r) => {
+        const f = r.caseObj?.data?.fields || {};
+        const { first, last } = splitName(f.nameEn || f.nameHe || r.worker || '');
+        return { firstName: first, lastName: last, passport: f.passportNo || r.passport || '', amount: cfg.workerFeeTotal || '' };
+      });
+      await downloadFeeReport({ agency: cfg.name, taxId: cfg.taxId, bank: cfg.bank, workers });
+    } catch (e) { alert('הפקת דוח הגבייה נכשלה: ' + (e?.message || e)); }
+    finally { setBusy(false); }
+  };
+  return (
+    <button className="rp-btn matash" disabled={busy || !rows.length} onClick={go} style={{ marginInlineStart: 8 }}
+      title="ממלא את התבנית הרשמית · בנק וסכום מהגדרות החברה">
+      {busy ? 'מפיק…' : `📤 הורד דוח גבייה למשרד הפנים${rows.length ? ` (${rows.length})` : ''}`}
     </button>
   );
 }

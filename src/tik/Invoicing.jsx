@@ -40,22 +40,35 @@ function Login({ onIn }) {
 // Company details must exist (ח.פ) before any document can be issued.
 function CompanySetup({ config, onSaved }) {
   const c = companyDetails(config);
-  const [form, setForm] = useState({ companyName: c.name, companyTaxId: c.taxId, companyAddress: c.address, companyPhone: c.phone, companyEmail: c.email });
+  const [form, setForm] = useState({
+    companyName: c.name, companyTaxId: c.taxId, companyAddress: c.address, companyPhone: c.phone, companyEmail: c.email,
+    companyBankName: c.bank.name, companyBankNumber: c.bank.number, companyBankBranch: c.bank.branch,
+    companyBankAccount: c.bank.account, workerFeeTotal: c.workerFeeTotal,
+  });
   const [busy, setBusy] = useState(false);
   const save = async () => {
     setBusy(true);
     try { await patchConfig(form); onSaved(); } catch (e) { alert(e?.message || e); } finally { setBusy(false); }
   };
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
   return (
     <section className="inv-card">
       <h3>פרטי החברה המפיקה</h3>
       <p className="inv-hint">מופיעים בכל מסמך, כנדרש בחוק. חובה למלא ח.פ לפני הפקת מסמך.</p>
       <div className="inv-form">
-        <label>שם החברה<input value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.target.value })} /></label>
-        <label>ח.פ / מס׳ עוסק<input dir="ltr" value={form.companyTaxId} onChange={(e) => setForm({ ...form, companyTaxId: e.target.value })} /></label>
-        <label>כתובת<input value={form.companyAddress} onChange={(e) => setForm({ ...form, companyAddress: e.target.value })} /></label>
-        <label>טלפון<input dir="ltr" value={form.companyPhone} onChange={(e) => setForm({ ...form, companyPhone: e.target.value })} /></label>
-        <label>אימייל<input dir="ltr" value={form.companyEmail} onChange={(e) => setForm({ ...form, companyEmail: e.target.value })} /></label>
+        <label>שם החברה<input value={form.companyName} onChange={set('companyName')} /></label>
+        <label>ח.פ / מס׳ עוסק<input dir="ltr" value={form.companyTaxId} onChange={set('companyTaxId')} /></label>
+        <label>כתובת<input value={form.companyAddress} onChange={set('companyAddress')} /></label>
+        <label>טלפון<input dir="ltr" value={form.companyPhone} onChange={set('companyPhone')} /></label>
+        <label>אימייל<input dir="ltr" value={form.companyEmail} onChange={set('companyEmail')} /></label>
+      </div>
+      <p className="inv-hint" style={{ marginTop: 12 }}>חשבון הבנק של החברה והסכום — לדוח הגבייה הרבעוני למשרד הפנים (306).</p>
+      <div className="inv-form">
+        <label>שם בנק<input value={form.companyBankName} onChange={set('companyBankName')} /></label>
+        <label>מספר בנק<input dir="ltr" value={form.companyBankNumber} onChange={set('companyBankNumber')} /></label>
+        <label>מספר סניף<input dir="ltr" value={form.companyBankBranch} onChange={set('companyBankBranch')} /></label>
+        <label>מספר חשבון<input dir="ltr" value={form.companyBankAccount} onChange={set('companyBankAccount')} /></label>
+        <label>סכום דמי טיפול (3 תשלומים)<input dir="ltr" type="number" value={form.workerFeeTotal} onChange={set('workerFeeTotal')} /></label>
       </div>
       <button className="rp-btn" disabled={busy} onClick={save}>{busy ? 'שומר…' : '💾 שמור פרטי חברה'}</button>
     </section>
