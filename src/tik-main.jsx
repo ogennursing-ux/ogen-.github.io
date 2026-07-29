@@ -12,6 +12,9 @@ import './index.css';
 
 document.documentElement.lang = 'he';
 document.documentElement.dir = 'rtl';
+// Marks this as the office / tik system so the "Anchor" theme (index.css) applies
+// here; the client-facing signing app carries no such marker and stays original.
+document.documentElement.setAttribute('data-app', 'office');
 
 // Routing by hash:
 //   …/#chat          → the public customer chat (no login)
