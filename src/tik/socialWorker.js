@@ -72,9 +72,13 @@ export function reportDueFor(year, q) {
 }
 
 // Every visit a single placement owes, from its start date up to the horizon.
+// The clock starts at the placement's start; the office fills that either as the
+// employment start (startDate) or as the placement start (placementStartDate),
+// so fall back between them — otherwise a worker with only one of the two filled
+// generates no visits and silently drops out of the social-worker report.
 export function requiredVisitsFor(caseObj, horizonMonths = 36) {
   const f = caseObj.data?.fields || {};
-  const start = parseDate(f.startDate);
+  const start = parseDate(f.startDate || f.placementStartDate);
   if (!start) return [];
   const done = f.socialVisits || {};
   const today = todayStart();
