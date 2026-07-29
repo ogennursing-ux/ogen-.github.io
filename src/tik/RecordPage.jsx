@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FAMILY_SECTIONS, WORKER_SECTIONS, computeValue } from './registrySchema.js';
+import { FAMILY_SECTIONS, WORKER_SECTIONS, computeValue, PLACEMENT_TYPES, END_REASONS } from './registrySchema.js';
 import {
   DOC_TYPES, EVENT_TYPES, documentHistory, addDocumentEntry,
   PAYMENT_METHODS, INSURANCE_COMPANIES, payments, addPayment, vatBreakdown,
   VISIT_TYPES, visits, addVisit, notes, addNote, patchCaseFields, duplicateCase,
   uploadCaseFile, fileUrl, contacts, addContact, removeContact, CONTACT_RELATIONS,
   accountStatement, getOrAssignCaseNumber, removeDocumentEntry, eventsFor,
+  placements, addPlacement, removePlacement,
 } from './caseDetail.js';
 import { recordsFromChat } from './chatRecords.js';
 import { recordUrl, openRecordTab } from './recordLink.js';
@@ -375,6 +376,91 @@ function ContactsPanel({ caseObj, onChanged }) {
   );
 }
 
+// ---- placement history (היסטוריית השמות) -------------------------------------
+// Every worker↔family pairing this file went through, newest first. The file is
+// shared by both sides, so each entry names BOTH the worker and the family and
+// each side shows the other. Added by hand; opening the form pre-fills from the
+// current placement so archiving it is one click, and old placements from the
+// legacy system can be typed in too.
+function PlacementsPanel({ caseObj, kind, onChanged }) {
+  const [form, setForm] = useState({});
+  const [adding, setAdding] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const list = placements(caseObj);
+  const otherKey = kind === 'worker' ? 'family' : 'worker';
+  const otherLabel = kind === 'worker' ? 'מטופל / מעסיק' : 'עובד/ת';
+
+  const openAdd = () => {
+    const f = caseObj.data?.fields || {};
+    setForm({
+      worker: kind === 'worker' ? (f.nameHe || f.nameEn || '') : (f.placementWorker || ''),
+      family: f.employerName || f.fullName || '',
+      placementNumber: f.placementNumber || '',
+      startDate: f.placementStartDate || '',
+      endDate: f.placementEndDate || '',
+      placementType: f.placementType || '',
+    });
+    setAdding(true);
+  };
+  const save = async () => {
+    if (!form[otherKey] && !form.startDate) return;
+    setBusy(true);
+    try { await addPlacement(caseObj, form); setForm({}); setAdding(false); onChanged(); }
+    catch (e) { alert(e?.message || e); } finally { setBusy(false); }
+  };
+  const remove = async (id) => {
+    if (!confirm('למחוק את שורת ההשמה מההיסטוריה?')) return;
+    try { await removePlacement(caseObj, id); onChanged(); } catch (e) { alert(e?.message || e); }
+  };
+
+  return (
+    <section className="rp-section">
+      <h3><span>🤝</span>היסטוריית השמות{list.length ? <em>{list.length}</em> : null}</h3>
+      <p className="rp-hint">
+        כל ההשמות של התיק לאורך זמן — {kind === 'worker' ? 'כל המשפחות שהעובד/ת עבד/ה אצלן' : 'כל העובדים שטיפלו במטופל'}.
+        אפשר להזין גם השמות ישנות מהעבר; טופס ההוספה נטען מההשמה הנוכחית כדי לשמור אותה בקליק.
+      </p>
+      {list.length ? (
+        <div className="rp-tablewrap">
+          <table className="rp-table">
+            <thead><tr>
+              <th>{otherLabel}</th><th>מס׳ השמה</th><th>מתאריך</th><th>עד תאריך</th>
+              <th>סוג</th><th>סיבת סיום</th><th />
+            </tr></thead>
+            <tbody>{list.map((p) => (
+              <tr key={p.id}>
+                <td><b>{p[otherKey] || p.counterpart || '—'}</b></td>
+                <td dir="ltr">{p.placementNumber || '—'}</td>
+                <td>{fmtDate(p.startDate)}</td>
+                <td>{p.endDate ? fmtDate(p.endDate) : <span className="rp-tag ok">פעילה</span>}</td>
+                <td>{p.placementType ? <span className="rp-tag">{p.placementType}</span> : '—'}</td>
+                <td className="muted">{p.endReason || '—'}</td>
+                <td><button className="rp-btn ghost sm" title="מחיקת השורה" onClick={() => remove(p.id)}>✕</button></td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      ) : <p className="rp-empty">אין השמות רשומות עדיין.</p>}
+      {adding ? (
+        <div className="rp-inline-form">
+          <input placeholder={otherLabel} value={form[otherKey] || ''} onChange={(e) => setForm({ ...form, [otherKey]: e.target.value })} />
+          <input placeholder="מס׳ השמה" dir="ltr" value={form.placementNumber || ''} onChange={(e) => setForm({ ...form, placementNumber: e.target.value })} />
+          <input type="date" title="מתאריך" value={form.startDate || ''} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
+          <input type="date" title="עד תאריך" value={form.endDate || ''} onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
+          <select value={form.placementType || ''} onChange={(e) => setForm({ ...form, placementType: e.target.value })}>
+            <option value="">סוג השמה…</option>{PLACEMENT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <select value={form.endReason || ''} onChange={(e) => setForm({ ...form, endReason: e.target.value })}>
+            <option value="">סיבת סיום…</option>{END_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+          <button className="rp-btn" disabled={(!form[otherKey] && !form.startDate) || busy} onClick={save}>{busy ? 'שומר…' : 'שמור'}</button>
+          <button className="rp-btn ghost" onClick={() => { setAdding(false); setForm({}); }}>ביטול</button>
+        </div>
+      ) : <button className="rp-btn ghost" onClick={openAdd}>+ הוסף השמה</button>}
+    </section>
+  );
+}
+
 function StatementPanel({ caseObj }) {
   const { rows, totalDebit, totalCredit, balance } = accountStatement(caseObj);
   return (
@@ -544,9 +630,9 @@ export default function RecordPage({ caseObj, kind, siblings = [], onNavigate, o
   }
 
   const TABS = [
-    ['details', '📋 פרטי התיק'], ['docs', '📁 מסמכים'], ['contacts', '📞 א.קשר'],
-    ['pay', '💳 תשלומים'], ['statement', '📒 כרטסת'], ['activity', '📅 פעילות'],
-    ['forms', '🖨️ טפסים'],
+    ['details', '📋 פרטי התיק'], ['docs', '📁 מסמכים'], ['placements', '🤝 השמות'],
+    ['contacts', '📞 א.קשר'], ['pay', '💳 תשלומים'], ['statement', '📒 כרטסת'],
+    ['activity', '📅 פעילות'], ['forms', '🖨️ טפסים'],
   ];
 
   return (
@@ -610,6 +696,7 @@ export default function RecordPage({ caseObj, kind, siblings = [], onNavigate, o
         </div>
       )}
       {tab === 'docs' && <DocumentsPanel caseObj={caseObj} onChanged={onChanged} />}
+      {tab === 'placements' && <PlacementsPanel caseObj={caseObj} kind={kind} onChanged={onChanged} />}
       {tab === 'pay' && <PaymentsPanel caseObj={caseObj} onChanged={onChanged} />}
       {tab === 'contacts' && <ContactsPanel caseObj={caseObj} onChanged={onChanged} />}
       {tab === 'statement' && <StatementPanel caseObj={caseObj} />}

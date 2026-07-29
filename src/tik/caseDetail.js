@@ -200,6 +200,28 @@ export async function removeContact(caseObj, id) {
   await patchCaseFields(caseObj, { contacts: contacts(caseObj).filter((c) => c.id !== id) });
 }
 
+// ---- Placement history (היסטוריית השמות) ------------------------------------
+// Every worker↔family placement the record went through over time, newest
+// first. Entered by hand — the office also back-fills the old placements it
+// carries over from the legacy system. `counterpart` is the other side of the
+// placement: the caregiver on a family file, the patient/employer on a worker
+// file. An entry with no endDate is still running.
+export function placements(caseObj) {
+  const arr = caseObj.data?.fields?.placements;
+  return Array.isArray(arr) ? [...arr].sort((a, b) => new Date(b.startDate || 0) - new Date(a.startDate || 0)) : [];
+}
+
+export async function addPlacement(caseObj, entry) {
+  const list = placements(caseObj);
+  const row = { id: uid(), addedAt: new Date().toISOString(), ...entry };
+  await patchCaseFields(caseObj, { placements: [...list, row] });
+  return row;
+}
+
+export async function removePlacement(caseObj, id) {
+  await patchCaseFields(caseObj, { placements: placements(caseObj).filter((p) => p.id !== id) });
+}
+
 // ---- Account statement (ג.חש) --------------------------------------------------
 // Everything the case was charged for and everything it paid, on one ledger.
 export function accountStatement(caseObj) {

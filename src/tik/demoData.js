@@ -199,6 +199,38 @@ function buildCase(i, today) {
 
   const insurer = INSURERS[i % INSURERS.length];
 
+  // --- placement history (היסטוריית השמות) --------------------------------
+  // The current placement, and for roughly every third file an earlier one, so
+  // both sides of the record show a real history. A transferred worker keeps
+  // the same caregiver but a different (earlier) family; a re-placed family
+  // keeps its own name but an earlier, different caregiver.
+  const placementType = ['השמה מהארץ', 'השמה מחו״ל', 'החלפה', 'הארכה', 'העברה מלשכה אחרת'][i % 5];
+  const placementNumber = 'SH-' + String(90000 + i * 41);
+  const placementHistory = [{
+    id: `${DEMO_TAG}-pl-${i}-cur`,
+    worker: nameHe, family,
+    placementNumber, placementType,
+    startDate: iso(start),
+    endDate: closed ? iso(endDate) : '',
+    endReason: closed ? ['סיום חוזה', 'פטירה', 'מעבר למוסד', 'החלפת עובד/ת'][i % 4] : '',
+    addedAt: iso(start),
+  }];
+  if (i % 3 === 0) {
+    const prevEnd = shift(start, -20);
+    const prevStart = shiftM(prevEnd, -(10 + (i % 14)));
+    placementHistory.push({
+      id: `${DEMO_TAG}-pl-${i}-prev`,
+      worker: transferred ? nameHe : WORKERS[(i + 4) % WORKERS.length][0],
+      family: transferred ? `${FIRST_NAMES[(i + 3) % FIRST_NAMES.length]} ${FAMILY_NAMES[(i + 2) % FAMILY_NAMES.length]}` : family,
+      placementNumber: 'SH-' + String(80000 + i * 29),
+      placementType: 'השמה מחו״ל',
+      startDate: iso(prevStart),
+      endDate: iso(prevEnd),
+      endReason: ['עזיבה', 'החלפת עובד/ת', 'פטירה'][i % 3],
+      addedAt: iso(prevStart),
+    });
+  }
+
   return {
     demo: true, demoTag: DEMO_TAG,
     fields: {
@@ -257,8 +289,12 @@ function buildCase(i, today) {
       // --- the placement ----------------------------------------------------
       arrivalDate: iso(arrivalDate),
       startDate: iso(start),
+      placementWorker: nameHe,
+      placementNumber,
+      placementType,
       placementStartDate: iso(start),
       placementEndDate: closed ? iso(endDate) : '',
+      placements: placementHistory,
       salary: String([6500, 6900, 7200, 6900, 7500][i % 5]),
       weeklyAllowance: '100',
       restDay: ['ראשון', 'שבת', 'שישי'][i % 3],
