@@ -256,7 +256,7 @@ export default function RegistryApp() {
     return [...list].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0] || null;
   };
   const allFamilies = useMemo(() => (cases ? cases.filter((c) => c.family?.fullName) : []), [cases]);
-  const allWorkers = useMemo(() => (cases ? cases.filter((c) => c.worker?.nameHe || c.worker?.nameEn) : []), [cases]);
+  const allWorkers = useMemo(() => (cases ? cases.filter((c) => c.worker?.nameEn || c.worker?.nameHe) : []), [cases]);
   const latestFamily = useMemo(() => lastOpened('family', allFamilies), [allFamilies, route]);
   const latestWorker = useMemo(() => lastOpened('worker', allWorkers), [allWorkers, route]);
 
@@ -299,7 +299,7 @@ export default function RegistryApp() {
     if (tab === 'workers') {
       downloadCsv('ogen-workers.csv',
         ['מס׳ תיק', 'שם עובד/ת', 'דרכון', 'אזרחות', 'טלפון', 'תוקף אשרה', 'תוקף דרכון', 'משפחה', 'רכז/ת'],
-        workers.map((c) => { const f = c.data?.fields || {}; return [f.caseNumber || '', c.worker?.nameHe || c.worker?.nameEn || '',
+        workers.map((c) => { const f = c.data?.fields || {}; return [f.caseNumber || '', c.worker?.nameEn || c.worker?.nameHe || '',
           c.worker?.passportNo || '', c.worker?.nationality || '', c.worker?.phone || '',
           fmtDate(f.visaExpiry), fmtDate(f.passportExpiry), c.family?.fullName || '', f.assignedTo || '']; }));
     } else if (tab === 'renewals') {
@@ -314,7 +314,7 @@ export default function RegistryApp() {
         ['מס׳ תיק', 'שם', 'ת״ז', 'טלפון', 'ישוב', 'עובד/ת', 'רכז/ת', 'סה״כ שולם'],
         families.map((c) => { const f = c.data?.fields || {}; return [f.caseNumber || '', c.family?.fullName || '',
           c.family?.idNumber || '', c.family?.phone || '', c.family?.city || '',
-          c.worker?.nameHe || c.worker?.nameEn || '', f.assignedTo || '',
+          c.worker?.nameEn || c.worker?.nameHe || '', f.assignedTo || '',
           payments(c).reduce((s, p) => s + (Number(p.amount) || 0), 0)]; }));
     }
   }
@@ -426,7 +426,7 @@ export default function RegistryApp() {
                   <td dir="ltr">{c.family?.idNumber || '—'}</td>
                   <td dir="ltr">{c.family?.phone || '—'}</td>
                   <td>{c.family?.city || '—'}</td>
-                  <td className="rg-muted">{c.worker?.nameHe || c.worker?.nameEn || '—'}</td>
+                  <td className="rg-muted">{c.worker?.nameEn || c.worker?.nameHe || '—'}</td>
                   <td>{f.assignedTo || '—'}</td>
                   <td><DateCell value={f.permitExpiry} /></td>
                   <td><Pill stage={c.stage} /></td>
@@ -449,7 +449,7 @@ export default function RegistryApp() {
               <tbody>{workers.map((c) => { const f = c.data?.fields || {}; return (
                 <tr key={c.id} className="rg-clickrow" title="פתיחת התיק בלשונית חדשה" onClick={() => goRecord(c, 'worker')}>
                   <td className="rg-num">{f.caseNumber || '—'}</td>
-                  <td><b>{c.worker?.nameHe || c.worker?.nameEn || 'ללא שם'}</b><MergedTag c={c} /></td>
+                  <td><b>{c.worker?.nameEn || c.worker?.nameHe || 'ללא שם'}</b><MergedTag c={c} /></td>
                   <td dir="ltr">{c.worker?.passportNo || '—'}</td>
                   <td>{c.worker?.nationality || '—'}</td>
                   <td dir="ltr">{c.worker?.phone || '—'}</td>
@@ -544,7 +544,7 @@ export default function RegistryApp() {
               <tbody>{placements.map((c) => { const f = c.data?.fields || {}; return (
                 <tr key={c.id} className="rg-clickrow" title="פתיחת התיק בלשונית חדשה" onClick={() => goRecord(c, 'worker')}>
                   <td className="rg-num">{f.caseNumber || '—'}</td>
-                  <td><b>{c.worker?.nameHe || c.worker?.nameEn}</b></td>
+                  <td><b>{c.worker?.nameEn || c.worker?.nameHe}</b></td>
                   <td dir="ltr">{c.worker?.passportNo || '—'}</td>
                   <td>{c.worker?.nationality || '—'}</td>
                   <td>{c.family?.fullName || '—'}</td>

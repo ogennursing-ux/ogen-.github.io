@@ -17,11 +17,12 @@ const parseDate = (v) => {
 const plusMonths = (d, n) => { const c = new Date(d); c.setMonth(c.getMonth() + n); return c; };
 
 // Which bucket a date falls into, relative to today.
+// The home screen shows only what needs attention now — what's overdue and
+// what's due today. The week / month look-ahead was dropped at the office's
+// request so the entry screen stays calm.
 export const BUCKETS = [
   { key: 'overdue', label: 'עבר התאריך', tone: 'bad' },
   { key: 'today', label: 'להיום', tone: 'warn' },
-  { key: 'week', label: 'השבוע', tone: 'info' },
-  { key: 'month', label: 'החודש', tone: 'ok' },
 ];
 
 function bucketOf(due, today) {
@@ -29,9 +30,7 @@ function bucketOf(due, today) {
   const days = Math.round((due - today) / DAY);
   if (days < 0) return 'overdue';
   if (days === 0) return 'today';
-  if (days <= 7) return 'week';
-  if (days <= 31) return 'month';
-  return null; // further out than a month — not on the home screen
+  return null; // beyond today — kept off the home screen
 }
 
 // A birthday inside the next month, whatever year the person was born.
@@ -90,7 +89,7 @@ export function buildAgenda(cases, leads = []) {
   // annual client fee, and birthdays.
   for (const c of cases) {
     const f = c.data?.fields || {};
-    const who = c.worker?.nameHe || c.worker?.nameEn || c.family?.fullName || '';
+    const who = c.worker?.nameEn || c.worker?.nameHe || c.family?.fullName || '';
 
     const back = parseDate(f.interVisaBack);
     if (back) push({

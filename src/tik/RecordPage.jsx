@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FAMILY_SECTIONS, WORKER_SECTIONS, computeValue, PLACEMENT_TYPES, END_REASONS } from './registrySchema.js';
+import { FAMILY_SECTIONS, WORKER_SECTIONS, computeValue, PLACEMENT_TYPES, END_REASONS, HIDDEN_FAMILY, HIDDEN_WORKER } from './registrySchema.js';
 import {
   DOC_TYPES, EVENT_TYPES, documentHistory, addDocumentEntry,
   PAYMENT_METHODS, INSURANCE_COMPANIES, payments, addPayment, vatBreakdown,
@@ -72,6 +72,35 @@ function Section({ section, fields, editing, onChange }) {
         ))}
       </div>
     </section>
+  );
+}
+
+// The record's own "details" view, decluttered: each section is trimmed to the
+// operational essentials, and everything the office marked personal / rarely
+// used drops into one collapsed "מידע נוסף" block below (auto-opened while
+// editing so nothing becomes unreachable).
+function DetailsView({ sections, hiddenKeys, fields, editing, onChange }) {
+  const visible = sections
+    .map((s) => ({ ...s, fields: s.fields.filter((f) => !hiddenKeys.has(f.key)) }))
+    .filter((s) => s.fields.length);
+  const hiddenGroups = sections
+    .map((s) => ({ s, hf: s.fields.filter((f) => hiddenKeys.has(f.key)) }))
+    .filter((g) => g.hf.length);
+  const hiddenCount = hiddenGroups.reduce((n, g) => n + g.hf.length, 0);
+  return (
+    <>
+      {visible.map((s) => <Section key={s.title} section={s} fields={fields} editing={editing} onChange={onChange} />)}
+      {hiddenCount > 0 && (
+        <details className="rp-more" open={editing || undefined}>
+          <summary>🔒 מידע נוסף · {hiddenCount} שדות</summary>
+          <div className="rp-more-body">
+            {hiddenGroups.map(({ s, hf }) => (
+              <Section key={s.title} section={{ ...s, fields: hf }} fields={fields} editing={editing} onChange={onChange} />
+            ))}
+          </div>
+        </details>
+      )}
+    </>
   );
 }
 
@@ -540,11 +569,11 @@ function CounterpartCard({ caseObj, kind }) {
   const f = caseObj.data?.fields || {};
   const other = kind === 'worker' ? 'family' : 'worker';
   const name = other === 'worker'
-    ? (f.nameHe || f.nameEn || '')
+    ? (f.nameEn || f.nameHe || '')
     : (f.employerName || f.fullName || '');
   if (!name) return null;
   const detail = other === 'worker'
-    ? [f.passportNo && `דרכון ${f.passportNo}`, f.nationality].filter(Boolean).join(' · ')
+    ? [f.nameHe, f.passportNo && `דרכון ${f.passportNo}`, f.nationality].filter(Boolean).join(' · ')
     : [f.idNumber && `ת״ז ${f.idNumber}`, f.city].filter(Boolean).join(' · ');
   return (
     <a className="rp-counterpart" href={recordUrl(other, caseObj.id)} target="_blank" rel="noreferrer">
@@ -590,11 +619,13 @@ export default function RecordPage({ caseObj, kind, siblings = [], onNavigate, o
     return () => { alive = false; };
   }, [caseObj?.id]);
 
+  // The caregiver's file leads with the English (passport) name — that is the
+  // base name on every government form — with the Hebrew name kept beside it.
   const title = kind === 'worker'
-    ? (stored.nameHe || stored.nameEn || 'עובד/ת ללא שם')
+    ? (stored.nameEn || stored.nameHe || 'עובד/ת ללא שם')
     : (stored.employerName || stored.fullName || 'תיק ללא שם');
   const subtitle = kind === 'worker'
-    ? [stored.passportNo && `דרכון ${stored.passportNo}`, stored.nationality].filter(Boolean).join(' · ')
+    ? [stored.nameHe, stored.passportNo && `דרכון ${stored.passportNo}`, stored.nationality].filter(Boolean).join(' · ')
     : [stored.idNumber && `ת״ז ${stored.idNumber}`, stored.city].filter(Boolean).join(' · ');
 
   const waLink = useMemo(() => {
@@ -692,7 +723,8 @@ export default function RecordPage({ caseObj, kind, siblings = [], onNavigate, o
 
       {tab === 'details' && (
         <div className={`rp-sections${hideSensitive ? ' masked' : ''}`}>
-          {sections.map((s) => <Section key={s.title} section={s} fields={fields} editing={editing} onChange={onChange} />)}
+          <DetailsView sections={sections} hiddenKeys={kind === 'worker' ? HIDDEN_WORKER : HIDDEN_FAMILY}
+            fields={fields} editing={editing} onChange={onChange} />
         </div>
       )}
       {tab === 'docs' && <DocumentsPanel caseObj={caseObj} onChanged={onChanged} />}

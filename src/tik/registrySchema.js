@@ -419,6 +419,40 @@ export const WORKER_SECTIONS = [
   },
 ];
 
+// ---- what the record page tucks away by default ------------------------------
+// The office asked for a calmer file: the operational essentials stay visible up
+// top, and the personal / rarely-used detail drops into a collapsed "מידע נוסף"
+// block one click below. Nothing is removed — these keys are only hidden from
+// the first view. The lists were chosen field-by-field with the office.
+export const HIDDEN_WORKER = new Set([
+  'placeOfBirth', 'religion',
+  'arrivalSource', 'endReason', 'lastWorkDate', 'foreignAgency', 'humanitarianWorker',
+  'insuranceCompany', 'visaNumber',
+  'children', 'height', 'weight', 'languages', 'driverLicense', 'smokes', 'okWeekends', 'okSmokingClient',
+  'fatherName', 'motherName', 'spouseName', 'spouseInIsrael', 'abroadCountry', 'abroadCity',
+  'abroadStreet', 'abroadZip', 'abroadPhone', 'emergencyPhone', 'abroadContact',
+  'registrationType', 'registrationAction', 'previousEmployer', 'workerNote',
+]);
+export const HIDDEN_FAMILY = new Set([
+  'idIssueDate', 'maritalStatus', 'birthCountry', 'motherTongue', 'foreignLang1', 'foreignLang2',
+  'zip', 'geoArea', 'contactId',
+  'branch', 'socialWorker', 'updatedBy', 'closedDate', 'referrer', 'permitRequestDate', 'bilateralForm', 'municipal',
+  'referralDate', 'referralStatus', 'visitBefore', 'visitAfter', 'endReason', 'openBatch', 'closeBatch',
+  'placementFromIsrael', 'insuranceCompany',
+  // policy — keep only its start/end dates up top
+  'policyNo', 'policyInsurer', 'policyPlan', 'policyRegDate', 'policyDays', 'policyPerDay',
+  'policyTotal', 'policyPremium', 'policyStatus', 'policyAgency', 'policyAgent', 'policyNotes',
+  // permit — keep only its start/end dates up top
+  'permitNumber', 'permitSubmitDate', 'permitStatus', 'permitExpiry', 'permitNotes',
+  // accounting — keep only the company-fee & monthly-fee periods up top
+  'accountingNo', 'companyFeeRenewalDate', 'placementFee', 'placementFeeValidTo', 'payer', 'standingOrder',
+  'salary', 'weeklyAdvance', 'startDate', 'daysPerWeek', 'weeklyDayOff', 'liveIn', 'contractNote',
+  'reqLanguage', 'reqCountry', 'reqGender', 'reqAge', 'patientSmokes', 'roomForWorker', 'homeAccess', 'residents', 'rooms',
+  'mobility', 'continence', 'cognitive', 'emotional', 'vision', 'hearing', 'jobTasks',
+  'entitlementSource', 'entitlementLevel', 'nursingLaw', 'humanitarian', 'disabilityPct', 'nursingInsurance', 'shoahFund',
+  'employerNameEn', 'addressEn', 'contactNameEn',
+]);
+
 // ---- computed helpers --------------------------------------------------------
 export function computeValue(name, fields) {
   // The caregiver's age comes from the caregiver's own date of birth, not the
