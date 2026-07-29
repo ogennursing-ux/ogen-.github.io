@@ -7,9 +7,19 @@
 // The visit schedule rules live in ONE place (../tik/socialWorker.js), reused
 // here, so the portal and the office always agree on what is due.
 import { loadRegistry, activePlacements } from '../tik/registry.js';
-import { buildVisitReport, quarterOptions, VISIT_KINDS } from '../tik/socialWorker.js';
+import { buildVisitReport, quarterOptions, VISIT_KINDS, saveVisit } from '../tik/socialWorker.js';
 
 export { VISIT_KINDS, quarterOptions };
+
+const isoToday = () => new Date().toISOString().slice(0, 10);
+
+// Record a portal-submitted visit back onto the office file, so the office sees
+// it as done. The visit date comes from the form (falling back to today); the
+// home-visit form has no channel field, so mark it a physical visit.
+export async function markVisitDone(caseObj, visitId, dateStr, note) {
+  if (!caseObj || !visitId) return;
+  await saveVisit(caseObj, visitId, dateStr || isoToday(), note || '', 'physical');
+}
 
 // Every open (not-yet-done) visit across all active placements, soonest first,
 // with overdue ones surfaced at the top — this is the social worker's worklist.

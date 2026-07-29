@@ -5,7 +5,7 @@ import { api } from '../lib/api.js';
 import { WORKER_ACCESS_CODE, COMPANY_NAME } from '../lib/workerPortal.js';
 import { builtinWorkerTemplates, BUILTIN_PREFIX } from '../lib/prebuiltForms.js';
 import { LangContext, getInitialLang, applyLang, useT } from '../lib/i18n.js';
-import { loadVisitWorklist, prefillFor } from '../lib/visitWorklist.js';
+import { loadVisitWorklist, prefillFor, markVisitDone } from '../lib/visitWorklist.js';
 
 const AUTH_KEY = 'worker_auth';
 // The worklist opens the home-visit form pre-filled from the file.
@@ -247,6 +247,8 @@ export default function WorkerApp() {
   });
   const [formId, setFormId] = useState(() => new URLSearchParams(location.search).get('form'));
   const [prefill, setPrefill] = useState(null);
+  // The visit whose form is open — so submitting it can mark it done in the office.
+  const [pendingVisit, setPendingVisit] = useState(null);
   // Landing screen when no form is open: the visit worklist, or the plain
   // forms list ("טפסים אחרים").
   const [screen, setScreen] = useState('worklist');
@@ -275,12 +277,21 @@ export default function WorkerApp() {
   // Open the home-visit form pre-filled from the chosen case.
   function openVisit(visit) {
     const values = prefillFor('homeVisit', visit.caseObj, visit);
+    setPendingVisit(visit);
     selectForm(HOME_VISIT_ID, values);
+  }
+
+  // After the social worker submits a visit form, record it as done on the
+  // office file so both sides stay in sync.
+  async function onVisitSubmitted(values) {
+    if (!pendingVisit) return;
+    await markVisitDone(pendingVisit.caseObj, pendingVisit.id, values?.visitDate);
   }
 
   function backToList() {
     setFormId(null);
     setPrefill(null);
+    setPendingVisit(null);
     const url = new URL(location.href);
     url.searchParams.delete('form');
     history.replaceState({}, '', url);
@@ -297,6 +308,7 @@ export default function WorkerApp() {
         brandLabel="טפסים לעובדים סוציאליים"
         onBack={backToList}
         initialValues={prefill}
+        onSubmitted={pendingVisit ? onVisitSubmitted : null}
       />
     );
   } else if (screen === 'forms') {

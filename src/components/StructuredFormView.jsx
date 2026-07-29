@@ -45,6 +45,7 @@ export default function StructuredFormView({
   initialValues = null,
   mode = 'fill', // 'fill' (worker) | 'edit' (owner editing a submission)
   onSaved,
+  onSubmitted, // called after a successful (new) submission, with the values
 }) {
   const t = useT();
   const meta = useMemo(() => formMeta(template), [template]);
@@ -122,6 +123,9 @@ export default function StructuredFormView({
       await api.submitForm(template, payload);
       setSignedBytes(bytes);
       setStatus('done');
+      // Let the caller record the submission elsewhere (e.g. mark the office
+      // visit as done). Never let a write-back failure break the "thank you".
+      if (onSubmitted) { try { await onSubmitted(values); } catch (e) { console.error(e); } }
       if (template.webhook_url && template.owner_email) {
         const ip = await getIp();
         notify(template.webhook_url, {
