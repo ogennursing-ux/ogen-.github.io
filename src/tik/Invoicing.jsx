@@ -6,6 +6,7 @@ import {
   loadDocuments, issueDocument, creditDocument, recordPrint, loadEvents,
 } from './invoices.js';
 import { downloadUniformFile } from './bkmExport.js';
+import { EXPORT_MODES, runAccountingExport, pendingExportCount, loadExportHistory, downloadBlob } from './accountingExport.js';
 
 // The tax-documents desk (קבלות וחשבוניות). Everything issued here is frozen
 // and numbered in sequence; corrections are made by a credit document, never by
@@ -182,6 +183,69 @@ function DocView({ doc, config, onClose, onChanged }) {
   );
 }
 
+// Report 406 — the accounting export. Three modes; "current" marks what it sends
+// so nothing goes out twice, "range" re-exports a period, "full" dumps everything.
+function AccountingExport({ config }) {
+  const [pending, setPending] = useState(null);
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [busy, setBusy] = useState('');
+  const [history, setHistory] = useState([]);
+
+  const refresh = () => {
+    pendingExportCount().then(setPending).catch(() => setPending(0));
+    loadExportHistory().then(setHistory).catch(() => setHistory([]));
+  };
+  useEffect(refresh, []);
+
+  const run = async (mode) => {
+    setBusy(mode);
+    try {
+      const { count, filename, blob } = await runAccountingExport(mode, { from, to, config });
+      downloadBlob(blob, filename);
+      alert(`יוצאו ${count} מסמכים לקובץ ${filename}.`);
+      refresh();
+    } catch (e) { alert(e?.message || e); } finally { setBusy(''); }
+  };
+
+  return (
+    <section className="inv-card">
+      <h3>ייצוא להנהלת חשבונות
+        {pending != null && <em className={pending ? 'inv-badge on' : 'inv-badge'}>{pending} ממתינים</em>}
+      </h3>
+      <p className="inv-hint">
+        מפיק קובץ תנועות (Movein.dat) לתוכנת הנהלת החשבונות. "ייצוא שוטף" שולח רק
+        מה שטרם יוצא ומסמן אותו, כדי שלא יישלח פעמיים.
+      </p>
+      <div className="inv-export-modes">
+        <button className="rp-btn" disabled={busy === 'current'} onClick={() => run('current')}>
+          {busy === 'current' ? 'מייצא…' : `🟢 ${EXPORT_MODES.current.label}`}
+        </button>
+        <button className="rp-btn ghost" disabled={busy === 'full'} onClick={() => run('full')}>
+          {busy === 'full' ? 'מייצא…' : `📄 ${EXPORT_MODES.full.label}`}
+        </button>
+      </div>
+      <div className="inv-export-range">
+        <label>מתאריך<input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+        <label>עד<input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+        <button className="rp-btn ghost" disabled={busy === 'range'} onClick={() => run('range')}>
+          {busy === 'range' ? 'מייצא…' : `📅 ${EXPORT_MODES.range.label}`}
+        </button>
+      </div>
+      {history.length > 0 && (
+        <details className="inv-export-log">
+          <summary>היסטוריית ייצוא ({history.length})</summary>
+          <ul>{history.slice(0, 12).map((h) => (
+            <li key={h.id}>
+              {fmtDate(h.at)} · {EXPORT_MODES[h.mode]?.label || h.mode} · {h.count} מסמכים{h.by ? ` · ${h.by}` : ''}
+            </li>
+          ))}</ul>
+        </details>
+      )}
+    </section>
+  );
+}
+
 export default function Invoicing() {
   const [authed, setAuthed] = useState(isAuthed());
   const [config, setConfig] = useState(null);
@@ -214,6 +278,7 @@ export default function Invoicing() {
         <div>
           {config && (!hasCompany ? <CompanySetup config={config} onSaved={reloadConfig} />
             : <IssueForm config={config} onIssued={() => reloadDocs()} />)}
+          {hasCompany && config && <AccountingExport config={config} />}
           {hasCompany && config && <CompanySetup config={config} onSaved={reloadConfig} />}
         </div>
         <div>

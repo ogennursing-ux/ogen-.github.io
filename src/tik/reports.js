@@ -593,8 +593,7 @@ const R = [
   },
   {
     no: '406', group: 'invoices', label: 'יצוא קובץ להנה״ח',
-    desc: 'קובץ הקבלות והחשבוניות לתוכנת הנהלת החשבונות.',
-    params: ['range'], soon: 'צריך לדעת לאיזו תוכנת הנהלת חשבונות ובאיזה מבנה.',
+    desc: 'קובץ תנועות (Movein.dat) לתוכנת הנהלת החשבונות — שוטף / לפי תאריך / דוח מלא.',
   },
 
   // ---- אישיים ------------------------------------------------------------
@@ -916,7 +915,7 @@ export const REPORT_GROUPS = [
   reports: R.filter((r) => r.group === g.id).map((r, i) => ({
     ...r, key: keyOf(r, i),
     // The invoicing reports open the tax-documents desk, not a params page.
-    ...(g.id === 'invoices' && r.no !== '406' ? { to: '#invoices' } : {}),
+    ...(g.id === 'invoices' ? { to: '#invoices' } : {}),
   })),
 }));
 

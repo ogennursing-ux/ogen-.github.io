@@ -3046,3 +3046,16 @@ body {
 @media (prefers-reduced-motion: reduce) {
   [data-app="office"] * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
 }
+
+/* Accounting export (report 406) — the three-mode desk in the invoicing screen */
+.inv-badge { margin-inline-start: auto; font-style: normal; font-size: 12px; font-weight: 700; color: var(--muted); background: var(--panel-2, #f1f5f9); border-radius: 999px; padding: 1px 9px; }
+.inv-badge.on { color: #fff; background: var(--danger, #b23a2e); }
+.inv-export-modes { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.inv-export-modes .rp-btn { flex: 1 1 auto; }
+.inv-export-range { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+.inv-export-range label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 3px; }
+.inv-export-range input { padding: 7px 9px; border: 1px solid var(--line, #e2e8e8); border-radius: 8px; font: inherit; }
+.inv-export-log { margin-top: 10px; font-size: 13px; }
+.inv-export-log summary { cursor: pointer; color: var(--primary-dark, #0e4a57); font-weight: 600; }
+.inv-export-log ul { margin: 8px 0 0; padding-inline-start: 18px; color: var(--ink-2, #33474d); }
+.inv-export-log li { margin: 2px 0; }
