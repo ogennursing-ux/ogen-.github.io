@@ -12,13 +12,37 @@ async function uploadPdf(path, bytes) {
   if (error) throw new Error('העלאת הקובץ נכשלה: ' + error.message);
 }
 
-async function downloadPdf(path) {
+async function downloadPdf(path, onProgress) {
   const { data } = sb.storage.from(BUCKET).getPublicUrl(path);
   // Cache-bust + no-store so an edited (re-uploaded) file isn't served stale.
   const url = data.publicUrl + (data.publicUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error('הורדת הקובץ נכשלה (' + res.status + ')');
-  return res.arrayBuffer();
+  // Stream the body when possible so the loading screen can show a real
+  // percentage; falls back to a plain arrayBuffer when length is unknown.
+  const total = +res.headers.get('Content-Length') || 0;
+  if (!res.body || !total) {
+    const buf = await res.arrayBuffer();
+    onProgress?.(1);
+    return buf;
+  }
+  const reader = res.body.getReader();
+  const chunks = [];
+  let got = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    got += value.length;
+    onProgress?.(Math.min(1, got / total));
+  }
+  const out = new Uint8Array(got);
+  let off = 0;
+  for (const c of chunks) {
+    out.set(c, off);
+    off += c.length;
+  }
+  return out.buffer;
 }
 
 export const supabaseApi = {
@@ -47,11 +71,11 @@ export const supabaseApi = {
     return data;
   },
 
-  getOriginalBytes(req) {
-    return downloadPdf(req.pdf_path);
+  getOriginalBytes(req, onProgress) {
+    return downloadPdf(req.pdf_path, onProgress);
   },
-  getSignedBytes(req) {
-    return downloadPdf(req.signed_pdf_path);
+  getSignedBytes(req, onProgress) {
+    return downloadPdf(req.signed_pdf_path, onProgress);
   },
 
   // Best-effort delete (needs an anon delete policy on sign_requests to fully
@@ -59,6 +83,11 @@ export const supabaseApi = {
   async deleteRequest(id) {
     try {
       await sb.storage.from(BUCKET).remove([`originals/${id}.pdf`, `signed/${id}.pdf`]);
+      // Also remove any uploaded split parts (signed/<id>-part<n>.pdf).
+      const { data: parts } = await sb.storage.from(BUCKET).list('signed', { search: `${id}-part` });
+      if (parts?.length) {
+        await sb.storage.from(BUCKET).remove(parts.map((f) => `signed/${f.name}`));
+      }
     } catch {
       /* ignore */
     }
@@ -69,6 +98,12 @@ export const supabaseApi = {
   async advance(id, { fields, signers }) {
     const { error } = await sb.from('sign_requests').update({ fields, signers }).eq('id', id);
     if (error) throw new Error('שמירת החתימה נכשלה: ' + error.message);
+  },
+
+  // Upload one split part of a signed document (1-based index), so the email
+  // relay can fetch and attach each part separately.
+  async uploadSignedPart(id, index, bytes) {
+    await uploadPdf(`signed/${id}-part${index}.pdf`, bytes);
   },
 
   async submitSigned(id, { fields, signers, signedPdfBytes }) {

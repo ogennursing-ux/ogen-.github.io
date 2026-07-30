@@ -6,6 +6,15 @@ import { createContext, useContext } from 'react';
 const EN = {
   // brand / header
   'חתימה דיגיטלית': 'Digital Signature',
+  'קליק חתימה': 'Click Signature',
+  'בלחיצה על "סיים ושלח חתימה" הנך מסכימ/ה לביצוע חתימה אלקטרונית ומאשר/ת את':
+    'By clicking "Finish and submit" you agree to sign electronically and accept the',
+  'ואת': 'and the',
+  'תנאי השימוש': 'Terms of Use',
+  'מדיניות הפרטיות': 'Privacy Policy',
+  'תנאי שימוש': 'Terms of Use',
+  'מדיניות פרטיות': 'Privacy Policy',
+  'הצהרת נגישות': 'Accessibility Statement',
   '⚙ הגדרות': '⚙ Settings',
 
   // dropzone / home
@@ -102,8 +111,16 @@ const EN = {
   הגדרות: 'Settings',
   'להפעלת שליחה אוטומטית במייל (קישור לחותם + המסמך החתום אליך) — חבר webhook של Make.':
     'To enable automatic emails (link to the signer + the signed document to you) — connect a Make webhook.',
+  'בכל חתימה יישלח אליך מייל עם המסמך החתום המצורף (וכשיש שני חותמים — גם התראה אחרי החתימה הראשונה). כדי להפעיל: הזן את המייל שלך וכתובת שירות השליחה (Make או Google Apps Script).':
+    'On every signature you get an email with the signed document attached (and with two signers — also an alert after the first signature). To enable: enter your email and a sending-service URL (Make or Google Apps Script).',
   'המייל שלך (לקבלת מסמכים חתומים)': 'Your email (to receive signed documents)',
   'כתובת ה-Webhook של Make': 'Make webhook URL',
+  'כתובת שירות שליחת המייל (Make / Google Apps Script)':
+    'Email sending-service URL (Make / Google Apps Script)',
+  'שלח מייל בדיקה': 'Send test email',
+  'מלא/י קודם מייל וכתובת שירות.': 'Fill in email and service URL first.',
+  'נשלח! בדוק/י את המייל שלך — כולל תיקיית ספאם. לא הגיע? כתוב/י לי.':
+    'Sent! Check your email — including the spam folder. Not there? Tell me.',
   שמור: 'Save',
 
   // signature pad
@@ -187,6 +204,14 @@ const EN = {
   'הוחלה התבנית: {name}': 'Applied template: {name}',
   'המשך לעריכה (השדות כבר ממוקמים)': 'Continue to editor (fields already placed)',
   'פיצול הורדה (לא חובה)': 'Split download (optional)',
+  'מוריד את המסמך…': 'Downloading the document…',
+  'מכין עמוד {i} מתוך {n}…': 'Preparing page {i} of {n}…',
+  'עוד רגע והמסמך מוכן…': 'Almost there…',
+  'לחץ בין הדפים כדי לחתוך לקבצים נפרדים (לא חובה)':
+    'Click between pages to cut into separate files (optional)',
+  'יפוצל ל-{n} קבצים: {parts}': 'Will split into {n} files: {parts}',
+  'לחץ כדי לחתוך כאן לקובץ נפרד': 'Click to cut here into a separate file',
+  'נקה פיצול': 'Clear split',
   'למשל: 1 ; 12-20': 'e.g. 1 ; 12-20',
 
   // all signatures + notifications
@@ -210,6 +235,8 @@ const EN = {
   'כל דף בנפרד (תמונות)': 'Each page separately (images)',
   'בחר מסמכים למחיקה.': 'Select documents to delete.',
   'להתחיל מסמך חדש? השדות הנוכחיים יימחקו.': 'Start a new document? The current fields will be cleared.',
+  'הוסף לפחות שדה אחד למסמך לפני יצירת הקישור.':
+    'Add at least one field to the document before creating the link.',
   'יצירת הקישור נכשלה': 'Failed to create the link',
   'שמירת התבנית נכשלה': 'Failed to save the template',
   'הורדה נכשלה': 'Download failed',

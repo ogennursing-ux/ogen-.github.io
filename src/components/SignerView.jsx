@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
 import SignFlow from './SignFlow.jsx';
 import LangToggle from './LangToggle.jsx';
+import BrandName from './BrandName.jsx';
+import DocLoader from './DocLoader.jsx';
 import { api } from '../lib/api.js';
-import { notify, bytesToBase64, getIp } from '../lib/notify.js';
+import { notify, getIp } from '../lib/notify.js';
+import { signedPublicUrl, signedPartPublicUrl } from '../lib/config.js';
+import { parseGroups, splitByGroups } from '../lib/exporters.js';
 import { renderPdfPages, buildSignedPdf } from '../lib/pdfUtils.js';
 import { useT } from '../lib/i18n.js';
 
@@ -38,6 +42,7 @@ export default function SignerView({ id }) {
   const [fields, setFields] = useState([]);
   const [busy, setBusy] = useState(false);
   const [signedBytes, setSignedBytes] = useState(null);
+  const [loadProg, setLoadProg] = useState({ p: 0.03 });
 
   const signers = normalizeSigners(req?.signers);
   const current = signers.current;
@@ -52,9 +57,11 @@ export default function SignerView({ id }) {
           setStatus('already');
           return;
         }
-        const bytes = await api.getOriginalBytes(r);
+        const bytes = await api.getOriginalBytes(r, (f) => setLoadProg({ p: 0.05 + f * 0.5 }));
         setOriginalBytes(bytes);
-        const rendered = await renderPdfPages(new Uint8Array(bytes.slice(0)));
+        const rendered = await renderPdfPages(new Uint8Array(bytes.slice(0)), {
+          onProgress: (f, i, n) => setLoadProg({ p: 0.55 + f * 0.45, page: i, pages: n }),
+        });
         setPages(rendered);
         setFields(r.fields || []);
         setStatus('ready');
@@ -72,7 +79,7 @@ export default function SignerView({ id }) {
       const now = new Date().toISOString();
       const ip = await getIp();
       const newList = signers.list.map((s, i) =>
-        i === current ? { ...s, signed: true, signedAt: now, ip, signedName: signerName || s.signedName || '' } : s,
+        i === current ? { ...s, signed: true, signedAt: now, ip, signedName: signerName || s.signedName || '', consent: 'terms-v1' } : s,
       );
       // Preserve any extra fields stored on signers (note, downloadGroups, …).
       const base = req && req.signers && !Array.isArray(req.signers) ? req.signers : {};
@@ -87,22 +94,67 @@ export default function SignerView({ id }) {
         await api.submitSigned(id, { fields: filled, signers: { ...base, current, list: newList }, signedPdfBytes: bytes });
         setSignedBytes(bytes);
         setDoneKind('final');
-        if (req.webhook_url && req.owner_email) {
+        // Always notify on completion. Requests created by older app versions
+        // were saved with a null webhook_url / owner_email and the old guard
+        // here silently skipped their notification forever; notify() fills in
+        // the built-in relay and the relay falls back to the owner's address.
+        {
+          const names = newList.map((s) => s.signedName || s.name).filter(Boolean).join(', ');
+          // If the document was set up with a download-split preset, the email
+          // mirrors the download: upload each page-range part and have the
+          // relay attach the parts instead of the single full file. Any
+          // failure falls back to the full file — the email must always go out.
+          let files = null;
+          const groups = parseGroups(base.downloadGroups);
+          if (groups.length) {
+            try {
+              const parts = await splitByGroups(bytes.slice(0), groups);
+              if (parts.length) {
+                await Promise.all(parts.map((p, i) => api.uploadSignedPart(id, i + 1, p.bytes)));
+                files = {
+                  fileUrls: parts.map((p, i) => signedPartPublicUrl(id, i + 1)).join('|'),
+                  fileNames: parts
+                    .map((p) => `${title}-${p.label}.pdf`.replace(/\|/g, '-'))
+                    .join('|'),
+                };
+              }
+            } catch (e) {
+              console.warn('split for email failed, sending full file', e);
+            }
+          }
           notify(req.webhook_url, {
             type: 'completed',
             to: req.owner_email,
             title,
-            link: location.href,
-            fileName: `${title}-signed.pdf`,
-            fileBase64: bytesToBase64(bytes),
+            signerName: names,
+            ...(files || { fileName: `${title}-signed.pdf`, fileUrl: signedPublicUrl(id) }),
+            subject: `מסמך נחתם: ${title}`,
+            message: files
+              ? `המסמך "${title}" נחתם על ידי ${names || 'החותם'}. הקבצים החתומים (מפוצלים לפי דפים) מצורפים למייל זה.`
+              : `המסמך "${title}" נחתם על ידי ${names || 'החותם'}. הקובץ החתום מצורף למייל זה.`,
           });
         }
       } else {
         await api.advance(id, { fields: filled, signers: { ...base, current: current + 1, list: newList } });
         setDoneKind('intermediate');
         const next = newList[current + 1];
-        if (req.webhook_url && next?.email) {
+        if (next?.email) {
           notify(req.webhook_url, { type: 'invite', to: next.email, title, link: location.href });
+        }
+        // Tell the owner the first signature is in (no attachment yet — the file
+        // is emailed with the attachment once the last signer completes).
+        {
+          notify(req.webhook_url, {
+            type: 'partial',
+            to: req.owner_email,
+            title,
+            link: location.href,
+            signerName: signerName || newList[current]?.name || '',
+            signerIndex: current + 1,
+            totalSigners: newList.length,
+            subject: `חתימה ${current + 1}/${newList.length} בוצעה — ${title}`,
+            message: `חתימה ראשונה בוצעה בהצלחה על המסמך "${title}". ממתין לחתימת החותם הבא. המסמך החתום המלא יישלח אליך בסיום.`,
+          });
         }
       }
       setStatus('done');
@@ -128,8 +180,8 @@ export default function SignerView({ id }) {
   const header = (
     <header className="app-header">
       <div className="brand">
-        <span className="brand-mark">✒️</span>
-        <span className="brand-name">{t('חתימה דיגיטלית')}</span>
+        <img className="brand-mark brand-logo" src="./klik-icon.png" alt="" />
+        <BrandName />
       </div>
       <LangToggle />
     </header>
@@ -138,7 +190,8 @@ export default function SignerView({ id }) {
     <div className="app">{header}<div className="centered-screen">{content}</div></div>
   );
 
-  if (status === 'loading') return centered(<p className="muted">{t('טוען מסמך…')}</p>);
+  if (status === 'loading')
+    return centered(<DocLoader progress={loadProg.p} page={loadProg.page} pages={loadProg.pages} />);
   if (status === 'error')
     return centered(
       <div className="card"><h2>{t('לא ניתן לפתוח את המסמך')}</h2><p className="muted">{error}</p></div>,

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import LangToggle from './LangToggle.jsx';
+import BrandName from './BrandName.jsx';
 import { COMPANY_NAME } from '../lib/workerPortal.js';
 import { useT } from '../lib/i18n.js';
 
@@ -7,7 +8,7 @@ import { useT } from '../lib/i18n.js';
 // strong security — the check runs in the browser. Either the short name or the
 // full company name is accepted as the username, so the login keeps working
 // after the rebrand.
-const USERS = ['עוגן סיעוד', COMPANY_NAME];
+const USERS = ['עוגן סיעוד', COMPANY_NAME, 'קליק חתימה'];
 const PASS = '12345';
 
 export default function Login({ onLogin }) {
@@ -34,18 +35,20 @@ export default function Login({ onLogin }) {
     <div className="app">
       <header className="app-header">
         <div className="brand">
-          <span className="brand-mark">✒️</span>
-          <span className="brand-name">{t('חתימה דיגיטלית')}</span>
+          <img className="brand-mark brand-logo" src="./klik-icon.png" alt="" />
+          <BrandName />
         </div>
         <LangToggle />
       </header>
       <div className="centered-screen">
         <form className="card login-card" onSubmit={submit}>
+          <img className="login-logo" src="./klik-logo.png" alt="קליק חתימה" />
           <h2>{t('כניסה למערכת')}</h2>
-          <label className="field-label">{t('שם משתמש')}</label>
-          <input className="text-input" value={user} onChange={(e) => setUser(e.target.value)} autoFocus />
-          <label className="field-label" style={{ marginTop: 10 }}>{t('סיסמה')}</label>
+          <label className="field-label" htmlFor="login-user">{t('שם משתמש')}</label>
+          <input id="login-user" className="text-input" value={user} onChange={(e) => setUser(e.target.value)} autoFocus />
+          <label className="field-label" style={{ marginTop: 10 }} htmlFor="login-pass">{t('סיסמה')}</label>
           <input
+            id="login-pass"
             className="text-input"
             type="password"
             value={pass}
@@ -55,6 +58,13 @@ export default function Login({ onLogin }) {
           <button className="btn-primary full" type="submit" style={{ marginTop: 14 }}>
             {t('התחבר')}
           </button>
+          <div className="legal-links">
+            <a href="./legal.html#terms" target="_blank" rel="noreferrer">{t('תנאי שימוש')}</a>
+            <span aria-hidden>·</span>
+            <a href="./legal.html#privacy" target="_blank" rel="noreferrer">{t('מדיניות פרטיות')}</a>
+            <span aria-hidden>·</span>
+            <a href="./legal.html#accessibility" target="_blank" rel="noreferrer">{t('הצהרת נגישות')}</a>
+          </div>
         </form>
       </div>
     </div>

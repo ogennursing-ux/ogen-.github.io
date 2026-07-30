@@ -80,7 +80,7 @@ export default function WorkerFormsAdmin({ onEditSubmission }) {
         <h3 style={{ marginTop: 0 }}>{t('פורטל הטפסים לעובדים סוציאליים')}</h3>
         <p className="muted">{t('שלח/י את הקישור ואת קוד הגישה לעובד/ת הסוציאלי/ת — הוא/היא ייכנס/תיכנס לפורטל, יבחר/תבחר טופס מהרשימה, ימלא/תמלא וישלח/תשלח ישירות אלייך.')}</p>
         <div className="link-row">
-          <input className="link-input" value={link} readOnly onFocus={(e) => e.target.select()} />
+          <input className="link-input" value={link} readOnly aria-label="קישור לטופס" onFocus={(e) => e.target.select()} />
           <button className="btn-primary" onClick={() => copy(link)}>{t('העתק')}</button>
         </div>
         <p className="muted" style={{ marginTop: 8 }}>

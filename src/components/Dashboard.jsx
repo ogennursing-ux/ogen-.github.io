@@ -98,7 +98,7 @@ export default function Dashboard({ onDownloadSigned }) {
       status: statusText(info[it.id]),
       date: new Date(it.createdAt).toLocaleDateString(),
     }));
-    downloadBlob(toCsv(rows), 'text/csv;charset=utf-8', 'ogen-documents.csv');
+    downloadBlob(toCsv(rows), 'text/csv;charset=utf-8', 'klik-hatima-documents.csv');
   }
 
   async function mergeDownload() {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getSettings, saveSettings } from '../lib/notify.js';
+import { getSettings, saveSettings, notify } from '../lib/notify.js';
 import { useT } from '../lib/i18n.js';
 
 export default function Settings({ onClose }) {
@@ -7,11 +7,38 @@ export default function Settings({ onClose }) {
   const s = getSettings();
   const [ownerEmail, setOwnerEmail] = useState(s.ownerEmail || '');
   const [webhook, setWebhook] = useState(s.webhook || '');
+  const [testMsg, setTestMsg] = useState('');
+  const [testing, setTesting] = useState(false);
 
   const save = () => {
     saveSettings({ ownerEmail: ownerEmail.trim(), webhook: webhook.trim() });
     onClose();
   };
+
+  // Fire the SAME payload a real completed signature sends (incl. a PDF
+  // attachment), so this button faithfully tests the whole email path.
+  async function sendTest() {
+    if (!webhook.trim() || !ownerEmail.trim()) {
+      setTestMsg(t('מלא/י קודם מייל וכתובת שירות.'));
+      return;
+    }
+    setTesting(true);
+    setTestMsg(t('שולח…'));
+    try {
+      await notify(webhook.trim(), {
+        type: 'test',
+        to: ownerEmail.trim(),
+        title: 'בדיקה',
+        subject: 'בדיקת מייל מהאפליקציה — קליק חתימה',
+        message: 'זהו מייל בדיקה מהאפליקציה. אם קיבלת אותו — שליחת המיילים מחוברת ועובדת ✅',
+      });
+      setTestMsg(t('נשלח! בדוק/י את המייל שלך — כולל תיקיית ספאם. לא הגיע? כתוב/י לי.'));
+    } catch (e) {
+      setTestMsg('error: ' + e.message);
+    } finally {
+      setTesting(false);
+    }
+  }
 
   return (
     <div className="modal-backdrop" onPointerDown={onClose}>
@@ -21,7 +48,7 @@ export default function Settings({ onClose }) {
           <button className="icon-btn" onClick={onClose} aria-label="close">✕</button>
         </div>
         <p className="sign-hint">
-          {t('להפעלת שליחה אוטומטית במייל (קישור לחותם + המסמך החתום אליך) — חבר webhook של Make.')}
+          {t('בכל חתימה יישלח אליך מייל עם המסמך החתום המצורף (וכשיש שני חותמים — גם התראה אחרי החתימה הראשונה). כדי להפעיל: הזן את המייל שלך וכתובת שירות השליחה (Make או Google Apps Script).')}
         </p>
         <label className="field-label">{t('המייל שלך (לקבלת מסמכים חתומים)')}</label>
         <input
@@ -32,18 +59,22 @@ export default function Settings({ onClose }) {
           value={ownerEmail}
           onChange={(e) => setOwnerEmail(e.target.value)}
         />
-        <label className="field-label" style={{ marginTop: 10 }}>{t('כתובת ה-Webhook של Make')}</label>
+        <label className="field-label" style={{ marginTop: 10 }}>{t('כתובת שירות שליחת המייל (Make / Google Apps Script)')}</label>
         <input
           className="text-input"
           type="url"
           dir="ltr"
-          placeholder="https://hook.eu2.make.com/..."
+          placeholder="https://script.google.com/macros/s/.../exec"
           value={webhook}
           onChange={(e) => setWebhook(e.target.value)}
         />
-        <div className="sign-actions">
+        <div className="sign-actions" style={{ flexWrap: 'wrap' }}>
+          <button className="btn-ghost" onClick={sendTest} disabled={testing}>
+            {t('שלח מייל בדיקה')}
+          </button>
           <button className="btn-primary" onClick={save}>{t('שמור')}</button>
         </div>
+        {testMsg && <p className="sign-hint" style={{ marginTop: 8 }}>{testMsg}</p>}
       </div>
     </div>
   );

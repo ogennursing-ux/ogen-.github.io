@@ -56,7 +56,8 @@ export const mockApi = {
     return req;
   },
 
-  async getOriginalBytes(req) {
+  async getOriginalBytes(req, onProgress) {
+    onProgress?.(1);
     // template-based form rows reference the template's pdf
     if (!req.pdf_b64 && req.template_id) {
       const t = load(TMPL_KEY)[req.template_id];
@@ -80,6 +81,9 @@ export const mockApi = {
     delete all[id];
     save(REQ_KEY, all);
   },
+
+  // Mock storage keeps no files — split-part uploads are a no-op.
+  async uploadSignedPart() {},
 
   async submitSigned(id, { fields, signers, signedPdfBytes }) {
     const all = load(REQ_KEY);

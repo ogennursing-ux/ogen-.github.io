@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import SignFlow from './SignFlow.jsx';
 import LangToggle from './LangToggle.jsx';
+import BrandName from './BrandName.jsx';
+import DocLoader from './DocLoader.jsx';
 import { api } from '../lib/api.js';
-import { notify, bytesToBase64, getIp } from '../lib/notify.js';
+import { notify, getIp } from '../lib/notify.js';
+import { signedPublicUrl } from '../lib/config.js';
 import { renderPdfPages, buildSignedPdf } from '../lib/pdfUtils.js';
 import { normalizeSigners } from '../lib/fields.js';
 import { useT } from '../lib/i18n.js';
@@ -32,6 +35,7 @@ export default function FormSignerView({ id, brandIcon = '✒️', brandLabel, o
   const [fields, setFields] = useState([]);
   const [busy, setBusy] = useState(false);
   const [signedBytes, setSignedBytes] = useState(null);
+  const [loadProg, setLoadProg] = useState({ p: 0.03 });
 
   const title = template?.title || 'document';
 
@@ -40,9 +44,12 @@ export default function FormSignerView({ id, brandIcon = '✒️', brandLabel, o
     try {
       const t = await api.getTemplate(id);
       setTemplate(t);
-      const bytes = await api.getOriginalBytes(t);
+      setLoadProg({ p: 0.03 });
+      const bytes = await api.getOriginalBytes(t, (f) => setLoadProg({ p: 0.05 + f * 0.5 }));
       setOriginalBytes(bytes);
-      const rendered = await renderPdfPages(new Uint8Array(bytes.slice(0)));
+      const rendered = await renderPdfPages(new Uint8Array(bytes.slice(0)), {
+        onProgress: (f, i, n) => setLoadProg({ p: 0.55 + f * 0.45, page: i, pages: n }),
+      });
       setPages(rendered);
       setFields((t.fields || []).map((f) => ({ ...f, signer: 0 })));
       setStatus('ready');
@@ -69,19 +76,21 @@ export default function FormSignerView({ id, brandIcon = '✒️', brandLabel, o
       // Record the signer's name so it shows in the signatures list.
       const base = normalizeSigners(template?.signers);
       const list = (base.list && base.list.length ? base.list : SIGNERS).map((s, i) =>
-        i === 0 ? { ...s, signed: true, signedAt: new Date().toISOString(), ip, signedName: signerName || '' } : s,
+        i === 0 ? { ...s, signed: true, signedAt: new Date().toISOString(), ip, signedName: signerName || '', consent: 'terms-v1' } : s,
       );
-      await api.submitForm(template, { fields: filled, signedPdfBytes: bytes, signers: { ...base, list } });
+      const { id: submissionId } = await api.submitForm(template, { fields: filled, signedPdfBytes: bytes, signers: { ...base, list } });
       setSignedBytes(bytes);
       setStatus('done');
-      if (template.webhook_url && template.owner_email) {
+      {
         notify(template.webhook_url, {
           type: 'completed',
           to: template.owner_email,
           title,
-          link: location.href,
+          signerName: signerName || '',
           fileName: `${title}-signed.pdf`,
-          fileBase64: bytesToBase64(bytes),
+          fileUrl: signedPublicUrl(submissionId),
+          subject: `מסמך נחתם: ${title}`,
+          message: `המסמך "${title}" נחתם על ידי ${signerName || 'החותם'}. הקובץ החתום מצורף למייל זה.`,
         });
       }
     } catch (e) {
@@ -95,8 +104,8 @@ export default function FormSignerView({ id, brandIcon = '✒️', brandLabel, o
   const header = (
     <header className="app-header">
       <div className="brand">
-        <span className="brand-mark">{brandIcon}</span>
-        <span className="brand-name">{t(brandLabel || 'חתימה דיגיטלית')}</span>
+        {brandIcon === '✒️' ? <img className="brand-mark brand-logo" src="./klik-icon.png" alt="" /> : <span className="brand-mark">{brandIcon}</span>}
+        {brandLabel ? <span className="brand-name">{t(brandLabel)}</span> : <BrandName />}
       </div>
       <div className="header-actions">
         <LangToggle />
@@ -108,7 +117,8 @@ export default function FormSignerView({ id, brandIcon = '✒️', brandLabel, o
     <div className="app">{header}<div className="centered-screen">{content}</div></div>
   );
 
-  if (status === 'loading') return centered(<p className="muted">{t('טוען מסמך…')}</p>);
+  if (status === 'loading')
+    return centered(<DocLoader progress={loadProg.p} page={loadProg.page} pages={loadProg.pages} />);
   if (status === 'error')
     return centered(
       <div className="card"><h2>{t('לא ניתן לפתוח את המסמך')}</h2><p className="muted">{error}</p></div>,

@@ -16,6 +16,8 @@ import LinkCreated from './components/LinkCreated.jsx';
 import SignerView from './components/SignerView.jsx';
 import FormSignerView from './components/FormSignerView.jsx';
 import Login from './components/Login.jsx';
+import BrandName from './components/BrandName.jsx';
+import SplitPicker from './components/SplitPicker.jsx';
 import LangToggle from './components/LangToggle.jsx';
 import { renderPdfPages } from './lib/pdfUtils.js';
 import { fileToPdfBytes } from './lib/docx.js';
@@ -430,8 +432,8 @@ function PrepareApp({ onLogout, workerAdmin = false }) {
   const header = (
     <header className="app-header">
       <div className="brand">
-        <span className="brand-mark">{workerAdmin ? '📋' : '✒️'}</span>
-        <span className="brand-name">{workerAdmin ? t('טפסים לעובדים סוציאליים') : t('חתימה דיגיטלית')}</span>
+        {workerAdmin ? <span className="brand-mark">📋</span> : <img className="brand-mark brand-logo" src="./klik-icon.png" alt="" />}
+        {workerAdmin ? <span className="brand-name">{t('טפסים לעובדים סוציאליים')}</span> : <BrandName />}
       </div>
       <div className="header-actions">
         {screen === 'editor' && <span className="doc-name">{baseName}.pdf</span>}
@@ -688,16 +690,10 @@ function PrepareApp({ onLogout, workerAdmin = false }) {
           placeholder={t('הודעה לחותם (לא תופיע במסמך)')}
         />
       </div>
-      {sendMode !== 'worker' && (
-        <div className="doc-name-bar">
+      {sendMode !== 'worker' && pages.length > 1 && (
+        <div className="doc-name-bar split-bar">
           <label>{t('פיצול הורדה (לא חובה)')}</label>
-          <input
-            className="doc-name-input"
-            dir="ltr"
-            value={downloadGroups}
-            onChange={(e) => setDownloadGroups(e.target.value)}
-            placeholder={t('למשל: 1 ; 12-20')}
-          />
+          <SplitPicker count={pages.length} value={downloadGroups} onChange={setDownloadGroups} />
         </div>
       )}
       {activeTool ? (

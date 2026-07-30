@@ -34,7 +34,7 @@ export default function LinkCreated({ link, signerEmail, signersCount = 1, perma
         </p>
 
         <div className="link-row">
-          <input className="link-input" value={link} readOnly onFocus={(e) => e.target.select()} />
+          <input className="link-input" value={link} readOnly aria-label="קישור לחתימה" onFocus={(e) => e.target.select()} />
           <button className="btn-primary" onClick={copy}>
             {copied ? t('הועתק!') : t('העתק')}
           </button>
