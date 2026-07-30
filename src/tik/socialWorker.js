@@ -76,7 +76,13 @@ export function reportDueFor(year, q) {
 // employment start (startDate) or as the placement start (placementStartDate),
 // so fall back between them — otherwise a worker with only one of the two filled
 // generates no visits and silently drops out of the social-worker report.
-export function requiredVisitsFor(caseObj, horizonMonths = 36) {
+// horizonMonths caps how far the periodic series is generated. It must comfortably
+// exceed the longest a placement runs (foreign-worker caregiver placements reach
+// ~5–6 years), or a worker past that age silently stops getting ongoing ביקור שוטף.
+// The `due > limit` guard below is what actually bounds the listed visits to the
+// near future, so a generous cap here is safe — it just lets the loop reach the
+// currently-due visit on long-running placements.
+export function requiredVisitsFor(caseObj, horizonMonths = 120) {
   const f = caseObj.data?.fields || {};
   const start = parseDate(f.startDate || f.placementStartDate);
   if (!start) return [];
