@@ -7,9 +7,41 @@
 // The visit schedule rules live in ONE place (../tik/socialWorker.js), reused
 // here, so the portal and the office always agree on what is due.
 import { loadRegistry, activePlacements } from '../tik/registry.js';
-import { buildVisitReport, quarterOptions, VISIT_KINDS, saveVisit } from '../tik/socialWorker.js';
+import { buildVisitReport, quarterOptions, quarterOf, quarterRange, VISIT_KINDS, saveVisit } from '../tik/socialWorker.js';
 
 export { VISIT_KINDS, quarterOptions };
+
+// The time buckets the portal groups visits into — "what must be done now",
+// then this week / this month / this quarter, then anything further out.
+export const VISIT_BUCKETS = [
+  { key: 'overdue', label: 'חייב לעשות · באיחור', icon: '⚠️', tone: 'bad' },
+  { key: 'week', label: 'השבוע', icon: '📌', tone: 'warn' },
+  { key: 'month', label: 'החודש', icon: '🗓️', tone: '' },
+  { key: 'quarter', label: 'הרבעון', icon: '📊', tone: '' },
+  { key: 'later', label: 'בהמשך', icon: '🕓', tone: 'muted' },
+];
+
+const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+
+// Sort every open visit into a time bucket by its due date. Boundaries: this
+// week = next 7 days, this month = to the end of the calendar month, this
+// quarter = to the end of the calendar quarter, then everything further out.
+export function bucketVisits(rows) {
+  const today = startOfDay(new Date());
+  const weekEnd = new Date(today); weekEnd.setDate(weekEnd.getDate() + 7);
+  const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+  const q = quarterOf(today);
+  const { to: quarterEnd } = quarterRange(q.year, q.q);
+  const out = { overdue: [], week: [], month: [], quarter: [], later: [] };
+  for (const v of rows) {
+    if (v.due < today) out.overdue.push(v);
+    else if (v.due <= weekEnd) out.week.push(v);
+    else if (v.due <= monthEnd) out.month.push(v);
+    else if (v.due <= quarterEnd) out.quarter.push(v);
+    else out.later.push(v);
+  }
+  return out;
+}
 
 const isoToday = () => new Date().toISOString().slice(0, 10);
 
