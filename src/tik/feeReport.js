@@ -78,6 +78,8 @@ export async function downloadFeeReport(opts) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `דוח-גביית-עובדים-${opts.quarter || ''}.xlsx`.replace(/\s/g, '');
+  document.body.appendChild(a);
   a.click();
+  a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1500);
 }

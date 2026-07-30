@@ -163,6 +163,10 @@ export async function downloadInteriorReport(opts) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `דוח-רבעוני-משרד-הפנים-${opts.quarter || ''}.xlsx`.replace(/\s/g, '');
+  // Firefox (and some mobile browsers) ignore .click() on an anchor that is not
+  // in the document, so attach it before clicking and remove it after.
+  document.body.appendChild(a);
   a.click();
+  a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1500);
 }

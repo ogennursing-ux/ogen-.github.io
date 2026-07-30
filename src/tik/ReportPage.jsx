@@ -36,7 +36,9 @@ function downloadCsv(filename, header, rows) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = filename;
+  document.body.appendChild(a);
   a.click();
+  a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
@@ -366,7 +368,12 @@ function InteriorButton({ quarter, rows }) {
   // visits with a recorded date go in — a planned visit is not a reportable one.
   const done = rows.filter((v) => v.done);
   const go = async () => {
-    if (!done.length) { alert('אין ברבעון זה ביקורים שבוצעו (עם תאריך). עדכנו את תאריכי הביקורים ונסו שוב.'); return; }
+    // Keep the button live even with nothing to export, so the office gets a
+    // clear reason instead of a dead click.
+    if (!done.length) {
+      alert('אין ברבעון זה ביקורים מסומנים כבוצעו.\n\nהדוח הרשמי כולל רק ביקורים שכבר בוצעו — כאלה שהוזן להם תאריך ביצוע. סמנו את הביקורים שבוצעו (הזנת תאריך בטבלה למטה) ונסו שוב.');
+      return;
+    }
     setBusy(true);
     try {
       await downloadInteriorReport({
@@ -379,8 +386,8 @@ function InteriorButton({ quarter, rows }) {
     finally { setBusy(false); }
   };
   return (
-    <button className="rp-btn matash" disabled={busy || !done.length} onClick={go}
-      title={done.length ? `${done.length} ביקורים שבוצעו · כולל דף הצהרת מנהלים לחתימה` : 'אין ביקורים שבוצעו ברבעון'}>
+    <button className="rp-btn matash" disabled={busy} onClick={go}
+      title={done.length ? `${done.length} ביקורים שבוצעו · כולל דף הצהרת מנהלים לחתימה` : 'עדיין אין ביקורים מסומנים כבוצעו ברבעון — לחצו לפרטים'}>
       {busy ? 'מפיק…' : `📤 הורד דוח רשמי למשרד הפנים (עם דף חתימות)${done.length ? ` · ${done.length}` : ''}`}
     </button>
   );
