@@ -85,26 +85,25 @@ function AccessGate({ onEnter }) {
 // The visits due across all active placements — pulled live from the office
 // files, so the social worker sees exactly who to visit and opens a form that
 // is already filled with that person's details.
-function VisitRow({ v, onVisit }) {
+function VisitRow({ v, onVisit, tone }) {
   const t = useT();
   return (
-    <li className={`wl-item${v.overdue ? ' overdue' : ''}`}>
+    <li className="wl-item" data-tone={tone}>
       <div className="wl-main">
         <div className="wl-names">
           <span className="wl-worker">{v.workerName || '—'}</span>
-          <span className="wl-sep">·</span>
-          <span className="wl-family">{v.familyName || '—'}</span>
+          {v.familyName && <span className="wl-family">{v.familyName}</span>}
         </div>
         <div className="wl-meta">
-          <span className={`wl-kind ${v.kind.key}`}>{v.kind.icon} {v.kind.label}</span>
-          {v.city && <span className="wl-city">📍 {v.city}</span>}
-          <span className="wl-due">🗓️ {fmtDate(v.due)}</span>
+          <span className={`wl-chip wl-kind ${v.kind.key}`}>{v.kind.icon} {v.kind.label}</span>
+          {v.city && <span className="wl-chip">📍 {v.city}</span>}
+          <span className="wl-chip wl-date">🗓️ {fmtDate(v.due)}</span>
           {v.overdue
-            ? <span className="wl-pill bad">{t('באיחור')} {-v.daysLeft} {t('ימים')}</span>
-            : <span className="wl-pill warn">{t('בעוד')} {v.daysLeft} {t('ימים')}</span>}
+            ? <span className="wl-due bad">{t('באיחור')} {-v.daysLeft} {t('ימים')}</span>
+            : <span className="wl-due warn">{t('בעוד')} {v.daysLeft} {t('ימים')}</span>}
         </div>
       </div>
-      <button className="btn-primary sm" onClick={() => onVisit(v)}>
+      <button className="wl-open" onClick={() => onVisit(v)}>
         {t('פתח טופס ביקור')}
       </button>
     </li>
@@ -130,46 +129,61 @@ function Worklist({ onVisit, onForms, onLogout }) {
     <div className="app">
       <Header onLogout={onLogout} />
       <div className="centered-screen">
-        <div className="card" style={{ maxWidth: 760, width: '100%' }}>
-          <div className="wl-head">
-            <div>
-              <h2 style={{ margin: 0 }}>{t('הביקורים שלי')}</h2>
-              <p className="muted" style={{ margin: '4px 0 0' }}>
-                {t('מה צריך לעשות — לפי דחיפות. לחיצה פותחת טופס ביקור בית מלא מראש מהתיק.')}
+        <div className="card wl-portal">
+          <header className="wl-top">
+            <div className="wl-title">
+              <h2>{t('הביקורים שלי')}</h2>
+              <p className="wl-sub">
+                {t('מה צריך לעשות — לפי דחיפות. לחיצה פותחת טופס ביקור בית מלא מראש.')}
               </p>
             </div>
-            <button className="btn-ghost sm" onClick={onForms}>{t('טפסים אחרים')}</button>
-          </div>
+            <button className="wl-forms-link" onClick={onForms}>{t('טפסים אחרים')}</button>
+          </header>
 
-          {state.status === 'loading' && <p className="muted">{t('טוען…')}</p>}
+          {state.status === 'loading' && (
+            <div className="wl-loading"><span className="wl-spinner" aria-hidden /> {t('טוען את הביקורים…')}</div>
+          )}
           {state.status === 'error' && (
             <div className="wl-error">
-              <p>{t('לא הצלחנו לטעון את רשימת הביקורים.')}</p>
+              <p><b>{t('לא הצלחנו לטעון את רשימת הביקורים.')}</b></p>
               <p className="muted" dir="ltr" style={{ fontSize: 12 }}>{state.error}</p>
             </div>
           )}
 
           {state.status === 'ready' && (
             rows.length === 0 ? (
-              <p className="muted" style={{ marginTop: 16 }}>{t('אין כרגע ביקורים ממתינים. כל הכבוד! 🎉')}</p>
-            ) : (
-              <div className="wl-buckets">
-                {VISIT_BUCKETS.map((b) => {
-                  const list = buckets[b.key];
-                  if (!list || !list.length) return null;
-                  return (
-                    <section key={b.key} className={`wl-bucket ${b.tone}`}>
-                      <h3 className="wl-bucket-head">
-                        <span>{b.icon} {t(b.label)}</span>
-                        <em className="wl-count">{list.length}</em>
-                      </h3>
-                      <ul className="wl-list">
-                        {list.map((v) => <VisitRow key={v.rowId} v={v} onVisit={onVisit} />)}
-                      </ul>
-                    </section>
-                  );
-                })}
+              <div className="wl-empty">
+                <div className="wl-empty-mark" aria-hidden>✓</div>
+                <p>{t('אין כרגע ביקורים ממתינים')}</p>
+                <span>{t('כל הביקורים מעודכנים. עבודה טובה!')}</span>
               </div>
+            ) : (
+              <>
+                <div className="wl-summary">
+                  <div className="wl-stat"><b>{rows.length}</b><span>{t('ביקורים ממתינים')}</span></div>
+                  <div className={`wl-stat${buckets.overdue.length ? ' crit' : ''}`}>
+                    <b>{buckets.overdue.length}</b><span>{t('באיחור')}</span>
+                  </div>
+                </div>
+                <div className="wl-buckets">
+                  {VISIT_BUCKETS.map((b) => {
+                    const list = buckets[b.key];
+                    if (!list || !list.length) return null;
+                    const tone = b.tone || 'calm';
+                    return (
+                      <section key={b.key} className="wl-bucket" data-tone={tone}>
+                        <h3 className="wl-bucket-head">
+                          <span className="wl-bucket-label">{b.icon} {t(b.label)}</span>
+                          <em className="wl-count">{list.length}</em>
+                        </h3>
+                        <ul className="wl-list">
+                          {list.map((v) => <VisitRow key={v.rowId} v={v} onVisit={onVisit} tone={tone} />)}
+                        </ul>
+                      </section>
+                    );
+                  })}
+                </div>
+              </>
             )
           )}
         </div>
