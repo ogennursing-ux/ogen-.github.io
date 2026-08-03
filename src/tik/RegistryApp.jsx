@@ -376,6 +376,7 @@ export default function RegistryApp() {
           📊 דוחות {socialOverdue > 0 && <em className="alert">{socialOverdue}</em>}
         </button>
         <button className={`rg-tab${tab === 'leads' ? ' on' : ''}`} onClick={() => setTab('leads')}>📞 פניות <em>{leads.length}</em></button>
+        <a className="rg-tab rg-tab-ai" href="#assistant">🤖 עוזר AI</a>
       </nav>
 
       {tab !== 'home' && (

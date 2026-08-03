@@ -9,6 +9,7 @@ import RegistryApp from './tik/RegistryApp.jsx';
 import ReportPage from './tik/ReportPage.jsx';
 import Invoicing from './tik/Invoicing.jsx';
 import ManotDesk from './tik/ManotDesk.jsx';
+import AssistantDesk from './tik/AssistantDesk.jsx';
 import './index.css';
 
 document.documentElement.lang = 'he';
@@ -43,6 +44,7 @@ function Shell() {
   if (at === 'report') return <ReportPage />;
   if (at === 'invoices') return <Invoicing />;
   if (at === 'manot') return <ManotDesk />;
+  if (at === 'assistant') return <AssistantDesk />;
   if (at === 'registry') return <RegistryApp />;
   if (at === 'board') return <CasesBoard />;
   return <TikApp />;
