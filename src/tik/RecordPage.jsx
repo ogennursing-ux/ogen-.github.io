@@ -11,6 +11,7 @@ import {
 import { recordsFromChat } from './chatRecords.js';
 import { recordUrl, openRecordTab } from './recordLink.js';
 import { buildFilledContract } from './filledContract.js';
+import AiDraftModal from './AiDraftModal.jsx';
 import { COMPANY_NAME } from '../lib/workerPortal.js';
 
 const fmtDate = (v) => {
@@ -595,6 +596,7 @@ export default function RecordPage({ caseObj, kind, siblings = [], onNavigate, o
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState('details');
   const [hideSensitive, setHideSensitive] = useState(false);
+  const [showDraft, setShowDraft] = useState(false);
   const topRef = useRef(null);
 
   const stored = caseObj.data?.fields || {};
@@ -709,6 +711,7 @@ export default function RecordPage({ caseObj, kind, siblings = [], onNavigate, o
               {kind === 'worker' && (
                 <a className="rp-btn matash" href={`${location.pathname}${location.search}#manot?case=${caseObj.id}`} target="_blank" rel="noreferrer" title="הפקת מנה לרשות האוכלוסין עם פרטי העובד">📮 הפק מנה</a>
               )}
+              <button className="rp-btn ai" onClick={() => setShowDraft(true)} title="ניסוח הודעה עם AI, מעוגן בפרטי התיק, עם תרגום ושליחה">✍️ נסח עם AI</button>
               <button className="rp-btn ghost" onClick={onDuplicate}>🧬 שכפל</button>
               {waLink && <a className="rp-btn ghost" href={waLink} target="_blank" rel="noreferrer">💬 וואטסאפ</a>}
               {mailLink && <a className="rp-btn ghost" href={mailLink}>✉️ מייל</a>}
@@ -717,6 +720,8 @@ export default function RecordPage({ caseObj, kind, siblings = [], onNavigate, o
           )}
         </div>
       </div>
+
+      {showDraft && <AiDraftModal caseObj={caseObj} kind={kind} onClose={() => setShowDraft(false)} />}
 
       <header className="rp-hero">
         <div className="rp-hero-main">

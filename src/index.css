@@ -3148,3 +3148,28 @@ body {
 .ai-keygate { max-width: 460px; margin: 60px auto; background: #fff; border: 1px solid var(--line, #e2e8e8); border-radius: 14px; padding: 24px; text-align: center; }
 .ai-keygate h3 { margin: 0 0 10px; }
 .ai-keygate p { color: var(--muted, #62727a); font-size: 14px; line-height: 1.5; }
+
+/* ===== AI draft modal (✍️ נסח עם AI) ===== */
+.rp-btn.ai { background: linear-gradient(135deg, #14778a, #0e4a57); color: #fff; border: none; }
+.rp-btn.ai:hover { filter: brightness(1.08); }
+.aid-overlay { position: fixed; inset: 0; background: rgba(10,25,30,.5); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; z-index: 1000; overflow-y: auto; }
+.aid-modal { background: #fff; border-radius: 16px; width: 100%; max-width: 560px; padding: 20px 22px; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+.aid-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.aid-head h3 { margin: 0; font-size: 17px; }
+.aid-x { border: none; background: #f0f4f4; width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: 15px; }
+.aid-warn { background: #fef2f2; border: 1px solid #f7cfcf; color: #c0392b; border-radius: 10px; padding: 9px 12px; font-size: 13px; margin: 8px 0; }
+.aid-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.aid-row label { font-size: 13px; color: var(--muted,#62727a); }
+.aid-seg { display: inline-flex; border: 1px solid var(--line,#e2e8e8); border-radius: 10px; overflow: hidden; }
+.aid-seg button { border: none; background: #fff; padding: 7px 14px; font-size: 13px; cursor: pointer; }
+.aid-seg button.on { background: var(--brand-600,#14778a); color: #fff; }
+.aid-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.aid-chip { border: 1px solid var(--line,#e2e8e8); background: #fff; border-radius: 999px; padding: 6px 12px; font-size: 12.5px; cursor: pointer; }
+.aid-chip:hover { background: #eef7f8; border-color: var(--brand-600,#14778a); }
+.aid-instr { width: 100%; min-height: 60px; border: 1px solid var(--line,#e2e8e8); border-radius: 10px; padding: 10px; font: inherit; resize: vertical; margin-bottom: 10px; }
+.aid-out { margin-top: 14px; }
+.aid-label { display: block; font-size: 12px; color: var(--muted,#62727a); margin-bottom: 4px; font-weight: 700; }
+.aid-draft { width: 100%; min-height: 120px; border: 1px solid var(--line,#e2e8e8); border-radius: 10px; padding: 11px; font: inherit; line-height: 1.6; resize: vertical; }
+.aid-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.aid-translate { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line,#e2e8e8); }
+.aid-translate select { border: 1px solid var(--line,#e2e8e8); border-radius: 8px; padding: 7px 10px; font: inherit; }
