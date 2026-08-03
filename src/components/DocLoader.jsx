@@ -19,8 +19,6 @@ export default function DocLoader({ progress, page, pages }) {
 
   return (
     <div className="doc-loader" role="status" aria-live="polite">
-      {/* inline width/height so the logo can never flash at full size before CSS loads */}
-      <img className="dl-logo" src="./klik-icon.png" alt="" width="64" height="64" />
       <div className="dl-stage">
         <svg viewBox="0 0 226 70" className="dl-svg" aria-hidden>
           {/* inline fill/stroke so the path never renders as a solid black blob pre-CSS */}
