@@ -12,6 +12,7 @@ import { openRecordTab } from './recordLink.js';
 import { seedDemoData, clearDemoData } from './demoData.js';
 import { buildVisitReport } from './socialWorker.js';
 import { buildAgenda, BUCKETS } from './agenda.js';
+import AiBriefing from './AiBriefing.jsx';
 
 function Login({ onIn }) {
   const [user, setUser] = useState('');
@@ -376,6 +377,7 @@ export default function RegistryApp() {
           📊 דוחות {socialOverdue > 0 && <em className="alert">{socialOverdue}</em>}
         </button>
         <button className={`rg-tab${tab === 'leads' ? ' on' : ''}`} onClick={() => setTab('leads')}>📞 פניות <em>{leads.length}</em></button>
+        <a className="rg-tab" href="#templates">📑 תבניות חוזים</a>
         <a className="rg-tab rg-tab-ai" href="#assistant">🤖 עוזר AI</a>
       </nav>
 
@@ -407,11 +409,14 @@ export default function RegistryApp() {
       {cases === null && !err && <p className="rg-empty">טוען…</p>}
 
       {cases && tab === 'home' && (
-        <HomeAgenda agenda={agenda} me={me} rakazim={rakazim} onMe={setConnected}
-          onOpen={(item) => {
-            if (item.lead) { setTab('leads'); return; }
-            if (item.caseObj) openRecordTab(item.recordKind, item.caseObj.id);
-          }} />
+        <>
+          <AiBriefing />
+          <HomeAgenda agenda={agenda} me={me} rakazim={rakazim} onMe={setConnected}
+            onOpen={(item) => {
+              if (item.lead) { setTab('leads'); return; }
+              if (item.caseObj) openRecordTab(item.recordKind, item.caseObj.id);
+            }} />
+        </>
       )}
 
       {cases && tab === 'families' && (
