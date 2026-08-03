@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { isAuthed, login } from './officeAuth.js';
 import { loadRegistry, searchWorkers, searchFamilies } from './registry.js';
+import PdfPlacementEditor from './PdfPlacementEditor.jsx';
 import {
-  SOURCE_FIELDS, scanDocxTokens, fillTemplateForCase, bytesToBase64,
+  fillTemplateForCase, bytesToBase64, templateBlob,
   listTemplates, saveTemplate, deleteTemplate,
 } from './contractTemplates.js';
 
@@ -21,14 +22,6 @@ function Login({ onIn }) {
       </form>
     </div>
   );
-}
-
-const ALL_SRC = SOURCE_FIELDS.flatMap((g) => g.keys);
-// Guess a binding: token equals a field key or its Hebrew label.
-function guessSource(token) {
-  const t = token.trim().toLowerCase();
-  const hit = ALL_SRC.find((f) => f.key.toLowerCase() === t || f.label === token.trim());
-  return hit ? hit.key : '';
 }
 
 function download(blob, name) {
@@ -69,74 +62,61 @@ function CasePicker({ onPick, onClose }) {
   );
 }
 
+// Upload a PDF → place fields → name → save.
 function Uploader({ onSaved, onCancel }) {
   const [name, setName] = useState('');
-  const [tokens, setTokens] = useState(null);
-  const [mapping, setMapping] = useState({});
-  const [docxBase64, setDocxBase64] = useState('');
+  const [blob, setBlob] = useState(null);
+  const [placements, setPlacements] = useState([]);
+  const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
-  async function onFile(e) {
+  function onFile(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setErr(''); setBusy(true);
-    try {
-      const buf = await file.arrayBuffer();
-      const found = await scanDocxTokens(buf);
-      setDocxBase64(bytesToBase64(buf));
-      setTokens(found);
-      const init = {}; for (const t of found) init[t] = guessSource(t);
-      setMapping(init);
-      if (!name) setName(file.name.replace(/\.docx$/i, ''));
-    } catch (e2) { setErr('קריאת הקובץ נכשלה. ודא/י שזה קובץ Word ‎.docx. ' + (e2?.message || '')); }
-    finally { setBusy(false); }
+    setErr(''); setBlob(file);
+    if (!name) setName(file.name.replace(/\.pdf$/i, ''));
+    setEditing(true); // jump straight into placing fields
   }
-
-  const mappedCount = tokens ? tokens.filter((t) => mapping[t]).length : 0;
 
   async function save() {
     setBusy(true); setErr('');
-    try { await saveTemplate({ name: name.trim() || 'תבנית', docxBase64, mapping, tokens }); onSaved(); }
-    catch (e2) { setErr(e2?.message || String(e2)); }
+    try {
+      const pdfBase64 = bytesToBase64(await blob.arrayBuffer());
+      await saveTemplate({ name: name.trim() || 'תבנית', pdfBase64, placements });
+      onSaved();
+    } catch (e2) { setErr(e2?.message || String(e2)); }
     finally { setBusy(false); }
   }
 
   return (
     <div className="ct-panel">
-      <div className="ct-panel-head"><h3>העלאת תבנית חדשה</h3><button className="rp-btn ghost sm" onClick={onCancel}>ביטול</button></div>
-      <label className="ct-file">
-        <input type="file" accept=".docx" onChange={onFile} />
-        <span>📎 בחר/י קובץ חוזה (‎.docx) עם שדות בסגנון <code dir="ltr">{'{{שדה}}'}</code></span>
-      </label>
-      {busy && !tokens && <p className="muted">סורק…</p>}
+      <div className="ct-panel-head"><h3>העלאת תבנית חדשה (PDF)</h3><button className="rp-btn ghost sm" onClick={onCancel}>ביטול</button></div>
+      {!blob ? (
+        <label className="ct-file">
+          <input type="file" accept="application/pdf,.pdf" onChange={onFile} />
+          <span>📎 בחר/י את קובץ החוזה (PDF)</span>
+        </label>
+      ) : (
+        <>
+          <label className="field-label">שם התבנית</label>
+          <input className="text-input" value={name} onChange={(e) => setName(e.target.value)} />
+          <p className="ct-count">מוקמו <b>{placements.length}</b> שדות על החוזה.</p>
+          <div className="ct-card-actions">
+            <button className="rp-btn" onClick={() => setEditing(true)}>🖊️ מיקום שדות</button>
+            <button className="rp-btn matash" disabled={busy || !placements.length} onClick={save}>{busy ? 'שומר…' : '💾 שמור תבנית'}</button>
+          </div>
+          {!placements.length && <p className="muted" style={{ marginTop: 8 }}>מקם/י לפחות שדה אחד לפני השמירה.</p>}
+        </>
+      )}
       {err && <p className="aid-warn">{err}</p>}
 
-      {tokens && (
-        <>
-          <label className="field-label" style={{ marginTop: 14 }}>שם התבנית</label>
-          <input className="text-input" value={name} onChange={(e) => setName(e.target.value)} />
-
-          <p className="ct-count">זוהו <b>{tokens.length}</b> שדות · הוצמדו <b>{mappedCount}</b>. הצמד/י כל שדה למקור במערכת:</p>
-          {tokens.length === 0 && <p className="muted">לא זוהו שדות בסגנון {'{{...}}'}. ודא/י שהחוזה מכיל אותם.</p>}
-          <div className="ct-map">
-            {tokens.map((t) => (
-              <div key={t} className="ct-row">
-                <code className="ct-token">{`{{${t}}}`}</code>
-                <span className="ct-arrow">←</span>
-                <select className="ct-select" value={mapping[t] || ''} onChange={(e) => setMapping((m) => ({ ...m, [t]: e.target.value }))}>
-                  <option value="">— השאר ריק —</option>
-                  {SOURCE_FIELDS.map((g) => (
-                    <optgroup key={g.group} label={g.group}>
-                      {g.keys.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
-                    </optgroup>
-                  ))}
-                </select>
-              </div>
-            ))}
-          </div>
-          <button className="rp-btn" style={{ marginTop: 14 }} disabled={busy} onClick={save}>{busy ? 'שומר…' : '💾 שמור תבנית'}</button>
-        </>
+      {editing && blob && (
+        <PdfPlacementEditor
+          template={{ blob, placements }}
+          onClose={() => setEditing(false)}
+          onSave={(pl) => { setPlacements(pl); setEditing(false); }}
+        />
       )}
     </div>
   );
@@ -145,7 +125,8 @@ function Uploader({ onSaved, onCancel }) {
 function Desk() {
   const [templates, setTemplates] = useState(null);
   const [view, setView] = useState('list');
-  const [picking, setPicking] = useState(null); // template being filled
+  const [picking, setPicking] = useState(null);
+  const [editingTpl, setEditingTpl] = useState(null);
   const [msg, setMsg] = useState('');
 
   const reload = () => listTemplates().then(setTemplates).catch(() => setTemplates([]));
@@ -156,10 +137,17 @@ function Desk() {
     try {
       const blob = await fillTemplateForCase(tpl, caseObj);
       const who = caseObj.worker?.nameEn || caseObj.family?.fullName || 'חוזה';
-      download(blob, `${tpl.name} — ${who}.docx`);
-      setMsg('✓ הקובץ הורד');
+      download(blob, `${tpl.name} — ${who}.pdf`);
+      setMsg('✓ החוזה הממולא הורד');
     } catch (e) { setMsg('נכשל: ' + (e?.message || e)); }
     setTimeout(() => setMsg(''), 3000);
+  }
+
+  async function saveFields(tpl, placements) {
+    setEditingTpl(null); setMsg('שומר…');
+    try { await saveTemplate({ id: tpl.id, name: tpl.name, pdfBase64: tpl.pdfBase64, placements }); await reload(); setMsg('✓ נשמר'); }
+    catch (e) { setMsg('נכשל: ' + (e?.message || e)); }
+    setTimeout(() => setMsg(''), 2500);
   }
 
   return (
@@ -167,7 +155,7 @@ function Desk() {
       <header className="mn-head">
         <div>
           <h1>📑 תבניות חוזים</h1>
-          <p className="mn-sub">העלה/י חוזה, הצמד/י את שדותיו למקורות במערכת, ומאז הוא מתמלא לבד לכל תיק.</p>
+          <p className="mn-sub">מעלים חוזה PDF, מסמנים עליו שדות (כמו בחתימה הדיגיטלית) ומצמידים כל שדה לפרט במערכת — ומאז החוזה מתמלא לבד לכל תיק.</p>
         </div>
         <a className="rp-btn ghost" href="#registry">← חזרה למערכת</a>
       </header>
@@ -180,17 +168,18 @@ function Desk() {
         <>
           <button className="rp-btn matash" onClick={() => setView('new')}>➕ העלאת תבנית חדשה</button>
           {templates === null ? <p className="muted" style={{ marginTop: 16 }}>טוען…</p> : templates.length === 0 ? (
-            <p className="muted" style={{ marginTop: 16 }}>אין עדיין תבניות. העלה/י חוזה ראשון.</p>
+            <p className="muted" style={{ marginTop: 16 }}>אין עדיין תבניות. העלה/י חוזה PDF ראשון.</p>
           ) : (
             <div className="ct-list">
               {templates.map((t) => (
                 <div key={t.id} className="ct-card">
                   <div>
                     <b>{t.name}</b>
-                    <span>{(t.tokens || []).length} שדות · {Object.values(t.mapping || {}).filter(Boolean).length} מוצמדים</span>
+                    <span>{(t.placements || []).length} שדות מוקמו</span>
                   </div>
                   <div className="ct-card-actions">
                     <button className="rp-btn sm" onClick={() => setPicking(t)}>📝 מלא לפי תיק</button>
+                    <button className="rp-btn ghost sm" onClick={() => setEditingTpl(t)}>🖊️ שדות</button>
                     <button className="rp-btn ghost sm" onClick={async () => { if (confirm('למחוק את התבנית?')) { await deleteTemplate(t.id); reload(); } }}>מחק</button>
                   </div>
                 </div>
@@ -201,6 +190,13 @@ function Desk() {
       )}
 
       {picking && <CasePicker onPick={(c) => fillFor(picking, c)} onClose={() => setPicking(null)} />}
+      {editingTpl && (
+        <PdfPlacementEditor
+          template={{ blob: templateBlob(editingTpl), placements: editingTpl.placements }}
+          onClose={() => setEditingTpl(null)}
+          onSave={(pl) => saveFields(editingTpl, pl)}
+        />
+      )}
     </div>
   );
 }

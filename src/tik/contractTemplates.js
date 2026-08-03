@@ -1,17 +1,17 @@
-// Contract template mapper.
+// PDF contract template mapper.
 //
-// The office uploads its OWN contract (.docx) with placeholders like {{...}}.
-// We scan it, list the placeholders it contains, and let the office bind each
-// one to a field in the system (worker / patient / company). The binding is
-// saved, so from then on the contract fills itself for any case.
+// The office uploads its own contract as a PDF and places data fields on it —
+// exactly like placing signature fields in the digital-signature app. Each
+// field is bound to a value from the system (worker / patient / company). The
+// template (the PDF + the field placements) is saved, and from then on the
+// contract fills itself for any case, producing a ready PDF that can also be
+// sent to signing.
 //
-// Built on the existing merge engine: the placeholders can be named anything
-// (including Hebrew), and each maps to one of the known source keys that
-// buildValueMap already knows how to resolve.
+// Reuses the existing PDF field editor (PdfPlacementEditor) and overlay engine
+// (buildOverlayPdf) — this module is just the storage + per-case fill wiring.
 import { createClient } from '@supabase/supabase-js';
-import JSZip from 'jszip';
 import { recordsFromChat } from './chatRecords.js';
-import { buildValueMap, WORKER_KEYS, PATIENT_KEYS, CONTRACT_FIELD_LABELS } from './contractMerge.js';
+import { buildOverlayPdf } from './contractOverlay.js';
 import { COMPANY_NAME } from '../lib/workerPortal.js';
 
 const SUPABASE_URL = 'https://dhrctqjxbdlwfxabinbr.supabase.co';
@@ -20,88 +20,6 @@ const SUPABASE_ANON_KEY =
 let _sb;
 const sb = () => (_sb || (_sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)));
 
-// The catalog of fields a placeholder can be bound to, with Hebrew labels.
-export const SOURCE_FIELDS = [
-  { group: 'עובד/ת', keys: WORKER_KEYS },
-  { group: 'מטופל/משפחה', keys: PATIENT_KEYS },
-  { group: 'כללי', keys: ['today', 'companyName'] },
-].map((g) => ({ ...g, keys: g.keys.map((k) => ({ key: k, label: CONTRACT_FIELD_LABELS[k] || k })) }));
-
-const TOKEN = /\{\{\s*([^{}]+?)\s*\}\}/g;
-
-// Combine the runs of each paragraph (Word splits typed text), so a placeholder
-// spread across runs is still seen whole.
-function paragraphsText(xml) {
-  const out = [];
-  const doc = new DOMParser().parseFromString(xml, 'application/xml');
-  const paras = doc.getElementsByTagName('w:p');
-  for (let i = 0; i < paras.length; i++) {
-    const texts = paras[i].getElementsByTagName('w:t');
-    let s = '';
-    for (let j = 0; j < texts.length; j++) s += texts[j].textContent;
-    if (s) out.push(s);
-  }
-  return out;
-}
-
-const PART_RE = /^word\/(document|header\d*|footer\d*)\.xml$/;
-
-// Every distinct {{placeholder}} in the uploaded .docx.
-export async function scanDocxTokens(fileBuf) {
-  const buf = fileBuf instanceof Blob ? await fileBuf.arrayBuffer() : fileBuf;
-  const zip = await JSZip.loadAsync(buf);
-  const found = new Set();
-  for (const name of Object.keys(zip.files).filter((n) => PART_RE.test(n))) {
-    const xml = await zip.file(name).async('string');
-    for (const line of paragraphsText(xml)) {
-      let m;
-      TOKEN.lastIndex = 0;
-      while ((m = TOKEN.exec(line))) found.add(m[1].trim());
-    }
-  }
-  return [...found];
-}
-
-// Replace {{token}} across a part, using a token→value map, combining runs.
-function fillXml(xml, tokenValues) {
-  if (xml.indexOf('{{') === -1) return xml;
-  const doc = new DOMParser().parseFromString(xml, 'application/xml');
-  const paras = doc.getElementsByTagName('w:p');
-  for (let i = 0; i < paras.length; i++) {
-    const texts = paras[i].getElementsByTagName('w:t');
-    if (!texts.length) continue;
-    let combined = '';
-    for (let j = 0; j < texts.length; j++) combined += texts[j].textContent;
-    if (combined.indexOf('{{') === -1) continue;
-    const replaced = combined.replace(TOKEN, (whole, raw) => {
-      const k = raw.trim();
-      return Object.prototype.hasOwnProperty.call(tokenValues, k) ? tokenValues[k] : whole;
-    });
-    texts[0].textContent = replaced;
-    texts[0].setAttribute('xml:space', 'preserve');
-    for (let j = 1; j < texts.length; j++) texts[j].textContent = '';
-  }
-  return new XMLSerializer().serializeToString(doc);
-}
-
-// Fill an uploaded template (by its stored mapping) for one case → filled .docx.
-export async function fillTemplateForCase(tpl, caseObj) {
-  const { worker, family } = recordsFromChat(caseObj?.data?.fields || {});
-  const values = buildValueMap({ worker, family }, { companyName: COMPANY_NAME });
-  const tokenValues = {};
-  for (const [token, srcKey] of Object.entries(tpl.mapping || {})) {
-    if (!srcKey) continue; // unmapped → leave the placeholder as-is
-    tokenValues[token] = values[srcKey] != null ? String(values[srcKey]) : '';
-  }
-  const buf = base64ToBytes(tpl.docxBase64).buffer;
-  const zip = await JSZip.loadAsync(buf);
-  for (const name of Object.keys(zip.files).filter((n) => PART_RE.test(n))) {
-    const xml = await zip.file(name).async('string');
-    zip.file(name, fillXml(xml, tokenValues));
-  }
-  return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-}
-
 // ---- base64 <-> bytes -----------------------------------------------------------
 export function bytesToBase64(bytes) {
   let bin = '';
@@ -109,16 +27,32 @@ export function bytesToBase64(bytes) {
   for (let i = 0; i < arr.length; i += 0x8000) bin += String.fromCharCode.apply(null, arr.subarray(i, i + 0x8000));
   return btoa(bin);
 }
-function base64ToBytes(b64) {
+export function base64ToBytes(b64) {
   const bin = atob(b64);
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 }
+// A saved template's PDF as a Blob (for re-opening the field editor).
+export const templateBlob = (tpl) => new Blob([base64ToBytes(tpl.pdfBase64)], { type: 'application/pdf' });
+
+// ---- fill for a case -----------------------------------------------------------
+// Overlay the case's real values onto the template PDF at the saved placements.
+// Signature placements carry no value, so they stay empty for signing later.
+export async function fillTemplateForCase(tpl, caseObj) {
+  const { worker, family } = recordsFromChat(caseObj?.data?.fields || {});
+  const bytes = base64ToBytes(tpl.pdfBase64);
+  const out = await buildOverlayPdf(bytes, tpl.placements || [], { worker, family }, { companyName: COMPANY_NAME });
+  return new Blob([out], { type: 'application/pdf' });
+}
 
 // ---- storage (Supabase; kept out of the cases list via kind='config') ----------
 const isTpl = (r) => r?.data?.configType === 'contract_template';
-const shape = (r) => ({ id: r.id, name: r.data?.name || 'תבנית', mapping: r.data?.mapping || {}, docxBase64: r.data?.docxBase64 || '', tokens: r.data?.tokens || [], updatedAt: r.data?.updatedAt });
+const shape = (r) => ({
+  id: r.id, name: r.data?.name || 'תבנית',
+  placements: r.data?.placements || [], pdfBase64: r.data?.pdfBase64 || '',
+  updatedAt: r.data?.updatedAt,
+});
 
 export async function listTemplates() {
   const { data, error } = await sb().from('agent_submissions').select('*').eq('kind', 'config').limit(200);
@@ -126,8 +60,8 @@ export async function listTemplates() {
   return (data || []).filter(isTpl).map(shape).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 }
 
-export async function saveTemplate({ id, name, docxBase64, mapping, tokens }) {
-  const data = { configType: 'contract_template', name, docxBase64, mapping, tokens, updatedAt: Date.now() };
+export async function saveTemplate({ id, name, pdfBase64, placements }) {
+  const data = { configType: 'contract_template', name, pdfBase64, placements, updatedAt: Date.now() };
   if (id) {
     const { error } = await sb().from('agent_submissions').update({ data }).eq('id', id);
     if (error) throw new Error('שמירת התבנית נכשלה: ' + error.message);
