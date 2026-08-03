@@ -19,11 +19,13 @@ export default function DocLoader({ progress, page, pages }) {
 
   return (
     <div className="doc-loader" role="status" aria-live="polite">
-      <img className="dl-logo" src="./klik-icon.png" alt="" />
+      {/* inline width/height so the logo can never flash at full size before CSS loads */}
+      <img className="dl-logo" src="./klik-icon.png" alt="" width="64" height="64" />
       <div className="dl-stage">
         <svg viewBox="0 0 226 70" className="dl-svg" aria-hidden>
-          <path className="dl-sig-track" d={SIG_PATH} />
-          <path className="dl-sig" d={SIG_PATH} />
+          {/* inline fill/stroke so the path never renders as a solid black blob pre-CSS */}
+          <path className="dl-sig-track" d={SIG_PATH} fill="none" stroke="#e6eaf0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          <path className="dl-sig" d={SIG_PATH} fill="none" stroke="#20a45c" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <span className="dl-pen" aria-hidden>
           ✒️
