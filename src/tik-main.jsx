@@ -8,6 +8,7 @@ import SignFields from './tik/SignFields.jsx';
 import RegistryApp from './tik/RegistryApp.jsx';
 import ReportPage from './tik/ReportPage.jsx';
 import Invoicing from './tik/Invoicing.jsx';
+import ManotDesk from './tik/ManotDesk.jsx';
 import './index.css';
 
 document.documentElement.lang = 'he';
@@ -41,6 +42,7 @@ function Shell() {
   if (at === 'signfields') return <SignFields />;
   if (at === 'report') return <ReportPage />;
   if (at === 'invoices') return <Invoicing />;
+  if (at === 'manot') return <ManotDesk />;
   if (at === 'registry') return <RegistryApp />;
   if (at === 'board') return <CasesBoard />;
   return <TikApp />;

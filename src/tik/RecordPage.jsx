@@ -706,6 +706,9 @@ export default function RecordPage({ caseObj, kind, siblings = [], onNavigate, o
             <>
               <button className="rp-btn" onClick={() => setEditing(true)}>✏️ עריכה</button>
               <a className="rp-btn receipt" href={receiptLink} target="_blank" rel="noreferrer" title="פתיחת קבלה עם הפרטים כבר ממולאים">🧾 הפק קבלה</a>
+              {kind === 'worker' && (
+                <a className="rp-btn matash" href={`${location.pathname}${location.search}#manot?case=${caseObj.id}`} target="_blank" rel="noreferrer" title="הפקת מנה לרשות האוכלוסין עם פרטי העובד">📮 הפק מנה</a>
+              )}
               <button className="rp-btn ghost" onClick={onDuplicate}>🧬 שכפל</button>
               {waLink && <a className="rp-btn ghost" href={waLink} target="_blank" rel="noreferrer">💬 וואטסאפ</a>}
               {mailLink && <a className="rp-btn ghost" href={mailLink}>✉️ מייל</a>}
