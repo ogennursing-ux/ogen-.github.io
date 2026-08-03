@@ -3,10 +3,10 @@
   --panel: #ffffff;
   --ink: #16243a;
   --muted: #59616e;
-  --line: #d7e7dd;
+  --line: #e6eaf0;
   --primary: #20a45c;
   --primary-dark: #178a4c;
-  --accent: #178a4c;
+  --accent: #2f6fed;
   --danger: #dc2626;
   --shadow: 0 10px 30px rgba(13, 27, 42, 0.10);
 }
@@ -405,7 +405,7 @@ button {
   bottom: 20px;
   inset-inline-start: 20px;
   z-index: 45;
-  background: var(--accent);
+  background: var(--primary);
   color: #fff;
   font-weight: 700;
   font-size: 14px;
@@ -533,7 +533,7 @@ button {
   line-height: 1.55;
 }
 .consent-note a {
-  color: var(--accent);
+  color: var(--primary-dark);
 }
 .legal-links {
   display: flex;
@@ -1341,9 +1341,9 @@ button {
   color: var(--muted);
 }
 .dash-filters .chip.active {
-  border-color: var(--accent);
+  border-color: var(--primary);
   background: #e7f4ec;
-  color: var(--accent);
+  color: var(--primary-dark);
 }
 .dash-bulk {
   display: flex;
@@ -2883,7 +2883,7 @@ textarea.gov-input { resize: vertical; }
 /* =======================================================================
    VISUAL REFRESH — modern, warm, inviting look (appended last so it wins)
    ======================================================================= */
-:root {
+:root[data-app="office"] {
   --bg: #eaf0f8;
   --ink: #14233b;
   --muted: #5f6b7d;
@@ -2897,7 +2897,7 @@ textarea.gov-input { resize: vertical; }
   --shadow-sm: 0 3px 12px rgba(17, 40, 70, 0.07);
 }
 
-body {
+[data-app="office"] body {
   background:
     radial-gradient(1100px 560px at 100% -8%, rgba(56, 189, 248, 0.10), transparent 60%),
     radial-gradient(950px 480px at -8% 2%, rgba(14, 165, 233, 0.12), transparent 55%),
@@ -2906,52 +2906,52 @@ body {
 }
 
 /* header — frosted, with a gradient brand mark */
-.app-header {
+[data-app="office"] .app-header {
   background: rgba(255, 255, 255, 0.82);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(226, 232, 242, 0.9);
   box-shadow: 0 2px 14px rgba(17, 40, 70, 0.04);
 }
-.brand-mark {
+[data-app="office"] .brand-mark {
   background: linear-gradient(135deg, #0369a1, #075985);
   color: #fff;
   box-shadow: 0 6px 15px rgba(14, 165, 233, 0.32);
 }
-.brand-name { color: var(--ink); }
+[data-app="office"] .brand-name { color: var(--ink); }
 
 /* buttons — gradient primary with a gentle lift, cleaner ghost */
-.btn-primary {
+[data-app="office"] .btn-primary {
   background: linear-gradient(135deg, #0369a1, #075985);
   border-radius: 12px;
   box-shadow: 0 8px 18px rgba(14, 165, 233, 0.26);
   transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
-.btn-primary:hover:not(:disabled) {
+[data-app="office"] .btn-primary:hover:not(:disabled) {
   filter: brightness(1.06);
   transform: translateY(-1px);
   box-shadow: 0 12px 24px rgba(14, 165, 233, 0.32);
 }
-.btn-primary:active:not(:disabled) { transform: translateY(0); box-shadow: 0 6px 14px rgba(14, 165, 233, 0.26); }
-.btn-ghost {
+[data-app="office"] .btn-primary:active:not(:disabled) { transform: translateY(0); box-shadow: 0 6px 14px rgba(14, 165, 233, 0.26); }
+[data-app="office"] .btn-ghost {
   border-radius: 12px;
   border: 1.5px solid #e4e9f1;
   transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.15s;
 }
-.btn-ghost:hover:not(:disabled) { border-color: var(--primary); color: var(--primary-dark); background: #eff8fe; transform: translateY(-1px); }
-.btn-danger { border-radius: 12px; }
-.icon-btn { border-radius: 10px; }
+[data-app="office"] .btn-ghost:hover:not(:disabled) { border-color: var(--primary); color: var(--primary-dark); background: #eff8fe; transform: translateY(-1px); }
+[data-app="office"] .btn-danger { border-radius: 12px; }
+[data-app="office"] .icon-btn { border-radius: 10px; }
 
 /* inputs — rounded with a soft focus ring */
-.text-input {
+[data-app="office"] .text-input {
   border-radius: 12px;
   border: 1.5px solid #e4e9f1;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
-.text-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.16); }
+[data-app="office"] .text-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.16); }
 
 /* cards — softer depth */
-.card { border: 1px solid rgba(226, 232, 242, 0.9); box-shadow: var(--shadow); border-radius: 18px; }
+[data-app="office"] .card { border: 1px solid rgba(226, 232, 242, 0.9); box-shadow: var(--shadow); border-radius: 18px; }
 
 /* mode switch — active pill in the brand gradient */
 .tik-modetabs { background: #e7edf6; border-radius: 14px; padding: 5px; }
@@ -2987,9 +2987,9 @@ body {
 .tik-empty { border-radius: 18px; }
 
 /* badges & chips */
-.badge.ok { background: #d7f5e4; color: #15803d; }
-.badge.wait { background: #fef2c9; color: #92600b; }
-.badge.muted { background: #eef1f6; color: var(--muted); }
+[data-app="office"] .badge.ok { background: #d7f5e4; color: #15803d; }
+[data-app="office"] .badge.wait { background: #fef2c9; color: #92600b; }
+[data-app="office"] .badge.muted { background: #eef1f6; color: var(--muted); }
 
 /* per-field copy button */
 .tik-copy { border-radius: 10px; border: 1.5px solid #e4e9f1; transition: background 0.15s, color 0.15s, border-color 0.15s; }
