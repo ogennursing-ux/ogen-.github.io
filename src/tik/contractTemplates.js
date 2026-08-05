@@ -12,6 +12,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { recordsFromChat } from './chatRecords.js';
 import { buildOverlayPdf } from './contractOverlay.js';
+import { createSigningRequest } from './signingBridge.js';
 import { COMPANY_NAME } from '../lib/workerPortal.js';
 
 const SUPABASE_URL = 'https://dhrctqjxbdlwfxabinbr.supabase.co';
@@ -44,6 +45,22 @@ export async function fillTemplateForCase(tpl, caseObj) {
   const bytes = base64ToBytes(tpl.pdfBase64);
   const out = await buildOverlayPdf(bytes, tpl.placements || [], { worker, family }, { companyName: COMPANY_NAME });
   return new Blob([out], { type: 'application/pdf' });
+}
+
+// How many signature spots a template carries (fill leaves them blank for signing).
+export const signatureCount = (tpl) => (tpl.placements || []).filter((p) => p.fieldKey === 'signature').length;
+
+// Fill the contract for a case, then open a signing request for it — the filled
+// PDF goes into the same signing system as the rest, with the placed signature
+// fields, and the signer opens a link. Returns { id, link }.
+export async function sendTemplateToSigning(tpl, caseObj, { who = 'worker' } = {}) {
+  const { worker, family } = recordsFromChat(caseObj?.data?.fields || {});
+  const pdfBytes = await buildOverlayPdf(base64ToBytes(tpl.pdfBase64), tpl.placements || [], { worker, family }, { companyName: COMPANY_NAME });
+  const fields = (tpl.placements || [])
+    .filter((p) => p.fieldKey === 'signature')
+    .map((p) => ({ id: p.id, type: 'signature', pageIndex: p.pageIndex, signer: 0, xPct: p.xPct, yPct: p.yPct, wPct: p.wPct, hPct: p.hPct, value: '' }));
+  const signerName = who === 'family' ? (family.fullName || 'המעסיק') : (worker.nameHe || worker.nameEn || 'העובד/ת');
+  return createSigningRequest({ pdfBytes, title: `${tpl.name} — ${signerName}`, fields, signerName });
 }
 
 // ---- storage (Supabase; kept out of the cases list via kind='config') ----------
