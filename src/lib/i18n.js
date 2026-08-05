@@ -15,6 +15,9 @@ const EN = {
   'תנאי שימוש': 'Terms of Use',
   'מדיניות פרטיות': 'Privacy Policy',
   'הצהרת נגישות': 'Accessibility Statement',
+  'סיכום חתימות': 'Signatures summary',
+  'חתימות החודש': 'Signatures this month',
+  'סה"כ חתימות': 'Total signatures',
   '⚙ הגדרות': '⚙ Settings',
 
   // dropzone / home

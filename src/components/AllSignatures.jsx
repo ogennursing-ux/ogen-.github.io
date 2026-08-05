@@ -91,6 +91,14 @@ export default function AllSignatures() {
 
   if (!items.length) return null;
 
+  // Signature stats: how many were completed this calendar month, and total.
+  const now = new Date();
+  const monthCount = items.filter((r) => {
+    const d = new Date(r.signed_at || r.created_at);
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  }).length;
+  const totalCount = items.length;
+
   const signerName = (r) => {
     // Prefer the actual name the signer entered (incl. a typed signature).
     const real = signerNameFromReq(r);
@@ -109,6 +117,16 @@ export default function AllSignatures() {
             🔔 {t('חתימות חדשות: {n}', { n: newCount })}
           </button>
         )}
+      </div>
+      <div className="sig-stats" role="group" aria-label={t('סיכום חתימות')}>
+        <div className="sig-stat">
+          <b>{monthCount}</b>
+          <span>{t('חתימות החודש')}</span>
+        </div>
+        <div className="sig-stat">
+          <b>{totalCount}</b>
+          <span>{t('סה"כ חתימות')}</span>
+        </div>
       </div>
       <ul className="req-list">
         {items.map((r) => (
