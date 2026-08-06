@@ -71,9 +71,15 @@ export async function notify(webhook, payload) {
 }
 
 // Best-effort lookup of the signer's public IP (for the audit trail).
+// Hard 4s timeout: the IP is non-critical, and without it a slow/blocked
+// ipify request would hang the whole "submit signature" flow (it's the first
+// await on completion) — leaving the signer stuck on "שולח…" forever.
 export async function getIp() {
   try {
-    const res = await fetch('https://api.ipify.org?format=json');
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 4000);
+    const res = await fetch('https://api.ipify.org?format=json', { signal: ctrl.signal });
+    clearTimeout(timer);
     const j = await res.json();
     return j.ip || null;
   } catch {
