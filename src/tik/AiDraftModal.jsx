@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { personFacts, draftMessage, translateText, DRAFT_LANGS, guessLang } from './aiDraft.js';
 import { hasChatAI } from './aiChat.js';
+import MicButton from './MicButton.jsx';
 
 const PRESETS = [
   { label: '📄 מסמך עומד לפוג', text: 'תזכורת ידידותית שהמסמך הקרוב לפוג (היתר/ויזה/דרכון/ביטוח) דורש חידוש, כולל התאריך המדויק, ובקשה ליצור קשר לתיאום.' },
@@ -79,7 +80,10 @@ export default function AiDraftModal({ caseObj, kind = 'worker', onClose }) {
         <div className="aid-chips">
           {PRESETS.map((p) => <button key={p.label} className="aid-chip" onClick={() => setInstruction(p.text)}>{p.label}</button>)}
         </div>
-        <textarea className="aid-instr" placeholder="מה לכתוב? (אפשר לבחור נושא למעלה או לכתוב חופשי)" value={instruction} onChange={(e) => setInstruction(e.target.value)} />
+        <div className="aid-instr-wrap">
+          <textarea className="aid-instr" placeholder="מה לכתוב? (בחר/י נושא למעלה, כתוב/י חופשי, או דבר/י 🎤)" value={instruction} onChange={(e) => setInstruction(e.target.value)} />
+          <MicButton onText={(t) => setInstruction((v) => (v ? v + ' ' : '') + t)} />
+        </div>
         <button className="rp-btn" disabled={busy || !instruction.trim()} onClick={gen}>{busy ? 'מנסח…' : '✨ נסח'}</button>
 
         {err && <p className="aid-warn">{err}</p>}

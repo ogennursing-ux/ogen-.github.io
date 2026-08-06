@@ -3,6 +3,7 @@ import { isAuthed, login } from './officeAuth.js';
 import { chatAI, hasChatAI } from './aiChat.js';
 import { buildAiContext } from './aiContext.js';
 import { getGroqKey, setGroqKey } from './gemini.js';
+import MicButton from './MicButton.jsx';
 
 function Login({ onIn }) {
   const [user, setUser] = useState(''); const [pass, setPass] = useState(''); const [err, setErr] = useState(false);
@@ -110,7 +111,8 @@ function Chat() {
       </div>
 
       <form className="ai-inputbar" onSubmit={(e) => { e.preventDefault(); send(); }}>
-        <input className="text-input" placeholder="כתוב/י שאלה…" value={input} onChange={(e) => setInput(e.target.value)} disabled={busy} />
+        <input className="text-input" placeholder="כתוב/י שאלה… או דבר/י 🎤" value={input} onChange={(e) => setInput(e.target.value)} disabled={busy} />
+        <MicButton onText={(t) => setInput((v) => (v ? v + ' ' : '') + t)} />
         <button className="btn-primary" type="submit" disabled={busy || !input.trim()}>שלח</button>
       </form>
     </div>
