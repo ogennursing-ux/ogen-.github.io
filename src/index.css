@@ -2090,10 +2090,10 @@ textarea.gov-input { resize: vertical; }
 }
 .rg-brand { display: flex; align-items: center; gap: 13px; }
 .rg-logo {
-  width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center;
-  font-size: 22px; background: linear-gradient(135deg, #0e7490, #155e75); color: #fff;
-  box-shadow: 0 4px 12px rgba(14,116,144,.25);
+  border-radius: 12px; display: inline-flex; align-items: center; padding: 5px 11px;
+  background: linear-gradient(135deg, #0a1520, #14424f); box-shadow: 0 4px 12px rgba(14,116,144,.25);
 }
+.rg-logo img { height: 42px; width: auto; display: block; }
 .rg-brand h1 { margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -.2px; }
 .rg-brand p { margin: 1px 0 0; font-size: 12.5px; color: #64748b; }
 .rg-header-actions { display: flex; gap: 8px; }

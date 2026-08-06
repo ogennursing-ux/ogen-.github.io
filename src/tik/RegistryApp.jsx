@@ -22,7 +22,7 @@ function Login({ onIn }) {
   return (
     <div className="board-login">
       <form className="board-login-card" onSubmit={submit}>
-        <h2>🗂️ מערכת הרישום</h2>
+        <h2>🗂️ ניהול בקליק</h2>
         <p className="muted">כניסה עם פרטי המשרד.</p>
         <label className="field-label">שם משתמש</label>
         <input className="text-input" value={user} autoFocus onChange={(e) => setUser(e.target.value)} />
@@ -341,9 +341,8 @@ export default function RegistryApp() {
     <div className="rg-shell">
       <header className="rg-header">
         <div className="rg-brand">
-          <span className="rg-logo">⚓</span>
+          <span className="rg-logo"><img src="./nihul-belick.png" alt="ניהול בקליק" /></span>
           <div>
-            <h1>מערכת הרישום</h1>
             <p>{err ? '🔴 לא מחובר' : cases === null ? 'מתחבר…' : `🟢 מחובר · ${cases.length} תיקים`}</p>
           </div>
         </div>

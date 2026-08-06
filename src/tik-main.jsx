@@ -59,7 +59,7 @@ function Shell() {
   }, []);
 
   const view = pick(at);
-  if (at === 'chat') return view;
+  if (at === 'chat' || at === 'registry') return view;
   return <><BrandBar />{view}</>;
 }
 
