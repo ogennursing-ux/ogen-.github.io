@@ -379,6 +379,7 @@ export default function RegistryApp() {
         <button className={`rg-tab${tab === 'leads' ? ' on' : ''}`} onClick={() => setTab('leads')}>📞 פניות <em>{leads.length}</em></button>
         <a className="rg-tab" href="#templates">📑 תבניות חוזים</a>
         <a className="rg-tab" href="#quality">🔎 תקינות</a>
+        <a className="rg-tab" href="#autofile">📂 תיוק אוטומטי</a>
         <a className="rg-tab rg-tab-ai" href="#assistant">🤖 עוזר AI</a>
       </nav>
 

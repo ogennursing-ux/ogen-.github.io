@@ -12,6 +12,7 @@ import ManotDesk from './tik/ManotDesk.jsx';
 import AssistantDesk from './tik/AssistantDesk.jsx';
 import ContractTemplates from './tik/ContractTemplates.jsx';
 import QualityDesk from './tik/QualityDesk.jsx';
+import AutoFileDesk from './tik/AutoFileDesk.jsx';
 import './index.css';
 
 document.documentElement.lang = 'he';
@@ -49,6 +50,7 @@ function Shell() {
   if (at === 'assistant') return <AssistantDesk />;
   if (at === 'templates') return <ContractTemplates />;
   if (at === 'quality') return <QualityDesk />;
+  if (at === 'autofile') return <AutoFileDesk />;
   if (at === 'registry') return <RegistryApp />;
   if (at === 'board') return <CasesBoard />;
   return <TikApp />;
