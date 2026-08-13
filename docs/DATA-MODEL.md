@@ -62,15 +62,20 @@ data.fields.quartersFiled       אילו רבעונים דווחו
 
 | מקור | תפקיד | דוגמאות |
 |---|---|---|
-| `src/tik/registrySchema.js` | המילון הרשמי לממשק. 14 מקטעי משפחה + 10 מקטעי עובד, ~140 + ~80 שדות | `employerName`, `city`, `assignedTo`, `caseNumber` |
+| `src/tik/registrySchema.js` | המילון הרשמי לממשק. **15** מקטעי משפחה (121 שדות) + **10** מקטעי עובד (73) = 194 | `employerName`, `city`, `assignedTo`, `caseNumber` |
 | `src/tik/workerFilesApi.js` | `emptyWorker()` / `emptyFamily()` — משמש את IndexedDB ואת כל מחוללי ה-PDF | `fullName`, `addrCity`, `coordinator`, `clientNo` |
 | מפתחות הצ'אט/AI | מה ש-Gemini מחזיר | `FIELD_KEYS` ב-`gemini.js` |
 
 **הגשר** הוא `recordsFromChat()` ב-`src/tik/chatRecords.js`, וכללי הקדימות שלו
-נושאים משקל: מפתחות ייעודיים לעובד (`workerDob`, `workerGender`,
-`workerMaritalStatus`, `workerEmail`, `workerPhone`) **גוברים** על מפתחות
-המטופל המשותפים (`dob`, `gender`, `email`, `contactPhone`) — כי בעבר השניים
-חלקו שדה אחד.
+נושאים משקל, ויש שתי דרגות:
+
+| מפתח | התנהגות |
+|---|---|
+| `workerDob`, `workerGender`, `workerMaritalStatus`, `workerEmail` | **דריסה מוחלטת** של `dob`/`gender`/`maritalStatus`/`email` |
+| `workerPhone`, `contactPhone` | **ממלאים רק אם ריק** (`if (!worker.phone) …`) |
+
+הסיבה: בעבר שדות העובד והמטופל היו אחד. (`contactPhone` מזין גם את
+`family.mobile`.)
 
 ### ⚠️ שער השדות המוכרים — כישלון שקט
 
@@ -80,8 +85,11 @@ data.fields.quartersFiled       אילו רבעונים דווחו
 ```js
 const known = new Set(Object.keys(rec));
 for (const k of known) if (data[k] != null && data[k] !== '') rec[k] = data[k];
-const extra = Object.entries(data).filter(([k]) => !known.has(k));
-if (extra.length) rec.notes = [...].join('\n');   // ← כל השאר נדחס להערות
+const extra = Object.entries(data || {})
+  .filter(([k, v]) => !known.has(k) && v != null && v !== '');
+if (extra.length)
+  rec.notes = [rec.notes, ...extra.map(([k, v]) => `${k}: ${v}`)]
+    .filter(Boolean).join('\n');   // ← כל השאר נדחס להערות, מעל הערות קיימות
 ```
 
 **כלומר: שדה שנוסף ל-`registrySchema.js` בלבד לא ישרוד את נתיב הצ'אט/התיבה —
@@ -99,6 +107,7 @@ if (extra.length) rec.notes = [...].join('\n');   // ← כל השאר נדחס 
 | 4 | `gemini.js` → `FIELD_KEYS` | רק אם השדה נסרק ממסמך. תאריכים גם ל-`DATE_KEYS` |
 | 5 | `intakeChat.js` | רק אם נשאל בצ'אט |
 | 6 | `contractMerge.js` → `WORKER_KEYS` / `CONTRACT_FIELD_LABELS` | רק אם מודפס בחוזה |
+| 7 | `csvExport.js` → `WORKER_COLS` / `FAMILY_COLS` | אחרת השדה **לא יגיע לייצוא ללקוח** |
 
 `fallback:` בתיאור השדה = `fields[def.key] ?? fields[def.fallback]`, לרשומות
 שנשמרו לפני שהשדות פוצלו בין עובד למטופל.
@@ -140,8 +149,9 @@ if (extra.length) rec.notes = [...].join('\n');   // ← כל השאר נדחס 
 קישורי הקליטה הם ספציפיים לתפקיד, כך שתיק אחד יכול להגיע כשתי שורות שחולקות
 `data.meta.linkKey`. המיזוג:
 
-1. ממיין כך ש-`role: 'employer'` ראשון — שם המעסיק וה-ת״ז שלו גוברים
-2. מכסה מעליו את שדות העובד/ת
+1. ממיין כך ש-`role: 'employer'` ראשון — כלומר ערכי המעסיק הם ה**בסיס**
+2. ואז לולאה על השורות מכסה: `fields[k] = v`. ⚠️ **המשמעות הפוכה מההערה
+   שבקוד** — במפתח שקיים בשני החצאים, ערך העובד/ת (המאוחר) **גובר**
 3. נושא `signRequestId` מהחצי שיש לו אותו
 4. מסמן `partial` אם אחד החצאים עדיין ב-`status: 'chat'`
 
@@ -205,6 +215,7 @@ if (extra.length) rec.notes = [...].join('\n');   // ← כל השאר נדחס 
 | `originals/<id>.pdf` | מסמך לפני חתימה |
 | `signed/<id>.pdf` | מסמך חתום |
 | `signed/<id>-part<n>.pdf` | חלק מפוצל של מסמך חתום |
+| `originals/template-<id>.pdf` | ה-PDF של תבנית |
 | `cases/<caseId>/<docKey>-<uid>.<ext>` | קובץ מצורף לתיק |
 
 ---

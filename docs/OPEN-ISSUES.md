@@ -19,9 +19,14 @@
 **הגרסה החיה היא `eeec040`.** שני תיקונים אחריה לא באוויר, כולל תיקון לתקיעה
 בזרימת החתימה — באג שמשתמשים חווים.
 
-בשתי הריצות שנכשלו שלב ה-build עבר ושלב ה-deploy נפל. הסימן מרמז על דחייה של
-סביבת `github-pages` (branch protection), אבל **הסיבה לא אומתה** — צריך לפתוח
-את הלוגים.
+בשתיהן שלב ה-build עבר ושלב ה-deploy נפל — אבל **בצורות שונות**:
+
+- `b3b320b` — ה-deploy נפל **אחרי שנייה אחת**. מתאים לדחיית סביבת
+  `github-pages` (branch protection)
+- `a96e047` — ה-deploy **בוטל אחרי 15 דקות**. מתאים לתקיעה, או ל-
+  `concurrency: pages` עם `cancel-in-progress` שדחיפה מאוחרת יותר ביטלה
+
+לוגי ה-jobs כבר פגו (404), כך ש**הסיבה אינה ניתנת לאימות** מכאן.
 
 ### 2. רגרסיית CSS שנוצרה בקומיט `c4bdc39`
 
@@ -190,10 +195,10 @@ create unique index if not exists taxdoc_number_uniq
 | # | פריט |
 |---|---|
 | 11 | אין שום תשתית בדיקות — לא playwright, לא vitest, לא eslint, לא `test` script |
-| 12 | מפתח Supabase משוכפל ב-**17 קבצים** (14 ב-`src/tik/`, `src/lib/config.js`, `supabase/schema.sql`, `.github/workflows/keepalive.yml`); רוטציה = עריכה של כולם. `grep -rl dhrctqjxbdlwfxabinbr src supabase .github` |
+| 12 | פרטי Supabase משוכפלים: **הכתובת ב-17 קבצים, המפתח ב-16** (`schema.sql` מכיל רק כתובת, בהערה). רוטציה = עריכת כולם. `grep -rl dhrctqjxbdlwfxabinbr src supabase .github` |
 | 13 | `pdf.worker.js` ו-`polyfills.js` קיימים בשני עותקים זהים (`src/lib/`, `src/tik/`) |
 | 14 | טבלאות `sign_requests` ו-`templates` נדרשות בקוד אך אינן מוגדרות ב-`schema.sql` |
-| 15 | קבצים בינאריים כבדים ב-git: `contract-template.pdf` 8.2MB, `payment-guide.pdf` 1.8MB. אין LFS |
+| 15 | קבצים בינאריים כבדים ב-git: `contract-template.pdf` 8.1MiB, `payment-guide.pdf` 1.8MB. אין LFS |
 | 16 | `manifest.webmanifest` מקושר רק מ-`index.html`; שלושת האייקונים מצביעים לאותו קובץ. ל-`tik.html` אין manifest ואין favicon |
 | 17 | מנגנון הריענון האוטומטי קיים רק ב-`index.html` — משתמשי `tik.html` יכולים להריץ JS ישן ללא הגבלה |
 | 18 | Google Fonts היא תלות חיצונית קשיחה בכל ארבעת קבצי ה-HTML, ללא גיבוי מקומי |

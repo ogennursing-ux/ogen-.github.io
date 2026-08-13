@@ -32,12 +32,16 @@ valueImage(text, opts)
 | **חוזה מאפס** | `src/tik/contractPdf.js` | בונה A4 בפריסת זרימה, גלישת מילים ו-`need()` לשבירת עמוד |
 | **תעודת השמה** | `src/tik/placementCertificate.js` | תעודה דו-לשונית |
 | **חבילת ההשמה** | `src/tik/filledContract.js` | מטביע על ה-PDF הרשמי (§3) |
-| **טפסים מובנים** | `src/lib/formPdf.js` + `htmlPdf.js` | `htmlPdf` מרסטר בלוקי DOM דרך html2canvas/jsPDF |
+| **טפסים מובנים** | `src/lib/formPdf.js` | pdf-lib + קנבס, כמו השאר |
 | **טופס ב' ביקור בית** | `src/lib/homeVisitPdf.js` | שחזור נאמן של הטופס הממשלתי |
 | **טופס טרום השמה 476** | `src/lib/preplacementPdf.js` | שחזור נאמן, ארבעה עמודים |
 | **מציג החתימה** | `src/lib/pdfUtils.js` | pdf.js לרינדור + pdf-lib ליצירת החתום |
 
-שני מרנדרי הטפסים הסטטוטוריים נשענים על `src/lib/prebuiltForms.js` — הגדרות
+`src/lib/htmlPdf.js` אינו מחולל בפני עצמו — הוא המנוע (html2canvas/jsPDF)
+ששני מרנדרי הטפסים הסטטוטוריים משתמשים בו. `formPdf.js` **אינו** קורא לו.
+
+⚠️ כיוון התלות הפוך ממה שנראה: **`prebuiltForms.js` מייבא את שני המרנדרים**,
+לא להפך. ההגדרות
 הטפסים הועתקו **נאמנה ממסמכי Word שהלקוח סיפק**, וה-**מזהי השדות חייבים
 להישאר יציבים** כי שני המרנדרים מפנים אליהם. אף שדה אינו חובה: עו״ס רשאי/ת
 להגיש טופס חלקי.
@@ -45,7 +49,11 @@ valueImage(text, opts)
 ### `placementCertificate.js` מחזיק את בלוק `AGENCY`
 
 שם החברה בעברית ובאנגלית, ח.פ, מספר רישיון, כתובת, טלפון, מורשה חתימה, ומספר
-נציב תלונות. **המידע הזה לא קיים בשום מקום אחר בקוד.**
+נציב תלונות.
+
+השם ומספר הרישיון משוכפלים ב-`manot.js` (`MANOT.company` / `MANOT.corpId`),
+וה-ח.פ מופיע גם ב-`public/privacy.html`. **הכתובת, הטלפון, מורשה החתימה ומספר
+נציב התלונות קיימים רק כאן.**
 
 ### `htmlPdf.js` — הטריק עם הפונטים
 
@@ -65,7 +73,7 @@ valueImage(text, opts)
 
 ## 3. חבילת ההשמה — 69 קואורדינטות מכוילות ביד
 
-`src/tik/filledContract.js` · הנכס: `src/tik/assets/contract-template.pdf` (8.2MB, 26 עמודים)
+`src/tik/filledContract.js` · הנכס: `src/tik/assets/contract-template.pdf` (8.1MiB, 26 עמודים)
 
 הקוד מטביע נתונים על החבילה הרשמית של עוגן **כדי שאף מילה משפטית מאושרת לא
 תוקלד מחדש**.
@@ -78,7 +86,7 @@ valueImage(text, opts)
 add(page, x, y, value, { dir, align, size })
 ```
 
-~69 קריאות, בנקודות PDF (ראשית בפינה שמאלית-תחתונה), עמוד אחר עמוד, כל אחת
+69 קריאות `add()` ישירות, בנקודות PDF (ראשית בפינה שמאלית-תחתונה), עמוד אחר עמוד, כל אחת
 עם הערה שמציינת ליד איזו תווית היא יושבת.
 
 | קבוע | ערך | תפקיד |
@@ -112,7 +120,7 @@ salary = round(baseSalary + weeklyAllowance * 4)
 שכר החוזה = ברוטו חודשי + דמי כיס שבועיים × 4. דמי הכיס חייבים להיכלל בחוזה
 על פי חוק. (6500 + 100×4 = 6900)
 
-`hoursPerDay` קבוע `'24'` — מטפלים במתכונת "חי בבית".
+הקבוע `hoursDay = '24'` — מטפלים במתכונת "חי בבית".
 
 ---
 
@@ -201,20 +209,8 @@ y = pageHeight - yPct * pageHeight - boxHeight
 ## 8. אפליקציית החתימה
 
 מתועדת בפרק נפרד: **[`SIGNING-APP.md`](SIGNING-APP.md)** — ניתוב, מכונת
-המצבים, מודל השדות והחותמים, ארבעת הפלטים, Layouts, פיצול, הממסר ובניית
-ה-PDF החתום.
+המצבים, מודל השדות והחותמים, ארבעת הפלטים, Layouts שמורים, פיצול המסמך,
+הממסר, ובניית ה-PDF החתום.
 
-מה שעדיין דורש קריאת קוד:
-
-- מודל סוגי השדות ב-`src/lib/fields.js` — עשרה סוגים, גדלי ברירת מחדל
-  כאחוזי עמוד, `FIELD_DEFAULTS`, `FIELD_LABELS`
-- **`SHARED_TYPES`** — הכלל "ממלאים פעם אחת, מתמלא בכל מקום" שהוא לב האינטראקציה
-- מודל החותמים `{ current, list:[{name,email,color,signed,signedAt}], note }`,
-  `normalizeSigners()` והמסירה הסדרתית בין חותמים
-- מכונת המצבים של `App.jsx`: `home | name | editor | created | editSubmission | formBuilder`
-- שלושה פלטים מאותו עורך: `createLink()`, `saveTemplate()`, `publishWorkerForm()`
-- `sendMode`: `'regular' | 'round' | 'worker'`
-- **Layouts שמורים** — מערכת תבניות שלישית (מיקומי שדות + סדר חותמים +
-  `downloadGroups`, ללא PDF), נפרדת משתי המערכות שב-§5
-- תת-מערכת הטפסים המובנים: `formSchema.js` → `FormBuilder` →
-  `StructuredFormView` → `FormSignerView`, ומוסכמת המזהה `builtin:`
+מה שעדיין דורש קריאת קוד: הרכיבים עצמם — `SignaturePad`, `Dashboard`,
+`AllSignatures`, `FieldBox`, `Templates`, `EditPanel` ושאר סרגלי העריכה.

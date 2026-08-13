@@ -48,9 +48,9 @@
 
 | קובץ | שורות | מה זה |
 |---|---|---|
-| `reports.js` | 970 | קטלוג 79 הדוחות + מפעל `statReport()` (ראה `FORMATS.md` §7) |
+| `reports.js` | 970 | קטלוג 74 הדוחות (44 מוצהרים + 30 ממפעל `statReport()`) — ראה `FORMATS.md` §7 |
 | `gemini.js` | 544 | **מנוע ה-AI**: Gemini + Groq, ניהול מפתחות, `extractDocument`, `extractFamilyDocument`, `smartImport`, `toWorkerPatch` |
-| `registrySchema.js` | 489 | מלאי השדות המלא: 14 מקטעי משפחה + 10 מקטעי עובד, ערים, מדינות, מבטחים |
+| `registrySchema.js` | 489 | מלאי השדות המלא: **15** מקטעי משפחה (121 שדות) + **10** מקטעי עובד (73 שדות) = 194 שדות. ערים, מדינות, מבטחים |
 | `filledContract.js` | 456 | הטבעה על חבילת ההשמה בת 26 העמודים (ראה `PDF-PIPELINE.md` §3) |
 | `registry.js` | 425 | שכבת נתוני המרשם: דה-דופליקציה, חיפוש, חידושים, פעימות תשלום, לידים |
 | `workerFilesApi.js` | 425 | אחסון IndexedDB לארון התיקים + ייצוא/ייבוא |
@@ -72,7 +72,7 @@
 | `casesBoard.js` | 116 | שכבת נתוני לוח התיקים: `ESSENTIALS`, שלבים |
 | `agentInbox.js` | 105 | תיבת סוכן חיצוני + `mergeHalves` |
 | `contractTemplates.js` | 95 | אחסון תבניות PDF + מילוי + שליחה |
-| `csvExport.js` | 90 | ייצוא CSV תואם-Excel (UTF-8 BOM). `WORKER_COLS` (36 עמודות) ו-`FAMILY_COLS` לפי מפרט חילוץ של הלקוח; רכיב שלישי `'date'` מסמן פלט `DD/MM/YYYY` |
+| `csvExport.js` | 90 | ייצוא CSV תואם-Excel (UTF-8 BOM). `WORKER_COLS` (35 עמודות) ו-`FAMILY_COLS` (22) לפי מפרט חילוץ של הלקוח; רכיב שלישי `'date'` מסמן פלט `DD/MM/YYYY` |
 | `contractOverlay.js` | 88 | הטבעת ערכים על PDF קיים |
 | `dataQuality.js` | 86 | בדיקות תקינות מבוססות חוקים |
 | `feeReport.js` | 85 | דוח אגרה 306 |
@@ -96,12 +96,15 @@
 
 | קובץ | גודל | תפקיד |
 |---|---|---|
-| `contract-template.pdf` | 8.2MB | חבילת ההשמה הרשמית, 26 עמודים |
+| `contract-template.pdf` | 8.1MiB | חבילת ההשמה הרשמית, 26 עמודים |
 | `payment-guide.pdf` | 1.8MB | מדריך תשלום |
 | `interior-quarterly-template.xlsx` | 390KB | תבנית משרד הפנים |
 | `fee-quarterly-template.xlsx` | 11KB | תבנית דוח 306 |
 
 `src/tik/dvir-logo.png` (263KB) יושב **מחוץ** ל-`assets/`, ישירות תחת `src/tik/`.
+
+⚠️ שלוש טבלאות המלאי מכסות 112 קבצים. ארבע נקודות הכניסה —
+`main.jsx`, `tik-main.jsx`, `worker-main.jsx`, `forms-main.jsx` — אינן בהן.
 
 
 ---
@@ -180,7 +183,7 @@
 | `klik-logo.png`, `klik-icon.png` | מיתוג קליק חתימה |
 | `dvir.png` | תג קרדיט "דביר מערכות" |
 
-⚠️ `public/dvir.png` (52KB) ו-`src/tik/dvir-logo.png` (264KB) הם **שני עותקים
+⚠️ `public/dvir.png` (52KB) ו-`src/tik/dvir-logo.png` (263KB) הם **שני עותקים
 של אותו נכס בשני מנגנונים** — הראשון כ-`<img>` בתוך שלושה קבצי HTML,
 השני מיובא ב-JSX ב-`TikApp.jsx`.
 
@@ -200,7 +203,7 @@
 
 | | `index` | `tik` | `worker` | `forms` |
 |---|---|---|---|---|
-| פונטים | Heebo + Dancing + Caveat | **Assistant + Frank Ruhl** | Heebo | Heebo |
+| פונטים | Heebo + Dancing + Caveat | **Assistant + Frank Ruhl** | זהה ל-index | זהה ל-index |
 | favicon / theme-color | ✔ | **✘** | חלקי | חלקי |
 | PWA manifest | ✔ | ✘ | ✘ | ✘ |
 | ריענון אוטומטי | ✔ | ✘ | ✘ | ✘ |
@@ -214,7 +217,7 @@
 
 ## מפתחות אחסון בדפדפן
 
-21 מפתחות. אין מקום אחד בקוד שמרכז אותם.
+**22 מפתחות localStorage + אחד ב-sessionStorage.** אין מקום אחד בקוד שמרכז אותם.
 
 | מפתח | מי | מה |
 |---|---|---|
@@ -263,7 +266,8 @@
 `ErrorBoundary` מחובר **רק ב-`src/main.jsx`**. למערכת המשרד, לפורטל העו״ס
 ולניהול הטפסים אין אחד — קריסת רינדור נותנת מסך לבן.
 
-מעבר לזה, הדיווח הוא ~60 קריאות `alert()` גולמיות (31 מהן ב-`TikApp.jsx`).
+מעבר לזה, הדיווח הוא `alert()` גולמי: **64 קריאות ב-`src/tik/`** (32 מהן
+ב-`TikApp.jsx`), ו-99 בכל `src/`.
 
 ---
 

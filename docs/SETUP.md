@@ -70,10 +70,13 @@ npm run preview
 
 ### אזהרות צפויות בבנייה
 
-- שלוש אזהרות `<script src="./open-nagish.min.js"> can't be bundled without type="module"` — ווידג'ט הנגישות ב-`public/`, במכוון לא מאוגד
-- מקטעים מעל 500KB: `pdf-*.js` ~472KB, `index-*.js` ~435KB, `tik-*.js` ~411KB, ועובד pdf.js ~1.2MB
+יש **סוג אחד בלבד**: שלוש אזהרות
+`<script src="./open-nagish.min.js"> can't be bundled without type="module"` —
+ווידג'ט הנגישות ב-`public/`, במכוון לא מאוגד. צפוי, אין צורך לרדוף אחריו.
 
-שתיהן צפויות. אין צורך לרדוף אחריהן.
+המקטעים הגדולים (`pdf-*.js` ~472KB, `index-*.js` ~435KB, `tik-*.js` ~411KB,
+ועובד pdf.js ~1.2MB) **אינם מייצרים אזהרה** — הגדול שבהם נמצא מתחת לסף
+500KB של vite, ועובד pdf.js הוא נכס מועתק ולא מקטע.
 
 ---
 
@@ -150,7 +153,7 @@ https://ogennursing-ux.github.io/ogen-.github.io/tik.html
 לאימות שההתקנה עבדה: כפתור נתוני הדמו ב-`#registry` זורע 30 השמות
 דטרמיניסטיות (`src/tik/demoData.js`, מתויגות `demo-ogen-v1` כך שהמחיקה מדויקת).
 
-ואז לעדכן את הכתובת והמפתח **בכל 17 הקבצים** שמכילים אותם
+ואז לעדכן את הכתובת (17 קבצים) ואת המפתח (16)
 (`grep -rl dhrctqjxbdlwfxabinbr src supabase .github`).
 
 מי שמריץ רק את `schema.sql` יקבל מערכת שחצי עובדת: הצ'אט כותב, אבל חתימה,
@@ -167,5 +170,5 @@ https://ogennursing-ux.github.io/ogen-.github.io/tik.html
 | 3 | Google Fonts היא תלות קשיחה בכל ארבעת ה-HTML. סביבה מנותקת = טיפוגרפיה שבורה |
 | 4 | מנגנון הריענון האוטומטי קיים רק ב-`index.html`. משתמשי `tik.html` יכולים להריץ JS ישן ללא הגבלה אחרי פריסה |
 | 5 | `manifest.webmanifest` מקושר רק מ-`index.html`, ושלושת האייקונים מצביעים לאותו קובץ. ל-`tik.html` אין manifest ואין favicon |
-| 6 | קבצים בינאריים כבדים ב-git: `contract-template.pdf` 8.2MB, `payment-guide.pdf` 1.8MB. אין LFS — כל גרסה חדשה מוסיפה ~8MB להיסטוריה לצמיתות |
+| 6 | קבצים בינאריים כבדים ב-git: `contract-template.pdf` 8.1MiB, `payment-guide.pdf` 1.8MB. אין LFS — כל גרסה חדשה מוסיפה ~8MB להיסטוריה לצמיתות |
 | 7 | תחת `vite dev` מנגנון הריענון לא פועל (dev מגיש `/src/main.jsx` ולא `/assets/*.js`). לא מזיק, אבל מבלבל |

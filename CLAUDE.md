@@ -33,8 +33,9 @@
 
 ## מה התיעוד הזה **לא** מכסה
 
-כדי שאיש לא יבזבז זמן בחיפוש מה שלא נכתב. 116 קבצי מקור — **כולם מופיעים
-בשמם** ב-`ARCHITECTURE.md`, אבל רק **כמחצית מוסברים** מעבר לשורת טבלה.
+כדי שאיש לא יבזבז זמן בחיפוש מה שלא נכתב. 116 קבצי מקור; **112 מהם מופיעים
+בשמם** בטבלאות `ARCHITECTURE.md` (ארבע נקודות הכניסה חסרות), ורק **כמחצית
+מוסברים** מעבר לשורת טבלה.
 
 ### מתועד היטב — אפשר לפעול בלי לקרוא קוד
 
@@ -46,9 +47,9 @@
 | נושא | היכן הידע |
 |---|---|
 | רכיבי הממשק של אפליקציית החתימה | `src/components/` — התנהגות מרכזית מתועדת ב-`SIGNING-APP.md`, אך רכיב-רכיב לא |
-| `TikApp.jsx` — 2,750 שורות, 9% מהקוד | טקסונומיית המסמכים, ~22 רכיבים פנימיים |
-| 79 הדוחות עצמם | `reports.js` |
-| מלאי ~220 השדות ושמות 24 המקטעים | `registrySchema.js` |
+| `TikApp.jsx` — 2,750 שורות, 12% מהקוד | טקסונומיית המסמכים, ~22 רכיבים פנימיים |
+| 74 הדוחות עצמם | `reports.js` |
+| 194 השדות ושמות 25 המקטעים | `registrySchema.js` |
 | `WorkerApp.jsx`, `RecordPage.jsx`, `RegistryApp.jsx`, `IntakeChat.jsx` | הקוד |
 | `agenda`, `demoData`, `csvExport`, `digitalForms`, `recordLink`, `ErrorBoundary` | הקוד |
 
@@ -56,11 +57,11 @@
 
 | קובץ | מה יאבד |
 |---|---|
-| `src/tik/filledContract.js` | 70 קואורדינטות מכוילות ביד + `WHITEOUT` |
-| `src/tik/manot.js` | טבלת `SEGMENTS` ורוחבי השדות |
+| `src/tik/filledContract.js` | 69 קריאות `add()` מכוילות ביד + `WHITEOUT` |
+| `src/tik/manot.js` | `segmentsFor()` ורוחבי השדות |
 | `src/tik/assets/*.xlsx` | תבניות המדינה עם ה-styles שנוספו להן |
 | `src/tik/assets/contract-template.pdf` | חבילת ההשמה הרשמית |
-| `placementCertificate.js` → `AGENCY` | פרטי החברה, רישיון, נציב תלונות |
+| `placementCertificate.js` → `AGENCY` | כתובת, טלפון, מורשה חתימה, נציב תלונות (השם והרישיון משוכפלים ב-`manot.js`) |
 | `contractMerge.js` → `CONTRACT_FIELD_LABELS` | מפת תוויות החוזה |
 | `src/index.css` | 3,257 שורות עיצוב, ללא מקור אחר |
 
@@ -128,7 +129,8 @@ src/
 
 אין `.env` ואין `import.meta.env` בכלל. שלוש שכבות:
 
-1. **Supabase** — כתובת ומפתח anon **מוטמעים בקוד**, ומשוכפלים ב-17 קבצים.
+1. **Supabase** — כתובת ומפתח anon **מוטמעים בקוד**. הכתובת ב-17 קבצים,
+   המפתח ב-16.
    המקור הרשמי: `src/lib/config.js` (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `BUCKET`).
 2. **מפתחות AI** — לא במאגר. נשמרים ב-`localStorage` לכל דפדפן
    (`tik_gemini_key`, `tik_groq_key`) דרך `src/tik/gemini.js`, ומוזנים במסך ההגדרות.
@@ -163,5 +165,5 @@ npm run build    # → dist/
   `Map.getOrInsertComputed` ש-pdf.js v6 תלוי בו. הסרה שוברת כל עיבוד PDF בשקט.
 - **`pdf.worker.js` קיים פעמיים** (`src/lib/`, `src/tik/`). עריכה של אחד בלבד
   יוצרת באג שמופיע רק בחלק מהאפליקציות.
-- שינוי במפתח Supabase דורש עריכה של כל 17 הקבצים שמכילים אותו
+- שינוי במפתח Supabase דורש עריכה של כל 16 הקבצים שמכילים אותו
   (`grep -rl dhrctqjxbdlwfxabinbr src supabase .github`).
