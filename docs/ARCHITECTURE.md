@@ -133,11 +133,15 @@
 
 ---
 
-## `src/components/` — אפליקציית החתימה (27 קבצים)
+## אפליקציית החתימה — `src/App.jsx` + `src/components/` (27 קבצים)
+
+⚠️ `App.jsx` יושב ב-**`src/`**, לא ב-`src/components/`.
+
+**פרק מלא: [`SIGNING-APP.md`](SIGNING-APP.md).**
 
 | קובץ | שורות | | קובץ | שורות |
 |---|---|---|---|---|
-| `App.jsx` | 750 | | `FieldBox.jsx` | 140 |
+| `src/App.jsx` | 750 | | `FieldBox.jsx` | 140 |
 | `StructuredFormView.jsx` | 349 | | `PdfPreview.jsx` | 127 |
 | `SignaturePad.jsx` | 278 | | `SplitPicker.jsx` | 104 |
 | `SignerView.jsx` | 246 | | `Settings.jsx` | 81 |
@@ -158,6 +162,108 @@
 
 `WorkerApp.jsx` (330) — שער קוד גישה, רשימת ביקורים לפי דחיפות, טפסים
 ממולאים מראש, סימון ביקור כבוצע.
+
+---
+
+## מחוץ ל-`src/`
+
+### `public/`
+
+| קובץ | מה זה |
+|---|---|
+| `legal.html` | **תנאי שימוש + פרטיות + הצהרת נגישות.** מקושר מזרימת החתימה. עריכה = שינוי תנאים משפטיים שפורסמו |
+| `privacy.html` | מסמך פרטיות **נפרד ושונה** עם ח.פ וכתובת. מקושר ממסכי המשרד והצ'אט |
+| `manifest.webmanifest` | PWA — מקושר רק מ-`index.html` |
+| `open-nagish.min.js` | ווידג'ט נגישות של צד שלישי |
+| `open-nagish-LICENSE.txt` | רישיון MIT של הווידג'ט |
+| `nihul-belick.png` | לוגו ניהול בקליק (1230×358) |
+| `klik-logo.png`, `klik-icon.png` | מיתוג קליק חתימה |
+| `dvir.png` | תג קרדיט "דביר מערכות" |
+
+⚠️ `public/dvir.png` (52KB) ו-`src/tik/dvir-logo.png` (264KB) הם **שני עותקים
+של אותו נכס בשני מנגנונים** — הראשון כ-`<img>` בתוך שלושה קבצי HTML,
+השני מיובא ב-JSX ב-`TikApp.jsx`.
+
+### שאר המאגר
+
+| נתיב | מה זה |
+|---|---|
+| `supabase/schema.sql` | יוצר רק את `agent_submissions`. ⚠️ ההערות בו **מיושנות** — מונות 3 ערכי `kind` במקום 8. אין אינדקס על `kind` למרות שכל שאילתה מסננת לפיו |
+| `supabase/functions/send-sms/` | Edge Function — Twilio או שער ישראלי |
+| `supabase/functions/telegram-webhook/` | Edge Function — גשר טלגרם |
+| `.github/workflows/deploy.yml` | בנייה ופרסום ל-Pages. `environment: github-pages`, `concurrency: pages` עם `cancel-in-progress` — דחיפה שנייה מבטלת פריסה שרצה |
+| `.github/workflows/keepalive.yml` | ping ל-Supabase כל יומיים. ⚠️ GitHub משבית workflows מתוזמנים אחרי 60 יום ללא פעילות במאגר |
+| `docs/email-relay.gs` | Google Apps Script לשליחת דוא״ל. ⚠️ **מיושן** — ראה `EXTERNAL-SYSTEMS.md` §4 |
+| `vite.config.js` | ארבע נקודות כניסה, `base: './'` |
+
+### ארבעת קבצי ה-HTML — ההבדלים
+
+| | `index` | `tik` | `worker` | `forms` |
+|---|---|---|---|---|
+| פונטים | Heebo + Dancing + Caveat | **Assistant + Frank Ruhl** | Heebo | Heebo |
+| favicon / theme-color | ✔ | **✘** | חלקי | חלקי |
+| PWA manifest | ✔ | ✘ | ✘ | ✘ |
+| ריענון אוטומטי | ✔ | ✘ | ✘ | ✘ |
+| תג דביר | ב-HTML | **ב-JSX** | ב-HTML | ב-HTML |
+| ווידג'ט נגישות | ✔ | **✘** | ✔ | ✔ |
+| `ErrorBoundary` | ✔ | **✘** | ✘ | ✘ |
+
+⚠️ `tik.html` — מוצר הליבה — הוא החריג בכל שורה.
+
+---
+
+## מפתחות אחסון בדפדפן
+
+21 מפתחות. אין מקום אחד בקוד שמרכז אותם.
+
+| מפתח | מי | מה |
+|---|---|---|
+| `tik_auth` | משרד | דגל התחברות |
+| `ogen_auth` | חתימה | דגל התחברות — **מפתח אחר** |
+| `worker_auth` | פורטל עו״ס | דגל התחברות |
+| `ogen_me` | משרד | "מי אני" — נכתב ליומן הביקורת של מסמכי המס |
+| `tik_gemini_key` / `tik_gemini_model` | משרד | מפתח ומודל Gemini |
+| `tik_groq_key` / `tik_groq_model` / `tik_groq_vision` | משרד | מפתח ומודלי Groq |
+| `tik_cloud_last_sync` | משרד | חותמת גיבוי אחרון |
+| `tik_signing_url` | משרד | כתובת אפליקציית החתימה |
+| `ogen_last_family` / `ogen_last_worker` | משרד | הרשומה האחרונה שנצפתה |
+| `owner_settings` | חתימה | דוא״ל בעלים + webhook |
+| `my_sign_requests` / `my_templates` / `my_layouts` | חתימה | **אינדקס מקומי בלבד** — ניקוי נתוני אתר מאבד אותו |
+| `mock_sign_requests` / `mock_templates` | חתימה | ה-backend המדומה |
+| `all_signed_seen` | חתימה | מה כבר נצפה בהתראות |
+| `worker_saved_signature` | טפסים | **תמונת חתימה שמורה**, משותפת לכל הטפסים |
+| `lang` | משותף | ⚠️ **נקרא ולעולם לא נכתב** — המתג he/en לא נשמר |
+| `ogenReloadTo` *(sessionStorage)* | `index.html` | שמירה מפני לולאת ריענון |
+
+בנוסף `ogen_worker_files` — שם מסד ה-IndexedDB, לא מפתח localStorage.
+
+---
+
+## `src/index.css` — שלוש שכבות ערכת נושא
+
+3,257 שורות, **גיליון יחיד לארבע האפליקציות**, בנוי כמפלים מוערמים שכל אחד
+דורס את קודמו:
+
+| # | היכן | מה |
+|---|---|---|
+| 1 | שורה 1 | `:root` בסיסי |
+| 2 | ~2673 | `/* VISUAL REFRESH — appended last so it wins */` — **`:root` שני** |
+| 3 | ~2879 | מערכת העיצוב "עוגן" — `:root[data-app="office"]`, 64 סלקטורים |
+
+`data-app="office"` נקבע ב-`tik-main.jsx` על אלמנט השורש, כדי שערכת המשרד
+לא תדרוס את אפליקציית החתימה.
+
+> 🔑 **המוסכמה: מוסיפים בסוף, לא עורכים במקום.** בדיוק את הכלל הזה שבר הקומיט
+> `c4bdc39` (ראה `OPEN-ISSUES.md` §2).
+
+---
+
+## טיפול בשגיאות
+
+`ErrorBoundary` מחובר **רק ב-`src/main.jsx`**. למערכת המשרד, לפורטל העו״ס
+ולניהול הטפסים אין אחד — קריסת רינדור נותנת מסך לבן.
+
+מעבר לזה, הדיווח הוא ~60 קריאות `alert()` גולמיות (31 מהן ב-`TikApp.jsx`).
 
 ---
 

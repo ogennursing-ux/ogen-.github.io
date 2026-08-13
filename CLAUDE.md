@@ -20,12 +20,14 @@
 | [`docs/FORMATS.md`](docs/FORMATS.md) | מנות, דוחות משרד הפנים, חשבוניות, ייצוא לרו״ח |
 | [`docs/PDF-PIPELINE.md`](docs/PDF-PIPELINE.md) | יצירת PDF, עברית כתמונה, מיקום שדות, חוזים |
 | [`docs/EXTERNAL-SYSTEMS.md`](docs/EXTERNAL-SYSTEMS.md) | Supabase, Gemini/Groq, Edge Functions, אימות |
-| [`docs/OPEN-ISSUES.md`](docs/OPEN-ISSUES.md) | בעיות ידועות — פרודקשן, אבטחה, חוב טכני |
+| [`docs/SIGNING-APP.md`](docs/SIGNING-APP.md) | אפליקציית החתימה — ניתוב, שדות, חותמים, פיצול, ממסר |
+| [`docs/OPEN-ISSUES.md`](docs/OPEN-ISSUES.md) | בעיות ידועות — פרודקשן, אבטחה, משפטי, חוב טכני |
 | `INVOICING.md` | כוונת הציות של מודול החשבוניות (מסמך קיים) |
 | `NEEDS.md` | חסמים שתלויים בלקוח (מסמך קיים) |
 | `GAPS.md` | מעקב פערים ומשימות (מסמך קיים) |
 | `DESKTOP.md` | תוכנית אפליקציית שולחן עתידית — מוקפא |
 | `PROJECT-HISTORY.md` | יומן שינויים של סבב עבודה אחד |
+| `README.md` | ⚠️ **מיושן** — מתאר רק את אפליקציית החתימה, וטוען "ללא שרת, הקובץ לא עוזב את המכשיר". לא נכון עוד |
 
 ---
 
@@ -43,7 +45,7 @@
 
 | נושא | היכן הידע |
 |---|---|
-| **אפליקציית החתימה** — 26 מתוך 27 קבצים | `src/components/`. ראה `PDF-PIPELINE.md` §8 |
+| רכיבי הממשק של אפליקציית החתימה | `src/components/` — התנהגות מרכזית מתועדת ב-`SIGNING-APP.md`, אך רכיב-רכיב לא |
 | `TikApp.jsx` — 2,750 שורות, 9% מהקוד | טקסונומיית המסמכים, ~22 רכיבים פנימיים |
 | 79 הדוחות עצמם | `reports.js` |
 | מלאי ~220 השדות ושמות 24 המקטעים | `registrySchema.js` |
