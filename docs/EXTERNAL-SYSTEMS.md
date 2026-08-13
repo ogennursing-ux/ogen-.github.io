@@ -4,7 +4,7 @@
 
 ## 1. Supabase
 
-פרויקט אחד. הכתובת והמפתח האנונימי **מוטמעים בקוד ומשוכפלים בכ-12 קבצים**
+פרויקט אחד. הכתובת והמפתח האנונימי **מוטמעים בקוד ומשוכפלים ב-17 קבצים**
 במקום להיות מיובאים ממקום אחד.
 
 המקור הרשמי: `src/lib/config.js`
@@ -18,8 +18,9 @@ export function signedPublicUrl(id)
 export function signedPartPublicUrl(id, index)
 ```
 
-עותקים נוספים ב-`src/tik/officeConfig.js`, `src/tik/socialWorker.js`,
-ובקובץ ה-workflow `keepalive.yml`. **רוטציה דורשת עריכה של כולם.**
+הרשימה המלאה: `grep -rl dhrctqjxbdlwfxabinbr src supabase .github` — 14 קבצים
+תחת `src/tik/`, בתוספת `src/lib/config.js`, `supabase/schema.sql` ו-
+`.github/workflows/keepalive.yml`. **רוטציה דורשת עריכה של כולם.**
 
 ### מה נדרש בפרויקט
 
@@ -29,14 +30,30 @@ export function signedPartPublicUrl(id, index)
 | טבלה `sign_requests` | ✘ — חסרה |
 | טבלה `templates` | ✘ — חסרה |
 | דלי ציבורי `documents` | ✘ — חסר |
-| אינדקס ייחודי `(docType, number)` | ✘ — חסר, ונדרש לתקינות המספור |
+| אינדקס ייחודי למספור מסמכי מס | ✘ — חסר. **אינדקס ביטוי חלקי על jsonb**, ראה `docs/OPEN-ISSUES.md` §8 |
+| מדיניות `delete` ל-anon על `sign_requests` ו-`templates` | ✘ — נדרשת |
+| מדיניות `insert`/`update` על הדלי | ✘ — "דלי ציבורי" נותן קריאה בלבד |
 
 מבנה משוחזר של `sign_requests` מתוך השימוש ב-`src/lib/supabaseApi.js`:
 
 ```
 id uuid pk, title, pdf_path, signed_pdf_path, fields jsonb,
-signers jsonb, status, signer_email, owner_email, webhook_url, signed_at
+signers jsonb, status, signer_email, owner_email, webhook_url,
+signed_at, template_id uuid, created_at
 ```
+
+ו-`templates`:
+
+```
+id uuid pk, title, pdf_path, fields jsonb, signers jsonb,
+owner_email, webhook_url, created_at
+```
+
+⚠️ ב-`templates` השדה `signers` הוא **אובייקט מקונן** ולא מערך —
+`{ list, note, category, active, formType, schema }` — בכוונה, כדי להימנע
+ממיגרציות. `category: 'worker'` + `active: true` מאכלס את פורטל העו״ס.
+
+מבנה מלא ומדיניות נדרשות: `docs/DATA-MODEL.md` §6.
 
 ### RLS
 
@@ -174,6 +191,8 @@ POST {SUPABASE_URL}/rest/v1/agent_submissions
 | מה | איפה | מנגנון |
 |---|---|---|
 | מערכת המשרד | `src/tik/officeAuth.js` | קבוע `PASS` מוטמע + שני שמות משתמש, `localStorage['tik_auth'] === '1'` |
+| **אותו `PASS` שוב** | `src/tik/TikApp.jsx` | עותק עצמאי של `AUTH_KEY`/`PASS`/`USERS` |
+| **ורכיבי Login נוספים** | `src/tik/RegistryApp.jsx`, `src/tik/ReportPage.jsx` | כל אחד עם רכיב משלו |
 | אפליקציית החתימה | `src/components/Login.jsx` | קבוע `PASS` נפרד |
 | פורטל העו״ס | `src/lib/workerPortal.js` | `WORKER_ACCESS_CODE` |
 | "מי אני" | `localStorage['ogen_me']` | ברירת מחדל `'משרד'` |

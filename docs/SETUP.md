@@ -42,7 +42,7 @@ npm run dev
 
 | אפליקציה | קובץ | קבוע |
 |---|---|---|
-| משרד | `src/tik/officeAuth.js` | `PASS` + `USERS` |
+| משרד | `src/tik/officeAuth.js` **וגם** `src/tik/TikApp.jsx` | `PASS` + `USERS` — מוגדרים פעמיים |
 | חתימה | `src/components/Login.jsx` | `PASS` |
 | פורטל עו״ס | `src/lib/workerPortal.js` | `WORKER_ACCESS_CODE` |
 
@@ -142,11 +142,16 @@ https://ogennursing-ux.github.io/ogen-.github.io/tik.html
 1. טבלה `sign_requests` — מבנה ב-`docs/EXTERNAL-SYSTEMS.md` §1
 2. טבלה `templates`
 3. דלי אחסון **ציבורי** בשם `documents`
-4. אינדקס ייחודי על `(docType, number)` למסמכי מס
-5. Edge Function `send-sms` + סודותיה
-6. Edge Function `telegram-webhook` (אופציונלי) + סודותיה
+4. אינדקס ייחודי למספור מסמכי מס — **אינדקס ביטוי חלקי על jsonb**, ה-DDL ב-`docs/OPEN-ISSUES.md` §8
+5. מדיניות `delete` ל-anon על `sign_requests` ו-`templates`, ומדיניות `insert`/`update` על הדלי
+6. Edge Function `send-sms` + סודותיה — `supabase functions deploy send-sms`
+7. Edge Function `telegram-webhook` (אופציונלי) — `supabase functions deploy telegram-webhook --no-verify-jwt`, ואז `setWebhook` מול טלגרם
 
-ואז לעדכן את הכתובת והמפתח **בכל ~12 הקבצים** שמכילים אותם.
+לאימות שההתקנה עבדה: כפתור נתוני הדמו ב-`#registry` זורע 30 השמות
+דטרמיניסטיות (`src/tik/demoData.js`, מתויגות `demo-ogen-v1` כך שהמחיקה מדויקת).
+
+ואז לעדכן את הכתובת והמפתח **בכל 17 הקבצים** שמכילים אותם
+(`grep -rl dhrctqjxbdlwfxabinbr src supabase .github`).
 
 מי שמריץ רק את `schema.sql` יקבל מערכת שחצי עובדת: הצ'אט כותב, אבל חתימה,
 תבניות ואחסון קבצים נופלים בזמן ריצה.

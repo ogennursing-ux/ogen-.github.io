@@ -101,9 +101,20 @@ create policy … for update using (true) with check (true);
 ### 8. חסר אינדקס ייחודי למספור מסמכי מס
 
 `invoices.js` ממספר מסמכים בלולאת "קרא מקסימום → +1 → הוסף, ובשגיאת כפילות
-טפס מחדש" (עד 25 ניסיונות). הלולאה נכונה **רק אם קיים אינדקס ייחודי על
-`(docType, number)`** — והוא אינו מוגדר ב-`schema.sql`. בלעדיו שתי הנפקות
-במקביל יכולות לקבל אותו מספר, וזו הפרה של הוראות ניהול פנקסים.
+טפס מחדש" (עד 25 ניסיונות). הלולאה נכונה **רק אם קיים אינדקס ייחודי** — והוא
+אינו מוגדר ב-`schema.sql`. בלעדיו שתי הנפקות במקביל יכולות לקבל אותו מספר,
+וזו הפרה של הוראות ניהול פנקסים.
+
+⚠️ `docType` ו-`number` **אינן עמודות** — הן בתוך `data` jsonb. לכן נדרש
+אינדקס ביטוי חלקי:
+
+```sql
+create unique index if not exists taxdoc_number_uniq
+  on public.agent_submissions ((data->>'docType'), (data->>'number'))
+  where kind = 'taxdoc';
+```
+
+אותה צורת מרוץ קיימת גם ב-`getOrAssignCaseNumber()` שב-`caseDetail.js`.
 
 ### 9. `activePlacements()` לא תואם לאוצר המילים
 
@@ -123,7 +134,7 @@ create policy … for update using (true) with check (true);
 | # | פריט |
 |---|---|
 | 11 | אין שום תשתית בדיקות — לא playwright, לא vitest, לא eslint, לא `test` script |
-| 12 | מפתח Supabase משוכפל בכ-12 קבצים; רוטציה = עריכה של כולם |
+| 12 | מפתח Supabase משוכפל ב-**17 קבצים** (14 ב-`src/tik/`, `src/lib/config.js`, `supabase/schema.sql`, `.github/workflows/keepalive.yml`); רוטציה = עריכה של כולם. `grep -rl dhrctqjxbdlwfxabinbr src supabase .github` |
 | 13 | `pdf.worker.js` ו-`polyfills.js` קיימים בשני עותקים זהים (`src/lib/`, `src/tik/`) |
 | 14 | טבלאות `sign_requests` ו-`templates` נדרשות בקוד אך אינן מוגדרות ב-`schema.sql` |
 | 15 | קבצים בינאריים כבדים ב-git: `contract-template.pdf` 8.2MB, `payment-guide.pdf` 1.8MB. אין LFS |

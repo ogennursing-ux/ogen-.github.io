@@ -72,6 +72,37 @@ data.fields.quartersFiled       אילו רבעונים דווחו
 המטופל המשותפים (`dob`, `gender`, `email`, `contactPhone`) — כי בעבר השניים
 חלקו שדה אחד.
 
+### ⚠️ שער השדות המוכרים — כישלון שקט
+
+`recordFromSubmission()` מעתיק **רק מפתחות שכבר קיימים ב-`emptyWorker()` /
+`emptyFamily()`**:
+
+```js
+const known = new Set(Object.keys(rec));
+for (const k of known) if (data[k] != null && data[k] !== '') rec[k] = data[k];
+const extra = Object.entries(data).filter(([k]) => !known.has(k));
+if (extra.length) rec.notes = [...].join('\n');   // ← כל השאר נדחס להערות
+```
+
+**כלומר: שדה שנוסף ל-`registrySchema.js` בלבד לא ישרוד את נתיב הצ'אט/התיבה —
+הוא יהפוך לשורת טקסט בתוך `notes`.** בלי הודעת שגיאה.
+
+וזה נתיב הזנת הנתונים העיקרי של המערכת.
+
+### רשימת בדיקה להוספת שדה
+
+| # | קובץ | מה לעשות |
+|---|---|---|
+| 1 | `registrySchema.js` | הגדרת השדה במקטע המתאים |
+| 2 | `workerFilesApi.js` | הוספה ל-`emptyWorker()` / `emptyFamily()` — **אחרת §שער השדות** |
+| 3 | `registrySchema.js` → `computeValue()` | רק אם `computed:` |
+| 4 | `gemini.js` → `FIELD_KEYS` | רק אם השדה נסרק ממסמך. תאריכים גם ל-`DATE_KEYS` |
+| 5 | `intakeChat.js` | רק אם נשאל בצ'אט |
+| 6 | `contractMerge.js` → `WORKER_KEYS` / `CONTRACT_FIELD_LABELS` | רק אם מודפס בחוזה |
+
+`fallback:` בתיאור השדה = `fields[def.key] ?? fields[def.fallback]`, לרשומות
+שנשמרו לפני שהשדות פוצלו בין עובד למטופל.
+
 ### מבנה שדה ב-`registrySchema.js`
 
 ```js
@@ -149,8 +180,13 @@ data.fields.quartersFiled       אילו רבעונים דווחו
 ### הגישור ביניהם
 
 - **`cloudBackup.js`** — משכפל **רק את רשומות הליבה** (עובדים + משפחות, בלי
-  blobs) לשורת `backup` בעלת UUID קבוע, בתזמון debounced לפי זיהוי שינוי.
-  `restoreFromCloud()` ממזג לפי id.
+  blobs) לשורת `backup` בעלת UUID קבוע. `restoreFromCloud()` ממזג לפי id.
+
+  **התזמון אינו debounce אלא לולאת סקר** (`TikApp.jsx:2673`):
+  `setInterval` כל **45 שניות**, ועוד הרצה על `visibilitychange` כשהלשונית
+  מוסתרת, ועוד הרצה ראשונה אחרי **4 שניות**. כל הרצה משווה `recordsSignature`
+  ומדלגת אם לא השתנה כלום. שגיאות (offline / לא מוגדר) **נבלעות בשקט** ומנוסות
+  בסבב הבא. משמעות: עד 45 שניות של עבודה עלולות ללכת לאיבוד בקריסה.
 - **גיבוי מלא הוא ידני** — `exportAll()` מייצר חבילת JSON
   `{app: 'ogen-tik-ovdim', version: 3}` עם כל ה-blobs כ-data URL.
   `importAll()` משחזר וממזג לפי id.
@@ -179,9 +215,33 @@ data.fields.quartersFiled       אילו רבעונים דווחו
 
 - **`sign_requests`** — נשען עליו `src/lib/supabaseApi.js` ו-`keepalive.yml`.
   מבנה משוחזר מהשימוש:
-  `(id uuid pk, title, pdf_path, signed_pdf_path, fields jsonb, signers jsonb, status, signer_email, owner_email, webhook_url, signed_at)`
-- **`templates`** — `src/lib/supabaseApi.js`
-- **דלי אחסון ציבורי `documents`**
+
+  ```
+  id uuid pk, title, pdf_path, signed_pdf_path, fields jsonb,
+  signers jsonb, status, signer_email, owner_email, webhook_url,
+  signed_at, template_id uuid, created_at
+  ```
+
+  ⚠️ `template_id` נכתב ונשאל (`.eq('template_id', …)`), ו-`created_at` משמש
+  למיון. טפסים מובנים חייבים לכתוב `template_id = null` כי המזהים שלהם אינם UUID.
+
+- **`templates`** — `src/lib/supabaseApi.js`:
+
+  ```
+  id uuid pk, title, pdf_path, fields jsonb, signers jsonb,
+  owner_email, webhook_url, created_at
+  ```
+
+  ⚠️ `signers` כאן הוא **אובייקט מקונן**, לא מערך — בכוונה, כדי להימנע ממיגרציות:
+
+  ```js
+  signers: { list, note, category, active, formType, schema }
+  ```
+
+  `category: 'worker'` + `active: true` הוא מה שמאכלס את פורטל העו״ס.
+
+- **דלי אחסון ציבורי `documents`** — נדרשות גם מדיניות **insert/update ל-anon**
+  על `originals/`, `signed/` ו-`cases/`. "דלי ציבורי" לבדו נותן קריאה בלבד.
 
 מי שמריץ רק את `schema.sql` יקבל מערכת שחצי עובדת: הצ'אט כותב, אבל חתימה,
 תבניות ואחסון קבצים נופלים בזמן ריצה.

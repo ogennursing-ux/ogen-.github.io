@@ -29,6 +29,41 @@
 
 ---
 
+## מה התיעוד הזה **לא** מכסה
+
+כדי שאיש לא יבזבז זמן בחיפוש מה שלא נכתב. 116 קבצי מקור — **כולם מופיעים
+בשמם** ב-`ARCHITECTURE.md`, אבל רק **כמחצית מוסברים** מעבר לשורת טבלה.
+
+### מתועד היטב — אפשר לפעול בלי לקרוא קוד
+
+מודל הנתונים · אלגוריתמי המיזוג · הפורמטים הסטטוטוריים · החוקים העסקיים ·
+החלקים הקשים של צנרת ה-PDF · המערכות החיצוניות · ההרצה והפריסה.
+
+### מוזכר בלבד — חובה לקרוא את הקוד
+
+| נושא | היכן הידע |
+|---|---|
+| **אפליקציית החתימה** — 26 מתוך 27 קבצים | `src/components/`. ראה `PDF-PIPELINE.md` §8 |
+| `TikApp.jsx` — 2,750 שורות, 9% מהקוד | טקסונומיית המסמכים, ~22 רכיבים פנימיים |
+| 79 הדוחות עצמם | `reports.js` |
+| מלאי ~220 השדות ושמות 24 המקטעים | `registrySchema.js` |
+| `WorkerApp.jsx`, `RecordPage.jsx`, `RegistryApp.jsx`, `IntakeChat.jsx` | הקוד |
+| `agenda`, `demoData`, `csvExport`, `digitalForms`, `recordLink`, `ErrorBoundary` | הקוד |
+
+### בלתי ניתן לשחזור מפרוזה — אם הקובץ אובד, הידע אבד
+
+| קובץ | מה יאבד |
+|---|---|
+| `src/tik/filledContract.js` | 70 קואורדינטות מכוילות ביד + `WHITEOUT` |
+| `src/tik/manot.js` | טבלת `SEGMENTS` ורוחבי השדות |
+| `src/tik/assets/*.xlsx` | תבניות המדינה עם ה-styles שנוספו להן |
+| `src/tik/assets/contract-template.pdf` | חבילת ההשמה הרשמית |
+| `placementCertificate.js` → `AGENCY` | פרטי החברה, רישיון, נציב תלונות |
+| `contractMerge.js` → `CONTRACT_FIELD_LABELS` | מפת תוויות החוזה |
+| `src/index.css` | 3,257 שורות עיצוב, ללא מקור אחר |
+
+---
+
 ## ארבע האפליקציות
 
 מוגדרות כארבע נקודות כניסה נפרדות ב-`vite.config.js`:
@@ -55,7 +90,7 @@
 | *(ריק)* | `TikApp.jsx` | מסך הבית — ארון התיקים |
 | `#board` | `CasesBoard.jsx` | חדר בקרה לפי שלב |
 | `#registry` | `RegistryApp.jsx` | מרשם: משפחות, עובדים, חידושים |
-| `#chat` | `IntakeChat.jsx` | צ'אט קליטה ציבורי — **ללא התחברות** |
+| `#chat` | `IntakeChat.jsx` | צ'אט קליטה ציבורי ב-10 שפות — **ללא התחברות** |
 | `#report/<key>` | `ReportPage.jsx` | דוח בודד בלשונית משלו |
 | `#invoices` | `Invoicing.jsx` | קבלות וחשבוניות |
 | `#manot` | `ManotDesk.jsx` | שידור לרשות האוכלוסין |
@@ -91,7 +126,7 @@ src/
 
 אין `.env` ואין `import.meta.env` בכלל. שלוש שכבות:
 
-1. **Supabase** — כתובת ומפתח anon **מוטמעים בקוד**, ומשוכפלים בכ-12 קבצים.
+1. **Supabase** — כתובת ומפתח anon **מוטמעים בקוד**, ומשוכפלים ב-17 קבצים.
    המקור הרשמי: `src/lib/config.js` (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `BUCKET`).
 2. **מפתחות AI** — לא במאגר. נשמרים ב-`localStorage` לכל דפדפן
    (`tik_gemini_key`, `tik_groq_key`) דרך `src/tik/gemini.js`, ומוזנים במסך ההגדרות.
@@ -126,4 +161,5 @@ npm run build    # → dist/
   `Map.getOrInsertComputed` ש-pdf.js v6 תלוי בו. הסרה שוברת כל עיבוד PDF בשקט.
 - **`pdf.worker.js` קיים פעמיים** (`src/lib/`, `src/tik/`). עריכה של אחד בלבד
   יוצרת באג שמופיע רק בחלק מהאפליקציות.
-- שינוי במפתח Supabase דורש עריכה של כל ~12 הקבצים שמכילים אותו.
+- שינוי במפתח Supabase דורש עריכה של כל 17 הקבצים שמכילים אותו
+  (`grep -rl dhrctqjxbdlwfxabinbr src supabase .github`).

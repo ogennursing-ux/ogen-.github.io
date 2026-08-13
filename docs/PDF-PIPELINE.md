@@ -11,7 +11,8 @@
 
 ### הניב המשותף
 
-הטכניקה חוזרת בשישה קבצים בווריאציות:
+הטכניקה חוזרת ב-5 קבצים בווריאציות (`contractOverlay.js`, `contractPdf.js`,
+`filledContract.js`, `placementCertificate.js`, `formPdf.js`):
 
 ```js
 await ensureFont()          // ממתין ל-document.fonts.load עבור Heebo
@@ -24,7 +25,7 @@ valueImage(text, opts)
 
 ---
 
-## 2. חמישה מחוללים — ומתי כל אחד
+## 2. שבעה מחוללים — ומתי כל אחד
 
 | מחולל | קובץ | שיטה |
 |---|---|---|
@@ -32,7 +33,14 @@ valueImage(text, opts)
 | **תעודת השמה** | `src/tik/placementCertificate.js` | תעודה דו-לשונית |
 | **חבילת ההשמה** | `src/tik/filledContract.js` | מטביע על ה-PDF הרשמי (§3) |
 | **טפסים מובנים** | `src/lib/formPdf.js` + `htmlPdf.js` | `htmlPdf` מרסטר בלוקי DOM דרך html2canvas/jsPDF |
+| **טופס ב' ביקור בית** | `src/lib/homeVisitPdf.js` | שחזור נאמן של הטופס הממשלתי |
+| **טופס טרום השמה 476** | `src/lib/preplacementPdf.js` | שחזור נאמן, ארבעה עמודים |
 | **מציג החתימה** | `src/lib/pdfUtils.js` | pdf.js לרינדור + pdf-lib ליצירת החתום |
+
+שני מרנדרי הטפסים הסטטוטוריים נשענים על `src/lib/prebuiltForms.js` — הגדרות
+הטפסים הועתקו **נאמנה ממסמכי Word שהלקוח סיפק**, וה-**מזהי השדות חייבים
+להישאר יציבים** כי שני המרנדרים מפנים אליהם. אף שדה אינו חובה: עו״ס רשאי/ת
+להגיש טופס חלקי.
 
 ### `placementCertificate.js` מחזיק את בלוק `AGENCY`
 
@@ -76,6 +84,9 @@ add(page, x, y, value, { dir, align, size })
 | קבוע | ערך | תפקיד |
 |---|---|---|
 | `LIFT` | `4` | מרים ערכים לשורת התווית במקום מתחתיה |
+
+⚠️ מספרי העמודים כאן הם **אנושיים (1-מבוסס)**; במקור האינדקסים
+**0-מבוססים** — `page: 2` הוא עמוד 3.
 
 ### `WHITEOUT`
 
@@ -163,3 +174,45 @@ y = pageHeight - yPct * pageHeight - boxHeight
 
 `sendSigningSms()` קורא ל-Edge Function `send-sms` בשיטת fire-and-forget
 ו**לעולם לא זורק** — כך שהגדרת SMS חסרה לא יכולה לשבור חתימה.
+
+---
+
+## 7. פיצול המסמך החתום — `downloadGroups` / `pageCuts`
+
+תת-מערכת שמשפיעה גם על המשרד וגם על אפליקציית החתימה.
+
+`downloadGroups` הוא **מחרוזת טווחים** בסגנון `"1-3 ; 4 ; 5-7"`; `pageCuts`
+הם אינדקסי חיתוך מבוססי-0. השרשרת:
+
+1. `SplitPicker.jsx` — בורר חיתוכים ויזואלי (מסרב לדרוס מפרט לא-רציף ישן)
+2. נשמר **בתוך בלוב ה-`signers`** על בקשת החתימה
+3. בסיום, `SignerView` מפצל את ה-PDF החתום ומעלה כל חלק ל-
+   `signed/<id>-part<n>.pdf` — כדי שממסר הדוא״ל יצרף חלקים במקום קובץ אחד.
+   נפילה לאחור לקובץ המלא
+4. `downloadSigned()` מנתח מחדש את אותו מפרט
+5. בצד המשרד, `SignFields.jsx` כותב את אותם שני מפתחות דרך
+   `officeConfig.saveSignSetup()`
+
+הפרימיטיבים — `parseGroups`, `splitByGroups`, `downloadByGroups` — ב-
+`src/lib/exporters.js`.
+
+---
+
+## 8. מה לא מכוסה כאן
+
+`src/components/` (27 קבצים, ~3,970 שורות) **אינו מתועד** — הוא מופיע
+ב-`ARCHITECTURE.md` כאינדקס שמות וספירת שורות בלבד. כדי לעבוד עליו צריך לקרוא
+את הקוד. מה שחסר, לפי סדר חשיבות:
+
+- מודל סוגי השדות ב-`src/lib/fields.js` — עשרה סוגים, גדלי ברירת מחדל
+  כאחוזי עמוד, `FIELD_DEFAULTS`, `FIELD_LABELS`
+- **`SHARED_TYPES`** — הכלל "ממלאים פעם אחת, מתמלא בכל מקום" שהוא לב האינטראקציה
+- מודל החותמים `{ current, list:[{name,email,color,signed,signedAt}], note }`,
+  `normalizeSigners()` והמסירה הסדרתית בין חותמים
+- מכונת המצבים של `App.jsx`: `home | name | editor | created | editSubmission | formBuilder`
+- שלושה פלטים מאותו עורך: `createLink()`, `saveTemplate()`, `publishWorkerForm()`
+- `sendMode`: `'regular' | 'round' | 'worker'`
+- **Layouts שמורים** — מערכת תבניות שלישית (מיקומי שדות + סדר חותמים +
+  `downloadGroups`, ללא PDF), נפרדת משתי המערכות שב-§5
+- תת-מערכת הטפסים המובנים: `formSchema.js` → `FormBuilder` →
+  `StructuredFormView` → `FormSignerView`, ומוסכמת המזהה `builtin:`

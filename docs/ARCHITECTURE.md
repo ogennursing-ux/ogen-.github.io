@@ -48,15 +48,15 @@
 
 | קובץ | שורות | מה זה |
 |---|---|---|
-| `reports.js` | 970 | קטלוג 48 הדוחות (ראה `FORMATS.md` §7) |
+| `reports.js` | 970 | קטלוג 79 הדוחות + מפעל `statReport()` (ראה `FORMATS.md` §7) |
 | `gemini.js` | 544 | **מנוע ה-AI**: Gemini + Groq, ניהול מפתחות, `extractDocument`, `extractFamilyDocument`, `smartImport`, `toWorkerPatch` |
 | `registrySchema.js` | 489 | מלאי השדות המלא: 14 מקטעי משפחה + 10 מקטעי עובד, ערים, מדינות, מבטחים |
 | `filledContract.js` | 456 | הטבעה על חבילת ההשמה בת 26 העמודים (ראה `PDF-PIPELINE.md` §3) |
 | `registry.js` | 425 | שכבת נתוני המרשם: דה-דופליקציה, חיפוש, חידושים, פעימות תשלום, לידים |
 | `workerFilesApi.js` | 425 | אחסון IndexedDB לארון התיקים + ייצוא/ייבוא |
-| `demoData.js` | 391 | 30 השמות דמו דטרמיניסטיות + ניקוי |
+| `demoData.js` | 391 | 30 השמות דטרמיניסטיות (PRNG עם זרע) מתויגות `demo-ogen-v1` כך שהמחיקה מדויקת. פרישת תאריכים מכוונת כדי שלכל דוח יהיו שורות — הדבר הקרוב ביותר ל-fixture במאגר ללא בדיקות |
 | `intakeChat.js` | 372 | לוגיקת הצ'אט: שלבים, שאלות נפוצות, הסכמה, קופון, הסלמה |
-| `chatI18n.js` | 323 | מחרוזות ב-9 שפות |
+| `chatI18n.js` | 323 | מחרוזות ב-10 שפות: he, en, uz, ru, ro, tl, es, hi, ne, si |
 | `caseDetail.js` | 280 | שכבת נתוני התיק: מסמכים, תשלומים+מע״מ, ביקורים, הערות, כרטסת |
 | `placementCertificate.js` | 247 | מכתב השמה דו-לשוני + בלוק `AGENCY` |
 | `contractPdf.js` | 218 | מחולל חוזה העסקה בעברית |
@@ -68,20 +68,20 @@
 | `signingBridge.js` | 171 | גשר מהמשרד לאפליקציית החתימה |
 | `accountingExport.js` | 168 | ייצוא 406, שלושה מצבים, מעקב אצוות |
 | `bkmExport.js` | 139 | ייצוא מבנה אחיד לרשות המסים |
-| `agenda.js` | 134 | רשימת מטלות במסך הבית לפי דחיפות |
+| `agenda.js` | 134 | מטלות מסך הבית. `BUCKETS` = `overdue` + `today` בלבד — המבט קדימה **הוסר לבקשת המשרד** כדי לשמור על מסך כניסה רגוע |
 | `casesBoard.js` | 116 | שכבת נתוני לוח התיקים: `ESSENTIALS`, שלבים |
 | `agentInbox.js` | 105 | תיבת סוכן חיצוני + `mergeHalves` |
 | `contractTemplates.js` | 95 | אחסון תבניות PDF + מילוי + שליחה |
-| `csvExport.js` | 90 | ייצוא CSV תואם-Excel (UTF-8 BOM) |
+| `csvExport.js` | 90 | ייצוא CSV תואם-Excel (UTF-8 BOM). `WORKER_COLS` (36 עמודות) ו-`FAMILY_COLS` לפי מפרט חילוץ של הלקוח; רכיב שלישי `'date'` מסמן פלט `DD/MM/YYYY` |
 | `contractOverlay.js` | 88 | הטבעת ערכים על PDF קיים |
 | `dataQuality.js` | 86 | בדיקות תקינות מבוססות חוקים |
 | `feeReport.js` | 85 | דוח אגרה 306 |
 | `cloudBackup.js` | 80 | מראה IndexedDB → Supabase |
-| `officeConfig.js` | 75 | שורת הגדרות משותפת, מיקומי חתימה |
+| `officeConfig.js` | 75 | שורת הגדרות משותפת, `placementFields`, `pageCuts`/`downloadGroups` דרך `saveSignSetup()`. ⚠️ `patchConfig` הוא read-then-upsert **ללא בקרת מקביליות** — שתי שמירות בו-זמנית ואחת נעלמת |
 | `intakeUtils.js` | 72 | העתקה, זיהוי כפילויות, קישור וואטסאפ |
 | `aiContext.js` | 69 | תמונת מצב חיה שמעגנת את עוזר ה-AI |
-| `aiDraft.js` | 67 | ניסוח ותרגום ל-9 שפות |
-| `digitalForms.js` | 65 | יומן טפסים דיגיטליים מ-`sign_requests` |
+| `aiDraft.js` | 67 | ניסוח ותרגום — `DRAFT_LANGS`, 9 שפות (רשימה שונה מזו של `chatI18n`) |
+| `digitalForms.js` | 65 | יומן טפסים מ-`sign_requests`. `FORM_STATES` נגזר מספירת `signers.list[].signed`; תקרת 500 שורות |
 | `aiChat.js` | 54 | צ'אט AI טקסטואלי |
 | `autoFile.js` | 51 | ניתוח והתאמת מסמך לעובד |
 | `pdfRender.js` | 51 | מעבד pdf.js עצמאי לעורך |
@@ -89,7 +89,7 @@
 | `chatRecords.js` | 35 | מיפוי שדות צ'אט → רשומות |
 | `polyfills.js` | 28 | פוליפיל `Map.getOrInsertComputed` |
 | `officeAuth.js` | 18 | שער התחברות |
-| `recordLink.js` | 13 | כתובת קנונית לרשומה |
+| `recordLink.js` | 13 | `#registry/w/<id>` מול `#registry/f/<id>`. רשומה **תמיד נפתחת בלשונית חדשה** כדי שהדוח שממנו הגיעו יישאר במקומו |
 | `pdf.worker.js` | 4 | נקודת כניסה לעובד pdf.js |
 
 ### נכסים — `src/tik/assets/`
@@ -100,7 +100,9 @@
 | `payment-guide.pdf` | 1.8MB | מדריך תשלום |
 | `interior-quarterly-template.xlsx` | 390KB | תבנית משרד הפנים |
 | `fee-quarterly-template.xlsx` | 11KB | תבנית דוח 306 |
-| `dvir-logo.png` | 263KB | לוגו קרדיט |
+
+`src/tik/dvir-logo.png` (263KB) יושב **מחוץ** ל-`assets/`, ישירות תחת `src/tik/`.
+
 
 ---
 
@@ -108,7 +110,7 @@
 
 | קובץ | שורות | מה זה |
 |---|---|---|
-| `i18n.js` | 371 | טבלת תרגום he/en + Lang context |
+| `i18n.js` | 371 | he/en בלבד. **המחרוזת העברית היא המפתח**; `EN` היא טבלת חיפוש; מפתח חסר נופל לעברית. `{placeholder}` + `LangContext`/`applyLang()`. מערכת המשרד אינה משתמשת בו כלל |
 | `prebuiltForms.js` | 330 | טפסים ממשלתיים מוכנים (ביקור בית, טרום השמה 476) |
 | `pdfUtils.js` | 251 | רינדור pdf.js + יצירת PDF חתום |
 | `supabaseApi.js` | 236 | ה-backend האמיתי |
@@ -166,4 +168,4 @@
   ב-`tik-main.jsx`, כדי שאפליקציית החתימה תישאר במראה המקורי שלה.
 - **כפילויות ידועות** — `polyfills.js` ו-`pdf.worker.js` קיימים בשני עותקים
   זהים ב-`src/lib/` וב-`src/tik/`.
-- **מפתח Supabase** משוכפל בכ-12 קבצים.
+- **מפתח Supabase** משוכפל ב-17 קבצים.
