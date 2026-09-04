@@ -3,6 +3,7 @@ import LangToggle from './LangToggle.jsx';
 import SignaturePad from './SignaturePad.jsx';
 import { api } from '../lib/api.js';
 import { notify, bytesToBase64, getIp } from '../lib/notify.js';
+import { sendIntegration, buildIntegrationPayload } from '../lib/integration.js';
 import { buildFormPdf } from '../lib/formPdf.js';
 import { emptyValue, isSchemaValueEmpty, formMeta } from '../lib/formSchema.js';
 import { COMPANY_NAME } from '../lib/workerPortal.js';
@@ -123,6 +124,11 @@ export default function StructuredFormView({
       await api.submitForm(template, payload);
       setSignedBytes(bytes);
       setStatus('done');
+      // Push the full submission to the external integration (if a relay URL is
+      // configured). Best-effort: never let it break the "thank you".
+      try {
+        await sendIntegration(buildIntegrationPayload({ template, schema, values, title: submissionTitle }));
+      } catch (e) { console.error(e); }
       // Let the caller record the submission elsewhere (e.g. mark the office
       // visit as done). Never let a write-back failure break the "thank you".
       if (onSubmitted) { try { await onSubmitted(values); } catch (e) { console.error(e); } }
