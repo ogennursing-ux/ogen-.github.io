@@ -11,6 +11,52 @@ const AUTH_KEY = 'worker_auth';
 // The worklist opens the home-visit form pre-filled from the file.
 const HOME_VISIT_ID = BUILTIN_PREFIX + 'homeVisit';
 
+// ── Inbound deep-link from רישום בקליק (system → social worker) ─────────────
+// The management system opens the worker app at
+//   #intake?match=…&phase=pre&family=…&worker=…&city=…
+// so the right form opens already filled with what the office knows. phase
+// chooses the form; pre-placement ("טרום השמה") is the default intake.
+const INTAKE_FORM_BY_PHASE = {
+  pre: 'preplacement', presw: 'preplacement', preplacement: 'preplacement', intake: 'preplacement',
+  visit: 'homeVisit', home: 'homeVisit', homevisit: 'homeVisit',
+};
+
+// Map the link's params onto each form's field ids (only where they clearly fit).
+function intakePrefill(formKey, p) {
+  if (formKey === 'homeVisit') {
+    const v = {};
+    if (p.family) v.empName = p.family;
+    if (p.worker) v.fwName = p.worker;
+    if (p.city) v.empAddress = p.city;
+    return v;
+  }
+  // preplacement (default)
+  const v = {};
+  if (p.family) v.pLastName = p.family;
+  if (p.city) v.aCity = p.city;
+  if (p.worker) v.wExpectations = `עובד/ת מבוקש/ת: ${p.worker}`;
+  return v;
+}
+
+// Parse a #intake deep-link (once, at load). Returns the form to open, the
+// pre-filled values, and the intake context (match/phase) — or null.
+function readIntakeFromHash() {
+  try {
+    const h = location.hash || '';
+    if (!/^#intake\b/i.test(h)) return null;
+    const qs = h.includes('?') ? h.slice(h.indexOf('?') + 1) : '';
+    const p = Object.fromEntries(new URLSearchParams(qs));
+    const formKey = INTAKE_FORM_BY_PHASE[(p.phase || '').toLowerCase()] || 'preplacement';
+    return {
+      formId: BUILTIN_PREFIX + formKey,
+      prefill: intakePrefill(formKey, p),
+      intake: { match: p.match || '', phase: p.phase || '', params: p },
+    };
+  } catch {
+    return null;
+  }
+}
+
 const fmtDate = (d) => {
   if (!d) return '—';
   const x = d instanceof Date ? d : new Date(d);
@@ -254,10 +300,19 @@ export default function WorkerApp() {
       return false;
     }
   });
-  const [formId, setFormId] = useState(() => new URLSearchParams(location.search).get('form'));
-  const [prefill, setPrefill] = useState(null);
+  // An inbound #intake deep-link (system → worker) opens a pre-filled form.
+  const intakeInit = useMemo(() => readIntakeFromHash(), []);
+  const [formId, setFormId] = useState(() => intakeInit?.formId || new URLSearchParams(location.search).get('form'));
+  const [prefill, setPrefill] = useState(() => intakeInit?.prefill || null);
   // The visit whose form is open — so submitting it can mark it done in the office.
   const [pendingVisit, setPendingVisit] = useState(null);
+
+  // Consume the #intake hash once so a refresh doesn't re-open it unexpectedly.
+  useEffect(() => {
+    if (/^#intake\b/i.test(location.hash || '')) {
+      history.replaceState({}, '', location.pathname + location.search);
+    }
+  }, []);
   // Landing screen when no form is open: the visit worklist, or the plain
   // forms list ("טפסים אחרים").
   const [screen, setScreen] = useState('worklist');
